@@ -15,6 +15,7 @@ public static class MediaEndpoints
         var group = app.MapGroup("/api/media").RequireAntiforgeryValidation();
         group.MapPost("/sas", StartUploadAsync);
         group.MapPost("/{id}/confirm", ConfirmUploadAsync);
+        group.MapPost("/{id}/frames", UploadFramesAsync);
         group.MapGet("/", ListAsync);
         group.MapGet("/{id}/content", ContentAsync);
         group.MapGet("/{id}/thumb", ThumbAsync);
@@ -56,7 +57,7 @@ public static class MediaEndpoints
     /// </summary>
     private static async Task<Results<Ok<MediaDto>, NotFound, ProblemHttpResult>> ConfirmUploadAsync(
         MediaId id, ClaimsPrincipal user, IMediaRepository media, StorageClients storage, BlobStorageService blobs,
-        FFmpegProcess ffmpeg, Thumbnails thumbnails, CancellationToken ct)
+        FFmpegProcess ffmpeg, Thumbnails thumbnails, ISourceAudioAnalysis audio, CancellationToken ct)
     {
         var item = await media.GetAsync(UserId.From(user), id, ct);
         if (item is null || item.Status != MediaStatus.Uploading)
@@ -104,7 +105,74 @@ public static class MediaEndpoints
         item = item with { Status = MediaStatus.Ready, SizeBytes = size, DurationSeconds = duration };
         await thumbnails.CreateAsync(item, ct);
         await media.SaveAsync(item, ct);
+
+        // Start decoding the video's sound now, so it is usually ready by the time a run needs it.
+        if (item.Kind == MediaKind.Video)
+            audio.Prefetch(item.Id, item.SourcePath);
         return TypedResults.Ok(item.ToDto());
+    }
+
+    /// <summary>
+    /// Stores frames the browser sampled from a video and has them described. The labels are kept
+    /// with the video, so every later run on it reuses them. A video whose frames are already
+    /// described is not analysed again.
+    /// </summary>
+    private static async Task<Results<Ok<FramesResult>, NotFound, ProblemHttpResult>> UploadFramesAsync(
+        MediaId id, FrameUploadRequest request, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs,
+        IServiceProvider services, CancellationToken ct)
+    {
+        var item = await media.GetAsync(UserId.From(user), id, ct);
+        if (item is not { Kind: MediaKind.Video, Status: MediaStatus.Ready })
+            return TypedResults.NotFound();
+        if (request.Frames is not { Count: > 0 and <= 400 } || request.Frames.Any(f => f is null || f.Length > 400_000))
+            return Refused("Send between 1 and 400 frames of at most 300 KB each.");
+
+        var known = await VisionStore.LoadLabelsAsync(blobs, id, ct);
+        if (known.Length > 0)
+            return TypedResults.Ok(new FramesResult(0, known.Length));
+
+        var frames = new List<KeyFrame>();
+        foreach (var i in EvenlySpaced(request.Frames.Count, MaxFrames))
+        {
+            var (bytes, mediaType) = DecodeDataUrl(request.Frames[i]);
+            // The browser skips near-identical frames, so each frame carries its own time.
+            frames.Add(new KeyFrame(request.Timestamps is { } times && i < times.Count ? Math.Max(0, times[i]) : i * 3.0, bytes, mediaType));
+        }
+
+        await VisionStore.SaveFramesAsync(blobs, id, frames, ct);
+        SceneLabel[] labels = [];
+        if (services.GetService<IAiVisionService>() is { } vision)
+        {
+            try
+            {
+                var sounds = await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct);
+                labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(sounds), ct);
+                await VisionStore.SaveLabelsAsync(blobs, id, labels, ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                // The run retries vision on the stored frames, then falls back to placing by time.
+                services.GetRequiredService<ILoggerFactory>().CreateLogger("Frames").LogWarning(ex, "Frame vision failed for {MediaId}", id);
+            }
+        }
+
+        return TypedResults.Ok(new FramesResult(frames.Count, labels.Length));
+    }
+
+    /// <summary>Most frames one video sends to vision.</summary>
+    private const int MaxFrames = 40;
+
+    internal static IEnumerable<int> EvenlySpaced(int count, int max) =>
+        count <= max ? Enumerable.Range(0, count) : Enumerable.Range(0, max).Select(i => (int)((long)i * count / max));
+
+    internal static (byte[] Bytes, string MediaType) DecodeDataUrl(string dataUrl)
+    {
+        var comma = dataUrl.IndexOf(',');
+        var header = comma >= 0 ? dataUrl[..comma] : string.Empty;
+        var mediaType = header.StartsWith("data:image/jpeg", StringComparison.OrdinalIgnoreCase) ? "image/jpeg"
+            : header.StartsWith("data:image/webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+            : "image/png";
+        return (Convert.FromBase64String(comma >= 0 ? dataUrl[(comma + 1)..] : dataUrl), mediaType);
     }
 
     private static async Task<Ok<List<MediaDto>>> ListAsync(ClaimsPrincipal user, IMediaRepository media, CancellationToken ct) =>

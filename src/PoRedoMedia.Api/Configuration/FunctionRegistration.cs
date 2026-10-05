@@ -3,9 +3,14 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.BulkStyles;
+using PoRedoMedia.Api.Features.Captions;
+using PoRedoMedia.Api.Features.Memeify;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.PhotoToVideo;
 using PoRedoMedia.Api.Features.RapRoast;
+using PoRedoMedia.Api.Features.Render;
+using PoRedoMedia.Api.Features.Sounds;
+using PoRedoMedia.Api.Features.VideoRoast;
 using PoRedoMedia.Api.Features.Restyle;
 
 namespace PoRedoMedia.Api.Configuration;
@@ -32,6 +37,8 @@ public static class FunctionRegistration
 
         // A Veo call can be slow, and retrying a job start would bill twice: long timeout, no retries.
         services.AddHttpClient(VeoVideoService.HttpClientName, c => c.Timeout = TimeSpan.FromMinutes(15));
+
+        AddVideo(services, configuration, environment);
 
         if (MockAi.IsEnabled(configuration, environment))
         {
@@ -99,6 +106,44 @@ public static class FunctionRegistration
         return services;
 
         bool Has(string key) => !string.IsNullOrWhiteSpace(configuration[key]);
+    }
+
+    /// <summary>
+    /// The video functions: the sound library and the render are always here; the AI parts are
+    /// the mocks, or the Foundry services when Foundry is configured, or absent.
+    /// </summary>
+    private static void AddVideo(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        services.AddSingleton<ISoundAssetRepository, SoundAssetTableRepository>();
+        services.AddSingleton<ISoundFavoritesRepository, SoundFavoritesTableRepository>();
+        services.AddSingleton<ISemanticMatchingService, SemanticMatchingService>();
+        services.AddSingleton<AiFoundryClient>();
+        services.AddSingleton<SoundTagger>();
+        services.AddSingleton<FFmpegRenderService>();
+        services.AddSingleton<IMediaToolkit>(s => s.GetRequiredService<FFmpegRenderService>());
+        services.AddSingleton<SourceAudioAnalysis>();
+        services.AddSingleton<ISourceAudioAnalysis>(s => s.GetRequiredService<SourceAudioAnalysis>());
+
+        if (MockAi.IsEnabled(configuration, environment))
+        {
+            services.AddSingleton<IAiVisionService, MockFrameVision>();
+            services.AddSingleton<IDirectorService, MockDirector>();
+            services.AddSingleton<ITranscriptionService, MockTranscription>();
+            services.AddSingleton<IVideoRoast, MockVideoRoast>();
+        }
+        else
+        {
+            // Registered either way: it reports itself disabled when no speech deployment is set.
+            services.AddSingleton<ITranscriptionService, AiFoundryTranscriptionService>();
+            if (AiFoundryClient.Setting(configuration, "AiFoundry:Endpoint") is not null)
+            {
+                services.AddSingleton<IAiVisionService, AiFoundryVisionService>();
+                services.AddSingleton<IDirectorService, AiFoundryDirectorService>();
+                services.AddSingleton<IVideoRoast, RoastService>();
+            }
+        }
+
+        services.AddSingleton<IRunStep, VideoRunStep>();
     }
 
     private static void AddRoast(IServiceCollection services)

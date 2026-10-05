@@ -1,0 +1,455 @@
+{
+  "version": "1.0",
+  "generated": "2026-09-10T21:28:23.913015Z",
+  "totalSounds": 30,
+  "sounds": [
+    {
+      "id": "vine-boom-sound-70972",
+      "displayName": "VINE BOOM SOUND",
+      "filename": "vine-boom-sound-70972.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/vine-boom.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "impact",
+        "boom",
+        "sudden"
+      ],
+      "useCase": "Use on sudden impact moments, hard cuts, or punchline zooms.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "jixaw-metal-pipe-falling-sound-28270",
+      "displayName": "jixaw metal pipe falling sound",
+      "filename": "jixaw-metal-pipe-falling-sound-28270.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/jixaw-metal-pipe-falling-sound.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "impact",
+        "sudden",
+        "fail"
+      ],
+      "useCase": "Use on sudden disasters, collapses, or chaotic accidents.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "bruh",
+      "displayName": "BRUH",
+      "filename": "bruh.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/movie_1.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "reaction",
+        "fail",
+        "disapproval"
+      ],
+      "useCase": "Use as a deadpan reaction to something dumb or disappointing.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "aughhhhh-aughhhhh-7905",
+      "displayName": "AUGHHHHH... AUGHHHHH",
+      "filename": "aughhhhh-aughhhhh-7905.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/aughhhhh-aughhhhh.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "surprise",
+        "reaction",
+        "sudden",
+        "sad"
+      ],
+      "useCase": "Use for internal suffering, agony, or dramatic despair.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "windows-xp-error",
+      "displayName": "Windows XP Error",
+      "filename": "windows-xp-error.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/erro.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "sudden",
+        "notification"
+      ],
+      "useCase": "Use when something breaks, malfunctions, or goes wrong.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "windows-xp-shutdown",
+      "displayName": "windows xp shutdown",
+      "filename": "windows-xp-shutdown.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/preview_4.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "sad",
+        "notification"
+      ],
+      "useCase": "Use when a character mentally shuts down or gives up.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "badum-tss",
+      "displayName": "BADUM TSS",
+      "filename": "badum-tss.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/joke_drum_effect.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "dramatic",
+        "funny",
+        "suspense"
+      ],
+      "useCase": "Use after an ironic joke or corny punchline lands.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "sad-violin-the-meme-one",
+      "displayName": "Sad Violin (the meme one)",
+      "filename": "sad-violin-the-meme-one.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/tf_nemesis.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "sad",
+        "fail",
+        "dramatic"
+      ],
+      "useCase": "Use for melancholy, dramatic loss, or doomer moments.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "spongebob-fail-11236",
+      "displayName": "SpongeBob Fail",
+      "filename": "spongebob-fail-11236.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/spongebob-fail.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "sad",
+        "funny"
+      ],
+      "useCase": "Use on small pathetic failures and anticlimaxes.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "a-few-moments-later-sponge-bob-sfx-fun-80331",
+      "displayName": "a few moments later sponge bob sfx fun",
+      "filename": "a-few-moments-later-sponge-bob-sfx-fun-80331.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/a-few-moments-later-sponge-bob-sfx-fun.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "music",
+        "background",
+        "funny"
+      ],
+      "useCase": "Use as a time-skip transition between scenes.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "to-be-continued-jojo",
+      "displayName": "To be Continued (jojo)",
+      "filename": "to-be-continued-jojo.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/untitled_1071.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "music",
+        "dramatic",
+        "suspense"
+      ],
+      "useCase": "Use on freeze-frame cliffhanger endings right before disaster.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "directed-by-robert-b-weide-451",
+      "displayName": "Directed by Robert B Weide",
+      "filename": "directed-by-robert-b-weide-451.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/directed-by-robert-b_voI2Z4T.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "music",
+        "funny",
+        "dramatic"
+      ],
+      "useCase": "Use as a cut-to-credits right before an impending disaster.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "coffin-dance-meme-31063",
+      "displayName": "Coffin Dance Meme",
+      "filename": "coffin-dance-meme-31063.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/y2mate-mp3cut_sRzY6rh.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "music",
+        "funny",
+        "fail"
+      ],
+      "useCase": "Use when a character is done for or something dies.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "gta-v-wasted",
+      "displayName": "GTA V - Wasted",
+      "filename": "gta-v-wasted.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/gta-v-death-sound-effect-102.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "impact",
+        "dramatic"
+      ],
+      "useCase": "Use when a character fails hard or gets destroyed.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "roblox-oof",
+      "displayName": "ROBLOX oof",
+      "filename": "roblox-oof.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/roblox-death-sound_1.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "impact",
+        "sudden"
+      ],
+      "useCase": "Use on comedic minor deaths, hits, or fumbles.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "discord-notification-38119",
+      "displayName": "Discord Notification",
+      "filename": "discord-notification-38119.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/discord-notification.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "sudden",
+        "notification"
+      ],
+      "useCase": "Use when a character receives a message.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "discord-call-44910",
+      "displayName": "discord call",
+      "filename": "discord-call-44910.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/discord-call-sound.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "sudden",
+        "notification"
+      ],
+      "useCase": "Use when someone is calling a character.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "iphone-notification-71441",
+      "displayName": "iPhone Notification",
+      "filename": "iphone-notification-71441.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/notification_o14egLP.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "sudden",
+        "notification"
+      ],
+      "useCase": "Use for phone anxiety scenes or incoming texts.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "emotional-damage-meme-74555",
+      "displayName": "Emotional Damage Meme",
+      "filename": "emotional-damage-meme-74555.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/emotional-damage-meme.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "reaction",
+        "funny",
+        "fail"
+      ],
+      "useCase": "Use when a verbal roast or insult lands.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "fart-with-reverb-17715",
+      "displayName": "fart with reverb",
+      "filename": "fart-with-reverb-17715.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/fart-with-reverb.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "funny",
+        "fail",
+        "gross"
+      ],
+      "useCase": "Use as a lowbrow punchline on absurd moments.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "taco-bell-bong-42481",
+      "displayName": "Taco Bell Bong",
+      "filename": "taco-bell-bong-42481.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/taco-bell-bong-sfx.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "funny",
+        "notification",
+        "sudden"
+      ],
+      "useCase": "Use when stomach trouble or fast-food consequences loom.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "minecraft-villager-sound",
+      "displayName": "Minecraft Villager Sound",
+      "filename": "minecraft-villager-sound.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/minecraft-villager-sound-effect.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "funny",
+        "reaction"
+      ],
+      "useCase": "Use when an NPC-brained character speaks or reacts.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "anime-wow",
+      "displayName": "Anime Wow",
+      "filename": "anime-wow.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/anime-wow-sound-effect.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "reaction",
+        "anime",
+        "surprise"
+      ],
+      "useCase": "Use for fake amazement or mock wonder.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "awkward-cricket-74642",
+      "displayName": "Awkward cricket",
+      "filename": "awkward-cricket-74642.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/awkward-cricket-sound-effect.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "awkward",
+        "dramatic",
+        "funny"
+      ],
+      "useCase": "Use when a joke bombs or an awkward silence hangs.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "why-are-you-running-15312",
+      "displayName": "Why are you running?",
+      "filename": "why-are-you-running-15312.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/why-are.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "action",
+        "motion",
+        "funny"
+      ],
+      "useCase": "Use on chase or avoidance comedy moments.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "run-vine",
+      "displayName": "RUN vine",
+      "filename": "run-vine.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/run-vine-sound-effect.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "action",
+        "motion",
+        "sudden"
+      ],
+      "useCase": "Use on panic escapes and sudden retreats.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "fbi-open-up-with-explosion-491",
+      "displayName": "FBI OPEN UP (with explosion)",
+      "filename": "fbi-open-up-with-explosion-491.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/fbi-open-up_dwLhIFf.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "impact",
+        "sudden",
+        "action"
+      ],
+      "useCase": "Use when a character does something illegal-adjacent.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "no-god-please-no-noooooooooo",
+      "displayName": "NO GOD! PLEASE NO!!! NOOOOOOOO",
+      "filename": "no-god-please-no-noooooooooo.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/no-god-please-no-noooooooooo.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "disapproval",
+        "reaction",
+        "dramatic"
+      ],
+      "useCase": "Use for maximum despair when the worst possible outcome happens.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "ah-shit-here-we-go-again",
+      "displayName": "Ah Shit, Here We Go Again (GTA SA)",
+      "filename": "ah-shit-here-we-go-again.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/ah-shit-here-we-go-again.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "reaction",
+        "dramatic"
+      ],
+      "useCase": "Use when a familiar disaster repeats or a recurring struggle restarts.",
+      "origin": "myinstants.com",
+      "priority": true
+    },
+    {
+      "id": "mission-failed-well-get-em-next-time",
+      "displayName": "Mission Failed, We'll Get 'Em Next Time",
+      "filename": "mission-failed-well-get-em-next-time.mp3",
+      "sourceUrl": "https://www.myinstants.com/media/sounds/mission-failed-well-get-em-next-time.mp3",
+      "durationMs": 0,
+      "actionVectorTags": [
+        "fail",
+        "sad",
+        "dramatic"
+      ],
+      "useCase": "Use when a plan collapses and the character accepts defeat.",
+      "origin": "myinstants.com",
+      "priority": true
+    }
+  ]
+}

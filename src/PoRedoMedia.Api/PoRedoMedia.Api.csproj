@@ -23,6 +23,10 @@
     <PackageReference Include="SixLabors.ImageSharp.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Sticker images the renderer overlays on video. -->
+    <Content Include="Assets\overlays\*.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="PoRedoMedia.UnitTests" />
   </ItemGroup>
   <ItemGroup>

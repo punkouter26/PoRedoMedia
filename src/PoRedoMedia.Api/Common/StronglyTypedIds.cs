@@ -28,6 +28,7 @@ public sealed class GuidIdJsonConverter<T> : JsonConverter<T> where T : struct, 
 public readonly record struct MediaId(Guid Value) : IGuidId<MediaId>, IParsable<MediaId>
 {
     public static MediaId New() => new(Guid.NewGuid());
+    public static readonly MediaId Empty = new(Guid.Empty);
     public static MediaId From(Guid value) => new(value);
     public override string ToString() => Value.ToString();
     public static MediaId Parse(string s, IFormatProvider? provider) => new(Guid.Parse(s));
@@ -45,11 +46,48 @@ public readonly record struct MediaId(Guid Value) : IGuidId<MediaId>, IParsable<
 public readonly record struct RunId(Guid Value) : IGuidId<RunId>, IParsable<RunId>
 {
     public static RunId New() => new(Guid.NewGuid());
+    public static readonly RunId Empty = new(Guid.Empty);
     public static RunId From(Guid value) => new(value);
     public override string ToString() => Value.ToString();
     public static RunId Parse(string s, IFormatProvider? provider) => new(Guid.Parse(s));
 
     public static bool TryParse(string? s, IFormatProvider? provider, out RunId result)
+    {
+        var ok = Guid.TryParse(s, out var guid);
+        result = new(guid);
+        return ok;
+    }
+}
+
+/// <summary>Identifies a meme sound in the library.</summary>
+[JsonConverter(typeof(GuidIdJsonConverter<SoundId>))]
+public readonly record struct SoundId(Guid Value) : IGuidId<SoundId>, IParsable<SoundId>
+{
+    public static SoundId New() => new(Guid.NewGuid());
+    public static readonly SoundId Empty = new(Guid.Empty);
+    public static SoundId From(Guid value) => new(value);
+    public override string ToString() => Value.ToString();
+    public static SoundId Parse(string s, IFormatProvider? provider) => new(Guid.Parse(s));
+
+    public static bool TryParse(string? s, IFormatProvider? provider, out SoundId result)
+    {
+        var ok = Guid.TryParse(s, out var guid);
+        result = new(guid);
+        return ok;
+    }
+}
+
+/// <summary>Identifies one cue in a director script.</summary>
+[JsonConverter(typeof(GuidIdJsonConverter<EntryId>))]
+public readonly record struct EntryId(Guid Value) : IGuidId<EntryId>, IParsable<EntryId>
+{
+    public static EntryId New() => new(Guid.NewGuid());
+    public static readonly EntryId Empty = new(Guid.Empty);
+    public static EntryId From(Guid value) => new(value);
+    public override string ToString() => Value.ToString();
+    public static EntryId Parse(string s, IFormatProvider? provider) => new(Guid.Parse(s));
+
+    public static bool TryParse(string? s, IFormatProvider? provider, out EntryId result)
     {
         var ok = Guid.TryParse(s, out var guid);
         result = new(guid);

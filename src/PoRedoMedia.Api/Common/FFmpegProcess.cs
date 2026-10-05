@@ -33,6 +33,9 @@ public sealed partial class FFmpegProcess
         }
     }
 
+    public Task<int> RunAsync(string args, MediaId mediaId, CancellationToken cancellationToken) =>
+        RunAsync(args, mediaId.ToString(), cancellationToken);
+
     public async Task<int> RunAsync(string args, string jobLabel, CancellationToken cancellationToken)
     {
         var psi = BuildPsi("ffmpeg", args);

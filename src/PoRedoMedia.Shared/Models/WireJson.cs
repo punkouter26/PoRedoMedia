@@ -18,4 +18,8 @@ namespace PoRedoMedia.Shared.Models;
 [JsonSerializable(typeof(RunProgressDto))]
 [JsonSerializable(typeof(List<MemeTemplateDto>))]
 [JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(FrameUploadRequest))]
+[JsonSerializable(typeof(FramesResult))]
+[JsonSerializable(typeof(SoundPageDto))]
+[JsonSerializable(typeof(SoundAssetDto))]
 public sealed partial class WireJson : JsonSerializerContext;

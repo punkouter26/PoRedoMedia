@@ -36,4 +36,23 @@ public sealed class BlobStorageService(StorageClients storage)
         await foreach (var blob in container.GetBlobsAsync(prefix: prefix[(slash + 1)..], cancellationToken: ct))
             await container.DeleteBlobIfExistsAsync(blob.Name, cancellationToken: ct);
     }
+
+    public async Task UploadFileAsync(string path, string localFilePath, string contentType, CancellationToken ct = default)
+    {
+        await using var stream = File.OpenRead(localFilePath);
+        await UploadAsync(path, stream, contentType, ct);
+    }
+
+    public Task DeleteBlobIfExistsAsync(string path, CancellationToken ct = default) =>
+        storage.Blob(path).DeleteIfExistsAsync(cancellationToken: ct);
+
+    /// <summary>Paths (written <c>container/name</c>) of every blob under a prefix.</summary>
+    public async IAsyncEnumerable<string> ListBlobsByPrefixAsync(
+        string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var slash = prefix.IndexOf('/');
+        var container = storage.Container(prefix[..slash]);
+        await foreach (var blob in container.GetBlobsAsync(prefix: prefix[(slash + 1)..], cancellationToken: ct))
+            yield return $"{prefix[..slash]}/{blob.Name}";
+    }
 }

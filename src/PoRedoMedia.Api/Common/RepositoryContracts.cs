@@ -28,3 +28,20 @@ public interface IRunRepository
     /// <summary>The owner's runs, newest first.</summary>
     Task<IReadOnlyList<Run>> ListAsync(UserId owner, CancellationToken ct = default);
 }
+
+public interface ISoundAssetRepository
+{
+    Task<IReadOnlyList<SoundAsset>> LoadAllAsync(CancellationToken cancellationToken = default);
+
+    Task AddSoundAsync(SoundAsset asset, CancellationToken cancellationToken = default);
+
+    /// <summary>Evicts the in-memory cache so the next LoadAllAsync re-reads from storage.</summary>
+    void InvalidateCache();
+}
+
+public interface ISoundFavoritesRepository
+{
+    Task<IReadOnlySet<SoundId>> GetAsync(UserId userId, CancellationToken cancellationToken = default);
+
+    Task SetAsync(UserId userId, SoundId soundId, bool favorite, CancellationToken cancellationToken = default);
+}

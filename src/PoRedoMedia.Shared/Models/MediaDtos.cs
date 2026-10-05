@@ -25,3 +25,8 @@ public sealed record UploadRequest(string FileName, long SizeBytes);
 public sealed record UploadTicket(Guid Id, string UploadUrl, DateTimeOffset ExpiresAt);
 
 public sealed record MediaUpdateRequest(string? Title, bool? Pinned);
+
+/// <summary>Frames sampled from a video in the browser, as image data URLs, with each frame's time in seconds.</summary>
+public sealed record FrameUploadRequest(List<string> Frames, List<double>? Timestamps = null);
+
+public sealed record FramesResult(int FramesStored, int MomentsFound);

@@ -34,6 +34,15 @@ public static class RunOptions
     /// <summary>What should happen in the clip. Required for Photo to video.</summary>
     public const string VideoPrompt = "PhotoToVideo.prompt";
 
+    /// <summary>The director's persona for Meme-ify, such as "Brainrot". Absent = the default.</summary>
+    public const string VideoPersona = "Memeify.persona";
+
+    /// <summary>"original", "9:16" or "1:1". Applies to the whole render.</summary>
+    public const string VideoAspect = "Video.aspect";
+
+    /// <summary>The roast voice: "Comic", "Neural" or "Rap". Absent = the first one the server offers.</summary>
+    public const string VideoRoastVoice = "VideoRoast.voice";
+
     /// <summary>One style prompt for Bulk styles, index 0 to 9. None sent = the user's saved set.</summary>
     public static string BulkPrompt(int index) => $"BulkStyles.prompt{index}";
 }

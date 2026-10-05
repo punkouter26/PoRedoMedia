@@ -4,12 +4,27 @@ using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
 using PoRedoMedia.Api.Features.BulkStyles;
+using PoRedoMedia.Api.Features.Captions;
 using PoRedoMedia.Api.Features.Media;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.Quota;
 using PoRedoMedia.Api.Features.Runs;
+using PoRedoMedia.Api.Features.Sounds;
 using PoRedoMedia.Api.Hubs;
 using Radzen;
+
+// CLI verb: dotnet run --project src/PoRedoMedia.Api -- seed-sounds [--seeds-dir <path>]
+// Fills the sound library and exits, without starting the web host.
+if (args.Length > 0 && args[0] == "seed-sounds")
+{
+    var seedConfiguration = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: true)
+        .AddJsonFile("appsettings.Development.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build();
+    return await SeedSoundsCommand.RunAsync(args[1..], seedConfiguration);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,6 +93,8 @@ app.MapQuota();
 app.MapRuns();
 app.MapMemeTemplates();
 app.MapBulkPrompts();
+app.MapSounds();
+app.MapCaptions();
 app.MapHub<RunHub>(RunHub.Path);
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
@@ -100,5 +117,6 @@ if (app.Services.GetRequiredService<StorageClients>() is { IsConfigured: true } 
 }
 
 app.Run();
+return 0;
 
 public partial class Program;

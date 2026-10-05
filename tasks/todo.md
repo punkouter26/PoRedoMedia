@@ -142,46 +142,46 @@ Standard verification, unless a task says otherwise:
 
 ## M5 — Video functions
 
-- [ ] **T33 Sound library core.** Files: `Api/Common/SoundAsset.cs`, `SoundVocabulary.cs`,
+- [x] **T33 Sound library core.** Files: `Api/Common/SoundAsset.cs`, `SoundVocabulary.cs`,
   `Api/Features/Sounds/SoundAssetTableRepository.cs`, `SemanticMatchingService.cs`, `AudioDuration.cs`.
   Tests: port `SemanticMatchingServiceTests`, `AudioDurationTests`. Deps: T10.
-- [ ] **T34 Sounds API and seeding.** Files: `Api/Features/Sounds/SoundsEndpoints.cs`,
+- [x] **T34 Sounds API and seeding.** Files: `Api/Features/Sounds/SoundsEndpoints.cs`,
   `SeedSoundsCommand.cs`, `SoundFavoritesTableRepository.cs`, `SoundTagger.cs`,
   `scripts/meme-sounds/sounds-metadata.json`. Test: favourites sort first; upload is tagged. Deps: T33.
-- [ ] **T35 Foundry client and frame vision.** Files: `Api/Common/Ai/AiFoundryClient.cs` (port
+- [x] **T35 Foundry client and frame vision.** Files: `Api/Common/Ai/AiFoundryClient.cs` (port
   unchanged), `Api/Features/Memeify/AiFoundryVisionService.cs`, `VisionStore.cs`,
   `Api/Common/Ai/MockVideoAi.cs`, `Api/Features/Media/MediaEndpoints.cs` (`POST /{id}/frames`).
   Test: labels are stored under the media prefix and a second post is not re-analysed. Deps: T14, T20.
-- [ ] **T36 Source audio and transcription.** Files: `Api/Features/Captions/SourceAudioAnalysis.cs`,
+- [x] **T36 Source audio and transcription.** Files: `Api/Features/Captions/SourceAudioAnalysis.cs`,
   `AiFoundryTranscriptionService.cs`, `Transcript.cs`, `Api/Common/FFmpegArgs.Audio.cs`
   (`BuildSourceAudioArgs`). Runs once at confirm for videos. Test: envelope and transcript are
   written once per media. Deps: T12, T35.
-- [ ] **T37 Director.** Files: `Api/Common/DirectorScript.cs` (with `ScriptEntry`),
+- [x] **T37 Director.** Files: `Api/Common/DirectorScript.cs` (with `ScriptEntry`),
   `Api/Features/Memeify/DirectorPrompt.cs`, `AiFoundryDirectorService.cs`,
   `Shared/Models/ScriptEntryDto.cs`, `Shared/Enums/VisualEffectType.cs`. Revision schema removed.
   Tests: port the director cases of `AiPipelineTests`. Deps: T35.
-- [ ] **T38 Placement.** Files: `Api/Features/Memeify/PlacementPlanner.cs`, `CueSnapping.cs`,
+- [x] **T38 Placement.** Files: `Api/Features/Memeify/PlacementPlanner.cs`, `CueSnapping.cs`,
   `TokenBucketTimingService.cs`. Tests: port the placement cases of `AiPipelineTests`,
   `TokenBucketTimingServiceTests`. Deps: T33, T37.
   **Checkpoint.**
-- [ ] **T39 Render arguments.** Files: `Api/Features/Render/FFmpegArgs.cs` (no GIF), `RenderJob.cs`,
+- [x] **T39 Render arguments.** Files: `Api/Features/Render/FFmpegArgs.cs` (no GIF), `RenderJob.cs`,
   `SubtitleChunker.cs`, `SrtWriter.cs`, `Api/Assets/overlays/*` (sticker PNGs moved from
   `Meme:Client/wwwroot/overlays`). Tests: port `FFmpegFilterChainTests`, `SubtitleAndSrtTests`.
   Deps: T12.
-- [ ] **T40 Render service.** Files: `Api/Features/Render/FFmpegRenderService.cs`,
+- [x] **T40 Render service.** Files: `Api/Features/Render/FFmpegRenderService.cs`,
   `RenderVideoCommand.cs`. Output saved as a Video media item with thumbnail. Test: zero cues,
   roast only and captions only each produce one ffmpeg invocation. Deps: T39, T14.
-- [ ] **T41 Video run step.** Files: `Api/Features/Memeify/VideoRunStep.cs` (from
+- [x] **T41 Video run step.** Files: `Api/Features/Memeify/VideoRunStep.cs` (from
   `Meme:.../RunEngineCommand.cs`: remix and re-render removed; placement and director gated on
   Meme-ify), `Api/Features/Memeify/MemeifyOptions.cs`. Tests: port the helper cases of
   `AiPipelineTests`; `E2EAPI/VideoRunApiTests.cs` — Meme-ify + roast + captions renders once
   (success criterion 6); captions only does not call the director. Deps: T38, T40.
   **Checkpoint — J2 works through the API.**
-- [ ] **T42 Video roast.** Files: `Api/Features/VideoRoast/RoastService.cs`, `RoastVoices.cs`,
+- [x] **T42 Video roast.** Files: `Api/Features/VideoRoast/RoastService.cs`, `RoastVoices.cs`,
   `Api/Common/Ai/MockRoastVoice.cs`. Port `Meme:.../RoastService.cs`, `SessionRoast.cs`; Rap voice
   uses `LyriaClient`. Tests: port `RoastServiceTests`; a failed roast leaves the render intact and
   sets a reason. Deps: T41, T30.
-- [ ] **T43 Captions output.** Files: `Api/Features/Captions/CaptionsEndpoints.cs`
+- [x] **T43 Captions output.** Files: `Api/Features/Captions/CaptionsEndpoints.cs`
   (`GET /api/media/{id}/captions.srt`, transcript). Test: SRT matches the transcript; not offered
   when Whisper is unconfigured and mocks are off. Deps: T41.
 - [ ] **T44 Video UI.** Files: `Client/wwwroot/js/video-frames.js` (port), `Client/Shared/VideoOptions.razor`
