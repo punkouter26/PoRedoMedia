@@ -51,7 +51,7 @@ Standard verification, unless a task says otherwise:
 
 ## M2 — Media
 
-- [ ] **T10 Storage kernel.** Files: `Api/Common/StorageNames.cs`, `StorageClients.cs` (table and
+- [x] **T10 Storage kernel.** Files: `Api/Common/StorageNames.cs`, `StorageClients.cs` (table and
   blob factories), `BlobStorageService.cs`, `BlobDelivery.cs`, `StronglyTypedIds.cs`. Port from
   `Meme:Api/Common`. Test: `IntegrationTests/AzuriteFixture.cs` + blob round trip; ids serialise as
   bare GUIDs. Deps: T08.

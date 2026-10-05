@@ -12,6 +12,8 @@
     <!-- Azure -->
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
+    <PackageVersion Include="Azure.Data.Tables" Version="12.11.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.25.0" />
     <!-- Auth -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.7" />
     <!-- UI -->
@@ -30,5 +32,6 @@
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="Testcontainers.Azurite" Version="4.14.0" />
   </ItemGroup>
 </Project>

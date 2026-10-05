@@ -12,4 +12,5 @@ public static class ConfigKeys
     public const string AuthEnableFakeAuth = "Auth:EnableFakeAuth";
     public const string KeyVaultUri = "KeyVault:Uri";
     public const string MocksUseMockAi = "Mocks:UseMockAi";
+    public const string StorageConnectionString = "Storage:ConnectionString";
 }

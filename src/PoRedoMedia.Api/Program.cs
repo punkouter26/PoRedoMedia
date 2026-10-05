@@ -17,6 +17,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents()
     .AddAuthenticationStateSerialization();
 builder.Services.AddRadzenComponents();
+builder.Services.AddSingleton<StorageClients>();
+builder.Services.AddSingleton<BlobStorageService>();
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
 
