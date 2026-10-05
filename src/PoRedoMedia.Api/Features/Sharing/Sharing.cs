@@ -110,7 +110,7 @@ public static class SharingEndpoints
     private static async Task<IResult> ServeAsync(
         string token, HttpContext http, ShareLinkStore links, IMediaRepository media, bool thumbnail, CancellationToken ct) =>
         await SharedItemAsync(token, links, media, ct) is { } item
-            ? await BlobDelivery.ServeAsync(http, thumbnail ? MediaBlobPaths.Thumbnail(item.Id) : item.SourcePath, ct: ct)
+            ? await BlobDelivery.ServeAsync(http, thumbnail ? MediaBlobPaths.Thumbnail(item.Id) : item.SourcePath, ct: ct, lifetime: BlobDelivery.SharedLinkLifetime)
             : Results.NotFound();
 
     private static async Task<IResult> PageAsync(string token, HttpContext http, ShareLinkStore links, IMediaRepository media, CancellationToken ct)

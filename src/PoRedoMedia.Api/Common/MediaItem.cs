@@ -56,5 +56,11 @@ public static class MediaBlobPaths
 
     public static string Source(MediaId id, string extension) => $"{Prefix(id)}source{extension}";
 
+    /// <summary>
+    /// Where the browser's upload link writes. The link outlives the confirm step, so it must not
+    /// point at <see cref="Source"/>: a checked file could otherwise be swapped for an unchecked one.
+    /// </summary>
+    public static string Upload(MediaId id, string extension) => $"{Prefix(id)}upload{extension}";
+
     public static string Thumbnail(MediaId id) => $"{Prefix(id)}thumb.jpg";
 }

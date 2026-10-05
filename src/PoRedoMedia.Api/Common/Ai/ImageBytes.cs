@@ -23,7 +23,7 @@ public static class ImageBytes
     /// </summary>
     public static byte[] ForProcessing(byte[] image)
     {
-        using var loaded = Image.Load(image);
+        using var loaded = Image.Load(new SixLabors.ImageSharp.Formats.DecoderOptions { MaxFrames = 1 }, image);
         if (Math.Max(loaded.Width, loaded.Height) > MaxEdge)
             loaded.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(MaxEdge, MaxEdge), Mode = ResizeMode.Max }));
 

@@ -47,7 +47,7 @@ public static class MediaEndpoints
         await media.SaveAsync(item, ct);
 
         var expiresAt = DateTimeOffset.UtcNow.Add(UploadLinkLifetime);
-        var link = await storage.CreateUploadLinkAsync(item.SourcePath, expiresAt);
+        var link = await storage.CreateUploadLinkAsync(MediaBlobPaths.Upload(item.Id, item.Extension), expiresAt);
         return TypedResults.Ok(new UploadTicket(item.Id.Value, link.ToString(), expiresAt));
     }
 
@@ -63,7 +63,8 @@ public static class MediaEndpoints
         if (item is null || item.Status != MediaStatus.Uploading)
             return TypedResults.NotFound();
 
-        var blob = storage.Blob(item.SourcePath);
+        var uploadPath = MediaBlobPaths.Upload(item.Id, item.Extension);
+        var blob = storage.Blob(uploadPath);
         if (!await blob.ExistsAsync(ct))
             return Refused("The file has not been uploaded yet.");
 
@@ -79,7 +80,11 @@ public static class MediaEndpoints
         {
             try
             {
-                Image.Identify(await blobs.ReadAllBytesAsync(item.SourcePath, ct));
+                // The header alone gives the size, so a small file that unpacks to gigabytes of
+                // pixels is refused before anything decodes it.
+                var info = Image.Identify(await blobs.ReadAllBytesAsync(uploadPath, ct));
+                if ((long)info.Width * info.Height > UploadValidation.MaxImagePixels)
+                    problem = "Images can be up to 40 megapixels.";
             }
             catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException)
             {
@@ -89,7 +94,7 @@ public static class MediaEndpoints
         else
         {
             // ffprobe reads the headers straight from storage; the video is never copied here.
-            duration = await ffmpeg.DurationSecondsAsync(storage.CreateReadLink(item.SourcePath, TimeSpan.FromMinutes(5)).ToString(), ct);
+            duration = await ffmpeg.DurationSecondsAsync(storage.CreateReadLink(uploadPath, TimeSpan.FromMinutes(5)).ToString(), ct);
             if (duration <= 0)
                 problem = "That file is not a readable video.";
             else if (duration > UploadValidation.MaxVideoSeconds)
@@ -101,6 +106,14 @@ public static class MediaEndpoints
             await RemoveAsync(item, media, blobs, links, ct);
             return Refused(problem);
         }
+
+        // The checked bytes are copied inside storage to the path everything else reads, with the
+        // content type this app chose rather than the one the browser sent. The upload link can
+        // still write for a few minutes, but only to a blob nothing reads any more.
+        var source = storage.Blob(item.SourcePath);
+        await (await source.StartCopyFromUriAsync(blob.Uri, cancellationToken: ct)).WaitForCompletionAsync(ct);
+        await source.SetHttpHeadersAsync(new Azure.Storage.Blobs.Models.BlobHttpHeaders { ContentType = item.ContentType }, cancellationToken: ct);
+        await blob.DeleteIfExistsAsync(cancellationToken: ct);
 
         item = item with { Status = MediaStatus.Ready, SizeBytes = size, DurationSeconds = duration };
         await thumbnails.CreateAsync(item, ct);
@@ -127,14 +140,26 @@ public static class MediaEndpoints
         if (request.Frames is not { Count: > 0 and <= 400 } || request.Frames.Any(f => f is null || f.Length > 400_000))
             return Refused("Send between 1 and 400 frames of at most 300 KB each.");
 
+        // Frames are accepted once per video. If describing them failed, the run retries on the
+        // stored frames; sending them again here would be a free, repeatable vision call.
         var known = await VisionStore.LoadLabelsAsync(blobs, id, ct);
-        if (known.Length > 0)
+        if (known.Length > 0 || (await VisionStore.LoadFramesAsync(blobs, id, ct)).Count > 0)
             return TypedResults.Ok(new FramesResult(0, known.Length));
 
         var frames = new List<KeyFrame>();
         foreach (var i in EvenlySpaced(request.Frames.Count, MaxFrames))
         {
-            var (bytes, mediaType) = DecodeDataUrl(request.Frames[i]);
+            byte[] bytes;
+            string mediaType;
+            try
+            {
+                (bytes, mediaType) = DecodeDataUrl(request.Frames[i]);
+            }
+            catch (FormatException)
+            {
+                return Refused("A frame was not a valid image data URL.");
+            }
+
             // The browser skips near-identical frames, so each frame carries its own time.
             frames.Add(new KeyFrame(request.Timestamps is { } times && i < times.Count ? Math.Max(0, times[i]) : i * 3.0, bytes, mediaType));
         }

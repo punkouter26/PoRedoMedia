@@ -74,6 +74,8 @@ public static class AuthEndpoints
         && returnUrl.StartsWith('/')
         && !returnUrl.StartsWith("//")
         && !returnUrl.StartsWith("/\\")
+        // Browsers drop tabs and newlines from a URL, which would turn "/	/host" into "//host".
+        && !returnUrl.Any(char.IsControl)
             ? returnUrl
             : "/";
 }

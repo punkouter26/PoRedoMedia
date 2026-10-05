@@ -9,6 +9,10 @@ namespace PoRedoMedia.Api.Common;
 /// </summary>
 public sealed partial class FFmpegProcess
 {
+    /// <summary>Inputs can be signed storage links, and ffmpeg echoes them. The signature never reaches a log.</summary>
+    internal static string WithoutSignatures(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text, @"([?&]sig=)[^&\s""']+", "$1***");
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "ffprobe failed or timed out ({Arguments})")]
     private partial void LogProbeFailed(Exception ex, string arguments);
 
@@ -74,7 +78,7 @@ public sealed partial class FFmpegProcess
             if (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 _logger.LogError("FFmpeg render exceeded {Minutes}-minute limit for {Job}; aborted.\n{Stderr}",
-                    RenderTimeoutMinutes, jobLabel, stderr);
+                    RenderTimeoutMinutes, jobLabel, WithoutSignatures(stderr.ToString()));
                 throw new TimeoutException(
                     $"Render exceeded the {RenderTimeoutMinutes}-minute limit and was aborted. " +
                     "The source video may be too large/high-resolution for the current host.");
@@ -136,7 +140,7 @@ public sealed partial class FFmpegProcess
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            LogProbeFailed(ex, args);
+            LogProbeFailed(ex, WithoutSignatures(args));
             return null;
         }
     }

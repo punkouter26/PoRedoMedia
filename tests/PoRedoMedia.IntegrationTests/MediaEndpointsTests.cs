@@ -88,6 +88,47 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
+    public async Task Writing_to_the_upload_link_again_after_the_check_does_not_change_what_is_stored()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+        var ticket = (await (await client.PostAsJsonAsync("/api/media/sas", new UploadRequest("a.png", 10)))
+            .Content.ReadFromJsonAsync(WireJson.Default.UploadTicket))!;
+
+        async Task PutAsync(byte[] bytes, string contentType)
+        {
+            var put = new HttpRequestMessage(HttpMethod.Put, ticket.UploadUrl) { Content = new ByteArrayContent(bytes) };
+            put.Content.Headers.ContentType = new(contentType);
+            put.Headers.Add("x-ms-blob-type", "BlockBlob");
+            (await Storage.SendAsync(put)).EnsureSuccessStatusCode();
+        }
+
+        var png = Png();
+        await PutAsync(png, "text/html");
+        (await client.PostAsync($"/api/media/{ticket.Id}/confirm", null)).EnsureSuccessStatusCode();
+        await PutAsync("<script>alert(1)</script>"u8.ToArray(), "text/html");
+
+        var redirect = await client.GetAsync($"/api/media/{ticket.Id}/content");
+        var served = await Storage.GetAsync(redirect.Headers.Location);
+        Assert.Equal(png, await served.Content.ReadAsByteArrayAsync());
+        Assert.Equal("image/png", served.Content.Headers.ContentType?.MediaType);
+    }
+
+    [DockerFact]
+    public async Task An_image_with_more_pixels_than_the_limit_is_refused_before_it_is_decoded()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+        // One flat colour compresses to a few kilobytes however many pixels it declares.
+        using var huge = new Image<L8>(8000, 5001);
+        using var stream = new MemoryStream();
+        huge.SaveAsPng(stream);
+
+        var response = await UploadAndConfirmAsync(client, "huge.png", stream.ToArray());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await ListAsync(client));
+    }
+
+    [DockerFact]
     public async Task A_file_that_only_claims_to_be_an_image_is_refused_and_removed()
     {
         var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");

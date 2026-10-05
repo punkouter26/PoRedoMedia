@@ -289,7 +289,7 @@ internal static class FFmpegArgs
                 "center" => "(h-text_h)/2",
                 _ => "h-text_h-50"
             };
-            filters.Add($"drawtext=text='{sanitized}'{fontArg}:fontsize=36:fontcolor=white:borderw=3:bordercolor=black:x=(w-text_w)/2:y={yPos}:enable='between(t\\,{startSec}\\,{endSec})'");
+            filters.Add($"drawtext=text='{sanitized}':expansion=none{fontArg}:fontsize=36:fontcolor=white:borderw=3:bordercolor=black:x=(w-text_w)/2:y={yPos}:enable='between(t\\,{startSec}\\,{endSec})'");
         }
 
         // Speech subtitles: smaller, boxed, pinned to the very bottom so they sit under the
@@ -302,7 +302,7 @@ internal static class FFmpegArgs
                 var sanitized = SanitizeForDrawtext(card.Text);
                 var startSec = card.StartSeconds.ToString("0.###", inv);
                 var endSec = card.EndSeconds.ToString("0.###", inv);
-                filters.Add($"drawtext=text='{sanitized}'{fontArg}:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=6:x=(w-text_w)/2:y=h-text_h-14:enable='between(t\\,{startSec}\\,{endSec})'");
+                filters.Add($"drawtext=text='{sanitized}':expansion=none{fontArg}:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=6:x=(w-text_w)/2:y=h-text_h-14:enable='between(t\\,{startSec}\\,{endSec})'");
             }
         }
 

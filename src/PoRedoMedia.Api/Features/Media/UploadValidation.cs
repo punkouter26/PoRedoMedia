@@ -9,6 +9,9 @@ public static class UploadValidation
     public const long MaxVideoBytes = 200L * 1024 * 1024;
     public const double MaxVideoSeconds = 600;
 
+    /// <summary>Width times height. Decoding costs memory per pixel, whatever the file size.</summary>
+    public const long MaxImagePixels = 40_000_000;
+
     private static readonly Dictionary<string, (MediaKind Kind, string ContentType)> Types = new(StringComparer.OrdinalIgnoreCase)
     {
         [".jpg"] = (MediaKind.Image, "image/jpeg"),

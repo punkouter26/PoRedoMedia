@@ -8,5 +8,5 @@ namespace PoRedoMedia.Api.Common;
 public static class MockAi
 {
     public static bool IsEnabled(IConfiguration configuration, IHostEnvironment environment) =>
-        !environment.IsProduction() && configuration.GetValue<bool>(ConfigKeys.MocksUseMockAi);
+        environment.IsDevOrTest() && configuration.GetValue<bool>(ConfigKeys.MocksUseMockAi);
 }

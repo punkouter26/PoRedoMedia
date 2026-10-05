@@ -21,7 +21,7 @@ public static class AuthServiceExtensions
             new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
         services.AddCascadingAuthenticationState();
 
-        if (configuration.GetValue<bool>(ConfigKeys.AuthEnableFakeAuth) && !environment.IsProduction())
+        if (configuration.GetValue<bool>(ConfigKeys.AuthEnableFakeAuth) && environment.IsDevOrTest())
         {
             services.AddAuthentication(FakeAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, FakeAuthHandler>(FakeAuthHandler.SchemeName, _ => { });
