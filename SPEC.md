@@ -284,6 +284,7 @@ container hosting · a paid App Service plan.
     new API has no describe-only call for it to build on) and the "Describe" action. The app signs
     in through `/dev-login`, so it works only against a Development or Test server until a phone
     sign-in for Entra is added (an auth change: ask first).
+    Running J1 on a device is deferred (2026-10-05): no emulator exists for this Windows-on-ARM PC.
 13. CI builds and runs Unit tests on push; the deployed app answers `/health` as healthy on the F1
     plan.
 14. No secret is present in the repository (checked by `/security-review`).

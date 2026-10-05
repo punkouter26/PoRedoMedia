@@ -238,7 +238,7 @@ Standard verification, unless a task says otherwise:
 - [x] **T55 Mobile API client.** Files: `Mobile/Services/MobileApiClient.cs`, `IMobileApiClient.cs`.
   SAS upload, create run, poll `GET /api/runs/{id}`, gallery. Test: `IntegrationTests/MobileClientTests.cs` (the old app had no client tests to port).
   Deps: T54.
-- [ ] **T56 Mobile view models.** *(Code done and building for `net10.0-android`; the client is proven against the real server by `MobileClientTests`. Still open: J1 on a device. No emulator image is installed and no phone is attached.)* Files: `Mobile/ViewModels/MainViewModel.cs`, `GalleryViewModel.cs`,
+- [ ] **T56 Mobile view models.** *(Code done and building for `net10.0-android`; the client is proven against the real server by `MobileClientTests`. Still open: J1 on a device. **Deferred by the user on 2026-10-05**: this PC is Windows on ARM, which has no Android emulator package, and no phone was attached.)* Files: `Mobile/ViewModels/MainViewModel.cs`, `GalleryViewModel.cs`,
   `BulkItemViewModel.cs`. Accept: J1 on the emulator against the local Api (success criterion 12).
   Deps: T55. **Checkpoint.**
 
