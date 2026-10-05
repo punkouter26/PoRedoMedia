@@ -7,6 +7,7 @@ public static class StorageNames
     {
         public const string Media = "Media";
         public const string Runs = "Runs";
+        public const string BulkPrompts = "BulkPrompts";
 
         /// <summary>Per-user daily run counters, partitioned by UTC day.</summary>
         public const string RenderQuotas = "RenderQuotas";

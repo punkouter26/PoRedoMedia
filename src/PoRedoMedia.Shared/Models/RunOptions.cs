@@ -21,6 +21,9 @@ public static class RunOptions
     public const string MemeTemplate = "MemeCaption.template";
 
     public static string MemeZone(int index) => $"MemeCaption.zone{index}";
+
+    /// <summary>One style prompt for Bulk styles, index 0 to 9. None sent = the user's saved set.</summary>
+    public static string BulkPrompt(int index) => $"BulkStyles.prompt{index}";
 }
 
 /// <summary>A meme layout: where each line of text goes. The user's picture is the artwork.</summary>

@@ -120,11 +120,11 @@ Standard verification, unless a task says otherwise:
   `Api/Common/Ai/GeminiImageService.cs`, `Shared/StyleRecipes.cs`. Port as is. Tests: port
   `Imagen3ServiceTests`; a Gemini refusal fails the step with a user-facing reason. Deps: T19, T26.
   **Checkpoint.**
-- [ ] **T28 Bulk styles, server.** Files: `Api/Features/BulkStyles/BulkStylesStep.cs`,
+- [x] **T28 Bulk styles, server.** Files: `Api/Features/BulkStyles/BulkStylesStep.cs`,
   `BulkGenerationService.cs`, `BulkPromptRepository.cs`, `BulkPromptEndpoints.cs`. Each finished
   variation is pushed over the hub. Tests: port the bulk case of `AiPipelineEfficiencyTests` and
   `BulkPromptTableEntityRoundTripTests`; a failed slot does not fail the run. Deps: T27.
-- [ ] **T29 Bulk styles, UI.** Files: `Client/Shared/BulkBoard.razor`, `Client/Shared/BulkPrompts.razor`.
+- [x] **T29 Bulk styles, UI.** Files: `Client/Shared/BulkBoard.razor`, `Client/Shared/BulkPrompts.razor`.
   Test: bUnit — failed slot shows retry; saving keeps only the selected. Deps: T23, T28.
 - [ ] **T30 Rap roast, server.** Files: `Api/Features/RapRoast/RapRoastStep.cs`, `RoastLyricsWriter.cs`,
   `SceneDescriber.cs`, `SceneSnapshot.cs`, `Api/Common/Ai/LyriaClient.cs`. Output is an Audio media

@@ -1,6 +1,8 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common.Ai;
+using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.Restyle;
 
@@ -15,6 +17,7 @@ public static class FunctionRegistration
     public static IServiceCollection AddFunctions(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddSingleton<MemeTemplateService>();
+        services.AddSingleton<BulkPromptRepository>();
         services.AddHybridCache();
         // Google calls can be slow and occasionally fail; retry them, but never retry a timeout.
         services.AddHttpClient(GeminiVisionService.HttpClientName).AddStandardResilienceHandler(o =>
@@ -35,6 +38,7 @@ public static class FunctionRegistration
             services.AddSingleton<IImageGenerationService, MockImageGenerationService>();
             services.AddSingleton<ReproductionPromptWriter>();
             services.AddSingleton<IRunStep, RestyleStep>();
+            services.AddSingleton<IRunStep, BulkStylesStep>();
             return services;
         }
 
@@ -60,6 +64,12 @@ public static class FunctionRegistration
                 services.AddSingleton<ReproductionPromptWriter>();
                 services.AddSingleton<IRunStep, RestyleStep>();
             }
+        }
+
+        if (Has(ConfigKeys.GoogleApiKey))
+        {
+            services.TryAddSingleton<IImageGenerationService, GeminiImageService>();
+            services.AddSingleton<IRunStep, BulkStylesStep>();
         }
 
         return services;

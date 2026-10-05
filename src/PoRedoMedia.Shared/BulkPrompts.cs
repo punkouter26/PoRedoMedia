@@ -1,0 +1,29 @@
+namespace PoRedoMedia.Shared;
+
+/// <summary>The ten style prompts Bulk styles starts with. A user can edit and save their own set.</summary>
+public static class BulkPrompts
+{
+    /// <summary>Stands for whoever or whatever is in the picture; replaced before the prompt is sent.</summary>
+    public const string SubjectToken = "<PERSON>";
+
+    public const int Count = 10;
+    public const int MaxLength = 2000;
+
+    /// <summary>The words before the first colon: a short name for the prompt.</summary>
+    public static string Title(string prompt) =>
+        prompt.IndexOf(':') is > 0 and < 60 and var colon ? prompt[..colon] : prompt.Length > 40 ? prompt[..40] + "…" : prompt;
+
+    public static readonly string[] All =
+    [
+        "The Baroque Painting of a Minor Inconvenience: A colossal 17th-century oil painting in the style of Caravaggio, rendered with operatic gravity and violent chiaroscuro. <PERSON> is depicted at the exact instant of an utterly trivial catastrophe — a dropped slice of toast, a spilled mug — but painted as a national tragedy. Cherubs weep in the upper corners, a single divine shaft of light falls on the fallen object, and onlookers recoil with theatrical anguish. Heavy varnish, fine canvas craquelure, museum gold frame just visible at the edges.",
+        "The Nature Documentary Still: A 4K wildlife photograph shot on a 600mm telephoto lens from a concealed hide, with the shallow depth of field and natural dawn light of a prestige nature series. <PERSON> is presented as a newly discovered species going about an unremarkable daily ritual, framed with utmost scientific reverence. Include a lower-third documentary caption bar naming the specimen in mock-Latin, plus a small distribution map inset in the corner. Slight atmospheric haze and dew on the surrounding foliage.",
+        "The Medieval Marginalia Disaster: An illuminated manuscript page on cracked vellum, hand-inked in iron gall with gold leaf and lapis. <PERSON> appears in the margin rendered with the gloriously incompetent anatomy of a 13th-century monk who has never seen the thing he is drawing. Surround the figure with armoured snails, a lute-playing rabbit, and a deeply unimpressed dog. Include dense Latin text in blackletter, a huge decorated drop-cap, and authentic water damage in one corner.",
+        "The Unhinged Infomercial Freeze-Frame: A 1990s direct-response television still, shot on cheap video with harsh on-camera lighting, blown-out highlights, and mild VHS chroma bleed. <PERSON> is caught mid-demonstration of a product that solves a problem nobody has, wearing an expression of evangelical certainty. Add a bright yellow starburst badge, an aggressively large price tag, and the words \"BUT WAIT\" in a chunky drop-shadowed 90s typeface. Aggressively teal-and-magenta studio backdrop.",
+        "The Conspiracy Corkboard: A photograph of a cluttered wall of evidence in a dimly lit basement, lit by one bare swinging bulb. A pinned polaroid of <PERSON> sits at the dead centre, ringed in red marker and connected by taut red yarn to newspaper clippings, blurry surveillance stills, receipts, and a diagram of something clearly unrelated. Sticky notes bear frantic underlined handwriting. Deep shadows, visible dust in the air, a slightly crooked handheld camera angle.",
+        "The Overwrought Perfume Commercial: A luxury fragrance campaign still in grainy monochrome with an extreme shallow-focus close-up and a single hard rim light carving the subject out of total darkness. <PERSON> stares into the middle distance with unearned profundity, possibly damp, possibly windswept, definitely in slow motion. A faceted glass bottle floats in the foreground, catching a lens flare. One meaningless word in thin, wide-tracked serif capitals sits across the bottom third.",
+        "The Old West Wanted Poster: A letterpress-printed handbill on sun-bleached, coffee-stained paper nailed to a saloon post, with visible fibre texture and torn corners. A woodcut-style engraved portrait of <PERSON> dominates the centre under the word \"WANTED\" in weathered slab-serif type. The listed crime is something spectacularly petty rendered in ornate frontier lettering, with an absurdly precise reward figure below. Ink is unevenly inked and slightly double-struck, as if the press was tired.",
+        "The Ancient Greek Amphora: A black-figure terracotta vase from around 530 BC, photographed against a neutral museum backdrop with soft raking light revealing the clay's texture. <PERSON> is painted in rigid black silhouette on the orange clay body, mid-way through a thoroughly modern indignity — wrestling a shopping trolley, losing to a vending machine — but composed with the solemn heroic geometry of a labour of Herakles. Include a meander border, incised interior detail lines, and a genuine chipped repair seam.",
+        "The IKEA Assembly Instruction: A clean, wordless instruction manual page printed in flat black line art on off-white paper, with absolutely no shading and no colour. <PERSON> is redrawn as the featureless, cheerfully blank instruction-manual human, attempting a task in six numbered panels that grow visibly more improbable. Include an Allen key, a circled exclamation mark, a red X panel showing the forbidden approach, and one panel where the little figure is simply sitting down, defeated.",
+        "The Blockbuster Movie Poster: A one-sheet theatrical poster with cinematic teal-and-orange grading, volumetric god-rays, and drifting embers. <PERSON> stands in a low-angle hero shot, back to the camera, coat billowing, silhouetted against an enormous explosion — all in service of a premise that is crushingly mundane. A colossal metallic title treatment sits across the lower third with a release date, and a dense unreadable billing block runs along the very bottom in condensed type."
+    ];
+}

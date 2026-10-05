@@ -1,6 +1,38 @@
 @* The few settings each ticked function has. Values travel as the run's option dictionary. *@
 @inject RunApi Runs
 
+@if (Functions.Contains(MediaFunction.BulkStyles))
+{
+    <RadzenFieldset Text="Bulk styles" class="rz-mt-2">
+        <RadzenStack Gap="0.75rem">
+            <RadzenText class="rz-m-0">Each ticked style makes one picture. Untick the ones you don't want.</RadzenText>
+            @for (var i = 0; i < _bulk.Count; i++)
+            {
+                var index = i;
+                var name = $"bulk-{index}";
+                <div class="bulk-row">
+                    <RadzenCheckBox TValue="bool" Name="@name" Value="_bulkTicked[index]" Change="@(on => TickBulk(index, on))" />
+                    <RadzenLabel Component="@name" Text="@BulkPrompts.Title(_bulk[index])" />
+                </div>
+            }
+            <RadzenPanel AllowCollapse="true" Collapsed="true" Text="Edit the style prompts">
+                <RadzenStack Gap="0.5rem" class="rz-mt-2">
+                    @for (var i = 0; i < _bulk.Count; i++)
+                    {
+                        var index = i;
+                        <RadzenTextArea Value="@_bulk[index]" Rows="4" MaxLength="@BulkPrompts.MaxLength" aria-label="@($"Style prompt {index + 1}")"
+                                        Change="@(text => EditBulk(index, text))" Style="width: 100%" />
+                    }
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                        <RadzenButton Text="Save as my styles" Variant="Variant.Outlined" Click="SaveBulkAsync" />
+                        <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0" aria-live="polite">@_bulkSaved</RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenPanel>
+        </RadzenStack>
+    </RadzenFieldset>
+}
+
 @if (Functions.Contains(MediaFunction.Restyle))
 {
     <RadzenFieldset Text="Restyle" class="rz-mt-2">
@@ -69,6 +101,46 @@
     [Parameter, EditorRequired] public Dictionary<string, string> Options { get; set; } = [];
 
     private List<MemeTemplateDto> _templates = [];
+    private List<string> _bulk = [];
+    private List<bool> _bulkTicked = [];
+    private string _bulkSaved = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Functions.Contains(MediaFunction.BulkStyles) && _bulk.Count == 0)
+        {
+            _bulk = await Runs.GetBulkPromptsAsync();
+            _bulkTicked = [.. _bulk.Select(_ => true)];
+            WriteBulk();
+        }
+    }
+
+    private void TickBulk(int index, bool on)
+    {
+        _bulkTicked[index] = on;
+        WriteBulk();
+    }
+
+    private void EditBulk(int index, string text)
+    {
+        _bulk[index] = text;
+        _bulkSaved = "";
+        WriteBulk();
+    }
+
+    private async Task SaveBulkAsync() =>
+        _bulkSaved = await Runs.SaveBulkPromptsAsync(_bulk) ?? "Saved.";
+
+    // The run carries exactly the ticked prompts, as they are on screen.
+    private void WriteBulk()
+    {
+        for (var i = 0; i < BulkPrompts.Count; i++)
+            Options.Remove(RunOptions.BulkPrompt(i));
+        var slot = 0;
+        for (var i = 0; i < _bulk.Count; i++)
+            if (_bulkTicked[i] && _bulk[i].Trim().Length > 0)
+                Options[RunOptions.BulkPrompt(slot++)] = _bulk[i];
+    }
 
     private string Mode => Get(RunOptions.MemeMode) is { Length: > 0 } mode ? mode : RunOptions.MemeModeAi;
 
@@ -84,6 +156,8 @@
     /// <summary>What still has to be filled in before these options can run, or null.</summary>
     public static string? Missing(IReadOnlyList<MediaFunction> functions, IReadOnlyDictionary<string, string> options)
     {
+        if (functions.Contains(MediaFunction.BulkStyles) && !options.Keys.Any(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal)))
+            return "Tick at least one style.";
         if (!functions.Contains(MediaFunction.MemeCaption))
             return null;
 

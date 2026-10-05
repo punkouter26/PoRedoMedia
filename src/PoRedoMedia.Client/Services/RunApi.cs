@@ -24,6 +24,15 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
     public async Task<List<MemeTemplateDto>> GetMemeTemplatesAsync() =>
         await http.GetFromJsonAsync("api/meme-templates", WireJson.Default.ListMemeTemplateDto) ?? [];
 
+    public async Task<List<string>> GetBulkPromptsAsync() =>
+        await http.GetFromJsonAsync("api/bulk-prompts", WireJson.Default.ListString) ?? [];
+
+    public async Task<string?> SaveBulkPromptsAsync(List<string> prompts)
+    {
+        using var response = await http.PutAsJsonAsync("api/bulk-prompts", prompts, WireJson.Default.ListString);
+        return response.IsSuccessStatusCode ? null : await MediaApi.ReasonAsync(response);
+    }
+
     /// <summary>
     /// Subscribes to a run's progress events. Dispose the result to stop. Events sent before the
     /// subscription was in place are not replayed, so read the run once after this returns.

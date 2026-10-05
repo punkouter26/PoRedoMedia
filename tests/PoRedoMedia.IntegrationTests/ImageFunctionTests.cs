@@ -121,4 +121,31 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         var info = Image.Identify(bytes);
         Assert.Equal(2.0, (double)info.Width / info.Height, precision: 1);
     }
+
+    [DockerFact]
+    public async Task Bulk_styles_draws_one_picture_per_prompt_sent_or_else_per_saved_prompt()
+    {
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await _factory.Value.SignedInAsync(user);
+        var source = await AddImageAsync(user);
+
+        var sent = await RunAsync(client, source, [MediaFunction.BulkStyles], new()
+        {
+            [RunOptions.BulkPrompt(0)] = "The Old West Wanted Poster: <PERSON> on a handbill",
+            [RunOptions.BulkPrompt(1)] = "Comic: <PERSON> as a comic panel",
+            [RunOptions.BulkPrompt(2)] = "Vase: <PERSON> on an amphora",
+        });
+        (await client.PutAsJsonAsync("/api/bulk-prompts", new List<string> { "Mine: only this one", " " }, WireJson.Default.ListString)).EnsureSuccessStatusCode();
+        var saved = await RunAsync(client, source, [MediaFunction.BulkStyles]);
+
+        Assert.True(sent.Status == RunStatus.Complete, sent.Error);
+        Assert.Equal(3, sent.OutputIds.Length);
+        Assert.Single(saved.OutputIds);
+        var gallery = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
+        Assert.Equal(
+            ["Comic · beach", "Mine · beach", "The Old West Wanted Poster · beach", "Vase · beach"],
+            gallery.Where(m => m.Origin == "BulkStyles").Select(m => m.Title).Order());
+        Assert.All(gallery.Where(m => m.Origin == "BulkStyles"), m => Assert.Equal(source.Id.Value, m.ParentId));
+        Assert.Equal(["Mine: only this one"], await client.GetFromJsonAsync("/api/bulk-prompts", WireJson.Default.ListString));
+    }
 }

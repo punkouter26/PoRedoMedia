@@ -7,7 +7,7 @@ public sealed class MediaOutputs(BlobStorageService blobs, IMediaRepository medi
 {
     public async Task<MediaItem> SaveAsync(
         MediaItem madeFrom, MediaFunction function, MediaKind kind, byte[] content, string contentType, string extension,
-        CancellationToken ct, double? durationSeconds = null)
+        CancellationToken ct, double? durationSeconds = null, string? title = null)
     {
         var item = new MediaItem
         {
@@ -17,7 +17,7 @@ public sealed class MediaOutputs(BlobStorageService blobs, IMediaRepository medi
             Status = MediaStatus.Ready,
             Origin = function.ToString(),
             ParentId = madeFrom.Id,
-            Title = $"{FunctionStack.Label(function)} · {Path.GetFileNameWithoutExtension(madeFrom.Title)}",
+            Title = $"{title ?? FunctionStack.Label(function)} · {Path.GetFileNameWithoutExtension(madeFrom.Title)}",
             ContentType = contentType,
             Extension = extension,
             SizeBytes = content.Length,

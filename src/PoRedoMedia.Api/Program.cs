@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
+using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.Media;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.Quota;
@@ -76,6 +77,7 @@ app.MapMedia();
 app.MapQuota();
 app.MapRuns();
 app.MapMemeTemplates();
+app.MapBulkPrompts();
 app.MapHub<RunHub>(RunHub.Path);
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
