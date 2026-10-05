@@ -281,8 +281,11 @@ the version from git tags; the first tag `v0.1.0` is created when you approve th
 
 ## A8. Chosen design and component hierarchy
 
-Chosen 2026-10-05: concept 3 (drop first) for Create, concept 4 (grid with side panel) for
-Gallery. Canvas: https://claude.ai/artifact/PjhKguLtMJmSNZeTCNLkiE
+Create follows concept 1 (guided steps), chosen 2026-10-05 in place of concept 3: a RadzenSteps
+wizard of Media, then Functions (preview beside the function checkboxes and their options), then
+Run (summary, progress, results). The Create subtree below is superseded by that; the component
+names are unchanged. Gallery follows concept 4 (grid with side panel) and is built.
+Canvas: https://claude.ai/artifact/PjhKguLtMJmSNZeTCNLkiE
 
 ```
 MainLayout                      RadzenLayout, RadzenHeader, RadzenBody

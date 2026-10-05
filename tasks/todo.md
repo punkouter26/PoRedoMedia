@@ -91,15 +91,15 @@ Standard verification, unless a task says otherwise:
 
 ## M4 — Image functions
 
-- [ ] **T20 Image AI contracts and mocks.** Files: `Api/Common/Ai/ImageAiContracts.cs`
+- [x] **T20 Image AI contracts and mocks.** Files: `Api/Common/Ai/ImageAiContracts.cs`
   (from `Redo:Domain/Interfaces`), `Api/Common/Ai/MockImageAi.cs` (from
   `Redo:Infrastructure/Services/Mocks/MockAiServices.cs`), `Api/Common/Ai/ImageBytes.cs`.
   Test: mocks registered only when the gate is on. Deps: T08.
-- [ ] **T21 Meme rendering.** Files: `Api/Features/MemeCaption/ImageSharpMemeGenerator.cs`,
+- [x] **T21 Meme rendering.** Files: `Api/Features/MemeCaption/ImageSharpMemeGenerator.cs`,
   `MemeTextRenderer.cs`, `MemeTemplateService.cs`, `MemeTemplate.cs`. Port from
   `Redo:Infrastructure/Services`. Tests: port `MemeGeneratorServiceTests`, `MemeTemplateServiceTests`.
   Deps: T20.
-- [ ] **T22 Meme caption step.** Files: `Api/Features/MemeCaption/MemeCaptionStep.cs`,
+- [x] **T22 Meme caption step.** Files: `Api/Features/MemeCaption/MemeCaptionStep.cs`,
   `CaptionWriter.cs`. Vision → caption → render → save as a new `MediaItem`. Test: step output is a
   PNG media item with the source as parent. Deps: T19, T21.
 - [ ] **T23 Create page.** Files: `Client/Pages/Create.razor`, `Client/Shared/MediaPicker.razor`,

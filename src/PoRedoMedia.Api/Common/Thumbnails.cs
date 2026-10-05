@@ -2,7 +2,7 @@ using PoRedoMedia.Shared.Enums;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
-namespace PoRedoMedia.Api.Features.Media;
+namespace PoRedoMedia.Api.Common;
 
 /// <summary>Makes the 480px JPEG the gallery shows for an image or a video.</summary>
 public sealed class Thumbnails(BlobStorageService blobs, StorageClients storage, FFmpegProcess ffmpeg)

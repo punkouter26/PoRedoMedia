@@ -16,6 +16,7 @@
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
     <PackageReference Include="Radzen.Blazor" />
     <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PoRedoMedia.UnitTests" />

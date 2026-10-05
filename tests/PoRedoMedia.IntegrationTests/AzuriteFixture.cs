@@ -52,3 +52,13 @@ public sealed class DockerFactAttribute : FactAttribute
         }
     }
 }
+
+/// <summary>A theory that needs Docker.</summary>
+public sealed class DockerTheoryAttribute : TheoryAttribute
+{
+    public DockerTheoryAttribute()
+    {
+        if (!DockerFactAttribute.DockerAvailable)
+            Skip = "Docker is not running.";
+    }
+}

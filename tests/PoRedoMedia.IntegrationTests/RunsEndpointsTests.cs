@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
@@ -21,7 +22,12 @@ public sealed class RunsEndpointsTests(AzuriteFixture azurite) : IDisposable
     {
         var factory = new AppFactory(
             azurite.ConnectionString,
-            services => services.AddSingleton(step),
+            services =>
+            {
+                // Only the stand-in: these tests are about the run engine, not any real function.
+                services.RemoveAll<IRunStep>();
+                services.AddSingleton(step);
+            },
             dailyLimit is null ? null : new() { ["RenderQuota:DailyLimit"] = dailyLimit.Value.ToString() });
         _factories.Add(factory);
         return factory;
