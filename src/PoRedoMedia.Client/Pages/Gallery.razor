@@ -1,0 +1,114 @@
+@page "/gallery"
+@using Microsoft.AspNetCore.Components.Forms
+@inject MediaApi Api
+@inject BlobUploadService Uploader
+@inject NotificationService Notifications
+
+<PageTitle>Gallery · PoRedoMedia</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Gallery</RadzenText>
+        <RadzenSelectBar @bind-Value="_kind" TValue="string" aria-label="Filter by kind">
+            <Items>
+                <RadzenSelectBarItem Text="All" Value="@("All")" />
+                <RadzenSelectBarItem Text="Images" Value="@("Image")" />
+                <RadzenSelectBarItem Text="Videos" Value="@("Video")" />
+                <RadzenSelectBarItem Text="Audio" Value="@("Audio")" />
+            </Items>
+        </RadzenSelectBar>
+        <RadzenTextBox Value="@_search" @oninput="@(e => _search = e.Value?.ToString() ?? "")"
+                       Placeholder="Search titles" aria-label="Search titles" Style="flex: 1 1 12rem" />
+        <label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default gallery-add">
+            Add media
+            <InputFile @ref="_input" OnChange="UploadAsync" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm" class="gallery-file" />
+        </label>
+    </RadzenStack>
+
+    @if (_uploadPercent is { } percent)
+    {
+        <RadzenProgressBar Value="percent" aria-label="Upload progress" />
+    }
+
+    @if (_items is null)
+    {
+        <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" ShowValue="false" aria-label="Loading" />
+    }
+    else if (_items.Count == 0)
+    {
+        <RadzenText>Nothing here yet. Add a photo or a video to get started.</RadzenText>
+    }
+    else
+    {
+        <div class="gallery-split">
+            <RadzenDataList Data="@Filter(_items, _kind, _search)" TItem="MediaDto" WrapItems="true" AllowPaging="true" PageSize="24" class="gallery-list">
+                <Template Context="item">
+                    <button type="button" class="gallery-card @(item.Id == _selected?.Id ? "selected" : "")"
+                            aria-pressed="@(item.Id == _selected?.Id ? "true" : "false")" @onclick="@(() => _selected = item)">
+                        @if (item.Kind == MediaKind.Audio)
+                        {
+                            <span class="gallery-thumb gallery-audio" aria-hidden="true"><RadzenIcon Icon="music_note" /></span>
+                        }
+                        else
+                        {
+                            <img class="gallery-thumb" src="@item.ThumbUrl" alt="" loading="lazy" />
+                        }
+                        <span class="gallery-title">@item.Title</span>
+                        <RadzenBadge Text="@item.Kind.ToString()" BadgeStyle="BadgeStyle.Secondary" Shade="Shade.Lighter" />
+                    </button>
+                </Template>
+            </RadzenDataList>
+            @if (_selected is not null)
+            {
+                <MediaPanel @key="_selected.Id" Media="_selected" Changed="OnChanged" Deleted="OnDeleted" />
+            }
+        </div>
+    }
+</RadzenStack>
+
+@code {
+    private List<MediaDto>? _items;
+    private MediaDto? _selected;
+    private string _kind = "All";
+    private string _search = "";
+    private double? _uploadPercent;
+    private InputFile? _input;
+
+    protected override async Task OnInitializedAsync() => _items = await Api.ListAsync();
+
+    public static IEnumerable<MediaDto> Filter(IEnumerable<MediaDto> items, string kind, string search) =>
+        items.Where(m => kind == "All" || m.Kind.ToString() == kind)
+             .Where(m => m.Title.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        _uploadPercent = 0;
+        var (media, error) = await Uploader.UploadAsync(_input!.Element!.Value, e.File.Name, e.File.Size, percent =>
+        {
+            _uploadPercent = percent;
+            InvokeAsync(StateHasChanged);
+        });
+        _uploadPercent = null;
+
+        if (media is null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not add that file", error ?? "", 8000);
+            return;
+        }
+
+        _items!.Insert(0, media);
+        _selected = media;
+    }
+
+    private void OnChanged(MediaDto updated)
+    {
+        _items![_items.FindIndex(m => m.Id == updated.Id)] = updated;
+        _selected = updated;
+    }
+
+    private void OnDeleted(MediaDto deleted)
+    {
+        _items!.RemoveAll(m => m.Id == deleted.Id);
+        _selected = null;
+    }
+}

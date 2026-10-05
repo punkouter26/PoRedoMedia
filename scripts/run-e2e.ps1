@@ -1,16 +1,21 @@
 # scripts/run-e2e.ps1
-# Runs the browser tests against a throwaway instance: Test environment, mock AI, no Key Vault.
+# Runs the browser tests against a throwaway instance: Test environment, mock AI, no Key Vault,
+# storage on the local Azurite container (started here if it is not running).
 # Usage: pwsh scripts/run-e2e.ps1 [-Filter <test name fragment>]
 param([string]$Filter)
 
 $ErrorActionPreference = 'Stop'
 $url = 'http://localhost:4100'
 
+docker compose up -d --wait azurite
+if ($LASTEXITCODE -ne 0) { Write-Error 'Azurite did not start. Is Docker running?' }
+
 dotnet build PoRedoMedia.slnx -v q
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $env:ASPNETCORE_ENVIRONMENT = 'Test'
 $env:Mocks__UseMockAi = 'true'
+$env:Storage__ConnectionString = 'UseDevelopmentStorage=true'
 $app = Start-Process dotnet -PassThru -WindowStyle Hidden -ArgumentList @(
     'run', '--project', 'src/PoRedoMedia.Api', '--no-build', '--no-launch-profile', '--urls', $url)
 try {

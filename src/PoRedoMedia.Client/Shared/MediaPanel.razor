@@ -1,0 +1,73 @@
+@inject MediaApi Api
+@inject DialogService Dialogs
+@inject NotificationService Notifications
+@inject IJSRuntime JS
+
+<RadzenCard class="media-panel">
+    <RadzenStack Gap="0.75rem">
+        @switch (Media.Kind)
+        {
+            case MediaKind.Image:
+                <img class="media-preview" src="@Media.Url" alt="@Media.Title" />
+                break;
+            case MediaKind.Video:
+                <video class="media-preview" src="@Media.Url" controls preload="metadata" aria-label="@Media.Title"></video>
+                break;
+            default:
+                <audio src="@Media.Url" controls aria-label="@Media.Title"></audio>
+                break;
+        }
+
+        <RadzenFormField Text="Title">
+            <RadzenTextBox @bind-Value="_title" MaxLength="120" Change="@(_ => SaveAsync(_title, null))" />
+        </RadzenFormField>
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
+            @Media.Origin · @Media.CreatedAt.LocalDateTime.ToString("d MMM yyyy")
+        </RadzenText>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            <RadzenButton Text="Download" Icon="download" Variant="Variant.Outlined"
+                          Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
+            <RadzenButton Text="@(Media.Pinned ? "Unpin" : "Pin")" Icon="push_pin" Variant="Variant.Outlined"
+                          Click="@(() => SaveAsync(null, !Media.Pinned))" />
+            <RadzenButton Text="Delete" Icon="delete" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Click="DeleteAsync" />
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter, EditorRequired] public MediaDto Media { get; set; } = null!;
+    [Parameter] public EventCallback<MediaDto> Changed { get; set; }
+    [Parameter] public EventCallback<MediaDto> Deleted { get; set; }
+
+    private string _title = "";
+
+    protected override void OnInitialized() => _title = Media.Title;
+
+    private async Task SaveAsync(string? title, bool? pinned)
+    {
+        var (updated, error) = await Api.UpdateAsync(Media.Id, title, pinned);
+        if (updated is null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not save", error ?? "", 8000);
+            _title = Media.Title;
+            return;
+        }
+
+        await Changed.InvokeAsync(updated);
+    }
+
+    private async Task DeleteAsync()
+    {
+        var confirmed = await Dialogs.Confirm(
+            $"Delete \"{Media.Title}\"? This cannot be undone.", "Delete",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Keep" });
+        if (confirmed != true)
+            return;
+
+        if (await Api.DeleteAsync(Media.Id) is { } error)
+            Notifications.Notify(NotificationSeverity.Error, "Could not delete", error ?? "", 8000);
+        else
+            await Deleted.InvokeAsync(Media);
+    }
+}

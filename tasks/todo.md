@@ -66,7 +66,7 @@ Standard verification, unless a task says otherwise:
   > 10 min are rejected; confirm ignores a client-supplied path. Deps: T11, T12.
 - [x] **T14 Gallery API.** Files: `Api/Features/Media/MediaEndpoints.cs` (list, get as 302 to SAS,
   thumb, pin, title, delete), `Thumbnails.cs`. Test: delete removes the whole prefix. Deps: T13.
-- [ ] **T15 Gallery UI.** Files: `Client/Services/MediaApi.cs`, `Client/Services/BlobUploadService.cs`
+- [x] **T15 Gallery UI.** Files: `Client/Services/MediaApi.cs`, `Client/Services/BlobUploadService.cs`
   (port), `Client/Pages/Gallery.razor`, `Client/Shared/MediaDetail.razor`,
   `Client/wwwroot/js/browser-actions.js` (download, copy, share only). Test: bUnit gallery renders
   items by kind. Deps: T14, T09.

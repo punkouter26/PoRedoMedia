@@ -1,6 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
   <ItemGroup>
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="bunit" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PoRedoMedia.Api\PoRedoMedia.Api.csproj" />
