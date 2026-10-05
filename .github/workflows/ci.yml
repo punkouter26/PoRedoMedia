@@ -1,0 +1,58 @@
+name: CI
+
+# The push/PR gate, and nothing else.
+#
+# One runner, no containers, no ffmpeg: a red build here always means the code is wrong. The
+# integration and API E2E suites run on demand from ci-full.yml. The Android app is not built
+# here (it needs the maui-android workload); its API client is compiled into the integration
+# tests instead.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0 # MinVer reads the version from tags
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+
+      # The meme renderer draws with a system font; the tests that render need one to exist.
+      - name: Install a font
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+
+      - name: Restore
+        run: dotnet restore PoRedoMedia.slnx
+
+      # TreatWarningsAsErrors is on, so this is the lint step too.
+      - name: Build (0 warnings, 0 errors)
+        run: dotnet build PoRedoMedia.slnx --no-restore --configuration Release
+
+      - name: Check test budgets
+        shell: pwsh
+        run: ./scripts/check-test-budgets.ps1
+
+      - name: Unit tests
+        run: dotnet test tests/PoRedoMedia.UnitTests --no-build --configuration Release --verbosity normal

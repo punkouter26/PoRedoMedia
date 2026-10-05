@@ -244,7 +244,7 @@ Standard verification, unless a task says otherwise:
 
 ## M9 — CI and deploy (each needs your go-ahead)
 
-- [ ] **T57 CI.** Files: `.github/workflows/ci.yml` (build, budgets, unit tests),
+- [x] **T57 CI.** Files: `.github/workflows/ci.yml` (build, budgets, unit tests),
   `.github/workflows/ci-full.yml` (integration, E2E API; manual). Port from `Meme`. Deps: T53.
 - [ ] **T58 Deploy workflow.** Files: `.github/workflows/deploy.yml` (publish, bundle and verify
   ffmpeg, font check, zip deploy, health gate). Port from `Meme`. Deps: T57.
