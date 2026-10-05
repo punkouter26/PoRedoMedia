@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PoRedoMedia.Api\PoRedoMedia.Api.csproj" />
+    <ProjectReference Include="..\..\src\PoRedoMedia.Client\PoRedoMedia.Client.csproj" />
+    <ProjectReference Include="..\..\src\PoRedoMedia.Shared\PoRedoMedia.Shared.csproj" />
+  </ItemGroup>
+</Project>
