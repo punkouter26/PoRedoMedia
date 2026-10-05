@@ -1,9 +1,8 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace PoRedoMedia.E2EAPI;
 
-public sealed class HealthApiTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     [Fact]
     public async Task Live_probe_answers_200()
