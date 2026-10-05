@@ -19,7 +19,7 @@ public sealed class Thumbnails(BlobStorageService blobs, StorageClients storage,
         {
             using var image = Image.Load(await blobs.ReadAllBytesAsync(item.SourcePath, ct));
             image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(MaxEdge, MaxEdge), Mode = ResizeMode.Max }));
-            await image.SaveAsJpegAsync(jpeg, ct);
+            await image.SaveAsync(jpeg, Ai.ImageBytes.Jpeg, ct);
         }
         else
         {

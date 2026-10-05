@@ -82,4 +82,21 @@ public sealed class MemeRenderingTests
         Assert.True(WhitePixels(meme, (_, _, _, _) => true) > 200);
         await Assert.ThrowsAsync<ArgumentException>(() => service.RenderAsync(Png(600, 600), template, []));
     }
+
+    // Other decoders misread a JPEG written as one scan per component (Azure OpenAI saw a green
+    // smear), so every JPEG this app sends out must carry all three components in a single scan.
+    [Fact]
+    public void Jpegs_sent_to_providers_use_one_interleaved_scan()
+    {
+        var jpeg = PoRedoMedia.Api.Common.Ai.ImageBytes.ForProcessing(Png(3000, 1000));
+
+        var scans = new List<int>();
+        for (var i = 0; i < jpeg.Length - 4; i++)
+            if (jpeg[i] == 0xFF && jpeg[i + 1] == 0xDA)
+                scans.Add(jpeg[i + 4]);
+
+        Assert.Equal([3], scans);
+        using var image = Image.Load(jpeg);
+        Assert.Equal(PoRedoMedia.Api.Common.Ai.ImageBytes.MaxEdge, image.Width);
+    }
 }

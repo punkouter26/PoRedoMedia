@@ -1,6 +1,26 @@
 @* The few settings each ticked function has. Values travel as the run's option dictionary. *@
 @inject RunApi Runs
 
+@if (Functions.Contains(MediaFunction.Restyle))
+{
+    <RadzenFieldset Text="Restyle" class="rz-mt-2">
+        <RadzenStack Gap="0.75rem">
+            <RadzenFormField Text="Style">
+                <RadzenDropDown TValue="string" Data="StyleRecipeCatalog.All" ValueProperty="Id" TextProperty="Title"
+                                AllowClear="true" Placeholder="None: recreate the picture as it is"
+                                Value="@Get(RunOptions.RestyleStyle)" Change="@(v => Set(RunOptions.RestyleStyle, v?.ToString() ?? ""))" />
+            </RadzenFormField>
+            @if (StyleRecipeCatalog.All.FirstOrDefault(r => r.Id == Get(RunOptions.RestyleStyle)) is { } recipe)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@recipe.Category · @recipe.Description</RadzenText>
+            }
+            <RadzenFormField Text="Or describe a style in your own words">
+                <RadzenTextBox Value="@Get(RunOptions.RestylePrompt)" MaxLength="400" Change="@(v => Set(RunOptions.RestylePrompt, v))" />
+            </RadzenFormField>
+        </RadzenStack>
+    </RadzenFieldset>
+}
+
 @if (Functions.Contains(MediaFunction.MemeCaption))
 {
     <RadzenFieldset Text="Meme caption" class="rz-mt-2">

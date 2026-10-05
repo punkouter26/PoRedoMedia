@@ -98,4 +98,27 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         Assert.Equal((RunStatus.Failed, "Type the top or the bottom text."), (run.Status, run.Error));
         Assert.Empty(run.OutputIds);
     }
+
+    [DockerFact]
+    public async Task Restyle_then_meme_caption_makes_two_images_and_the_meme_is_drawn_on_the_restyled_one()
+    {
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await _factory.Value.SignedInAsync(user);
+        var source = await AddImageAsync(user, width: 800, height: 400);
+
+        var run = await RunAsync(client, source, [MediaFunction.MemeCaption, MediaFunction.Restyle], new() { [RunOptions.RestyleStyle] = "vangogh" });
+
+        Assert.True(run.Status == RunStatus.Complete, run.Error);
+        var gallery = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
+        var restyled = gallery.Single(m => m.Id == run.OutputIds[0]);
+        var meme = gallery.Single(m => m.Id == run.OutputIds[1]);
+        Assert.Equal(("Restyle", source.Id.Value), (restyled.Origin, restyled.ParentId));
+        Assert.Equal(("MemeCaption", restyled.Id), (meme.Origin, meme.ParentId));
+
+        // The mock generator draws a new picture in the source's 2:1 shape, as the real one is asked to.
+        var bytes = await _factory.Value.Services.GetRequiredService<BlobStorageService>()
+            .ReadAllBytesAsync(MediaBlobPaths.Source(MediaId.From(restyled.Id), ".png"));
+        var info = Image.Identify(bytes);
+        Assert.Equal(2.0, (double)info.Width / info.Height, precision: 1);
+    }
 }

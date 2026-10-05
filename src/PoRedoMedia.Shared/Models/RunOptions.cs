@@ -6,6 +6,12 @@ public static class RunOptions
     /// <summary>Model id from the model picker for looking at an image. Absent = the default provider.</summary>
     public const string VisionModel = "Vision.model";
 
+    /// <summary>Id of a recipe in <see cref="StyleRecipeCatalog"/>. Absent = recreate the picture as it is.</summary>
+    public const string RestyleStyle = "Restyle.style";
+
+    /// <summary>A style in the user's own words. Wins over <see cref="RestyleStyle"/>.</summary>
+    public const string RestylePrompt = "Restyle.prompt";
+
     public const string MemeMode = "MemeCaption.mode";
     public const string MemeModeAi = "ai";
     public const string MemeModeText = "text";

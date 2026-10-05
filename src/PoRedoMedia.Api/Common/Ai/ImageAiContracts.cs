@@ -15,3 +15,17 @@ public interface IVisionServiceRouter
 {
     IVisionService Resolve(string? modelId);
 }
+
+public sealed record GeneratedImage(byte[] Data, string ContentType)
+{
+    public string Extension => ContentType == "image/jpeg" ? ".jpg" : ".png";
+}
+
+public interface IImageGenerationService
+{
+    /// <summary>Draws a new image from words alone. <paramref name="matchAspectOf"/> only lends its shape.</summary>
+    Task<GeneratedImage> GenerateAsync(string prompt, byte[]? matchAspectOf = null, CancellationToken ct = default);
+
+    /// <summary>Redraws <paramref name="image"/> as the prompt says. A non-zero seed asks for a different take.</summary>
+    Task<GeneratedImage> EditAsync(string prompt, byte[] image, int seed = 0, CancellationToken ct = default);
+}

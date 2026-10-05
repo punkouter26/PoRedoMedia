@@ -6,6 +6,14 @@ namespace PoRedoMedia.Api.Common.Ai;
 
 public static class ImageBytes
 {
+    /// <summary>
+    /// Standard YCbCr with all three components in ONE interleaved scan. Left to itself the
+    /// encoder can write one scan per component, which ImageSharp reads back correctly but other
+    /// decoders do not: Azure OpenAI described a puppy photo encoded that way as "a green-tinted
+    /// silhouette of a person" (seen 2026-10-05).
+    /// </summary>
+    public static readonly JpegEncoder Jpeg = new() { Quality = 90, ColorType = JpegEncodingColor.YCbCrRatio420, Interleaved = true };
+
     /// <summary>Longest edge sent to an AI provider or drawn on. Larger uploads are scaled down first.</summary>
     public const int MaxEdge = 1568;
 
@@ -20,7 +28,7 @@ public static class ImageBytes
             loaded.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(MaxEdge, MaxEdge), Mode = ResizeMode.Max }));
 
         using var jpeg = new MemoryStream();
-        loaded.Save(jpeg, new JpegEncoder { Quality = 90 });
+        loaded.Save(jpeg, Jpeg);
         return jpeg.ToArray();
     }
 }

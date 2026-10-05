@@ -116,7 +116,7 @@ Standard verification, unless a task says otherwise:
 - [x] **T26 Vision: Gemini, Azure OpenAI, Ollama.** Files: `Api/Common/Ai/GeminiVisionService.cs`,
   `OpenAiVisionService.cs`, `OllamaVisionService.cs`. Test: router picks each by id namespace.
   Deps: T24, T25.
-- [ ] **T27 Restyle.** Files: `Api/Features/Restyle/RestyleStep.cs`, `ReproductionPromptWriter.cs`,
+- [x] **T27 Restyle.** Files: `Api/Features/Restyle/RestyleStep.cs`, `ReproductionPromptWriter.cs`,
   `Api/Common/Ai/GeminiImageService.cs`, `Shared/StyleRecipes.cs`. Port as is. Tests: port
   `Imagen3ServiceTests`; a Gemini refusal fails the step with a user-facing reason. Deps: T19, T26.
   **Checkpoint.**

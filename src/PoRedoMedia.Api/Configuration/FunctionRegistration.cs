@@ -2,6 +2,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Hybrid;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.MemeCaption;
+using PoRedoMedia.Api.Features.Restyle;
 
 namespace PoRedoMedia.Api.Configuration;
 
@@ -30,6 +31,10 @@ public static class FunctionRegistration
             services.AddSingleton<IVisionServiceRouter>(s => s.GetRequiredService<MockVisionService>());
             services.AddSingleton<ICaptionWriter, MockCaptionWriter>();
             services.AddSingleton<IRunStep, MemeCaptionStep>();
+            services.AddSingleton<IChatClient, MockChatClient>();
+            services.AddSingleton<IImageGenerationService, MockImageGenerationService>();
+            services.AddSingleton<ReproductionPromptWriter>();
+            services.AddSingleton<IRunStep, RestyleStep>();
             return services;
         }
 
@@ -48,6 +53,13 @@ public static class FunctionRegistration
             services.AddSingleton<ICaptionWriter, ChatCaptionWriter>();
             if (canSeeImages)
                 services.AddSingleton<IRunStep, MemeCaptionStep>();
+
+            if (Has(ConfigKeys.GoogleApiKey))
+            {
+                services.AddSingleton<IImageGenerationService, GeminiImageService>();
+                services.AddSingleton<ReproductionPromptWriter>();
+                services.AddSingleton<IRunStep, RestyleStep>();
+            }
         }
 
         return services;

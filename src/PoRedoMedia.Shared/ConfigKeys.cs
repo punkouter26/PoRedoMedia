@@ -23,6 +23,7 @@ public static class ConfigKeys
     public const string ComputerVisionMinTagConfidence = "ComputerVision:MinTagConfidence";
     public const string GoogleApiKey = "Google:ApiKey";
     public const string GoogleVisionModel = "Google:VisionModel";
+    public const string GoogleImageModel = "Google:ImageModel";
     public const string OllamaEndpoint = "Ollama:Endpoint";
     public const string OllamaVisionModel = "Ollama:VisionModel";
     public const string OllamaChatModel = "Ollama:ChatModel";
