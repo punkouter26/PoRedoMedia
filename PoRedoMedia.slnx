@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PoRedoMedia.Api/PoRedoMedia.Api.csproj" />
+    <Project Path="src/PoRedoMedia.Client/PoRedoMedia.Client.csproj" />
+    <Project Path="src/PoRedoMedia.Shared/PoRedoMedia.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PoRedoMedia.UnitTests/PoRedoMedia.UnitTests.csproj" />
+    <Project Path="tests/PoRedoMedia.IntegrationTests/PoRedoMedia.IntegrationTests.csproj" />
+    <Project Path="tests/PoRedoMedia.E2EAPI/PoRedoMedia.E2EAPI.csproj" />
+    <Project Path="tests/PoRedoMedia.E2EUI/PoRedoMedia.E2EUI.csproj" />
+  </Folder>
+</Solution>

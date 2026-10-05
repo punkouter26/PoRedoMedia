@@ -1,0 +1,31 @@
+# Build
+bin/
+obj/
+publish/
+*.user
+.vs/
+.idea/
+TestResults/
+coverage*/
+*.trx
+
+# Read-only source repos kept beside the solution for reference
+/PoRedoImage/
+/PoMemeVideo/
+
+# Secrets and local state
+.env*
+!.env.example
+appsettings.Local.json
+secrets.json
+*.pfx
+*.p12
+.azurite-data/
+
+# Media and test artefacts
+*.mp4
+*.mov
+*.webm
+scripts/meme-sounds/*.mp3
+playwright-report/
+test-results/
