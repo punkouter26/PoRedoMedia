@@ -26,6 +26,10 @@
         </RadzenText>
 
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+            @if (Media.Kind != MediaKind.Audio)
+            {
+                <RadzenLink Path="@($"?source={Media.Id}")" Text="Use as source" class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default" />
+            }
             <RadzenButton Text="Download" Icon="download" Variant="Variant.Outlined"
                           Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
             <RadzenButton Text="@(Media.Pinned ? "Unpin" : "Pin")" Icon="push_pin" Variant="Variant.Outlined"

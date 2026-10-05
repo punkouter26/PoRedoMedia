@@ -1,0 +1,64 @@
+@* Step 1 of Create: upload a file, or reuse something already in the gallery. *@
+@using Microsoft.AspNetCore.Components.Forms
+@inject MediaApi Api
+@inject BlobUploadService Uploader
+
+<RadzenStack Gap="1rem">
+    <div class="picker-drop">
+        <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-m-0">Choose a photo or a video</RadzenText>
+        <RadzenText class="rz-m-0">JPG, PNG, WEBP or GIF up to 10 MB. MP4, MOV or WEBM up to 200 MB and 10 minutes.</RadzenText>
+        <label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default picker-choose">
+            Choose file
+            <InputFile @ref="_input" OnChange="UploadAsync" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm" class="picker-file" />
+        </label>
+        @if (_percent is { } percent)
+        {
+            <RadzenProgressBar Value="percent" aria-label="Upload progress" Style="width: 100%" />
+        }
+        @if (_error is not null)
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">@_error</RadzenAlert>
+        }
+    </div>
+
+    @if (_recent.Count > 0)
+    {
+        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0">Or use something from your gallery</RadzenText>
+        <div class="picker-recent">
+            @foreach (var item in _recent)
+            {
+                var media = item;
+                <button type="button" class="picker-card" @onclick="@(() => ValueChanged.InvokeAsync(media))">
+                    <img src="@media.ThumbUrl" alt="" loading="lazy" />
+                    <span>@media.Title</span>
+                </button>
+            }
+        </div>
+    }
+</RadzenStack>
+
+@code {
+    [Parameter] public MediaDto? Value { get; set; }
+    [Parameter] public EventCallback<MediaDto> ValueChanged { get; set; }
+
+    private List<MediaDto> _recent = [];
+    private double? _percent;
+    private string? _error;
+    private InputFile? _input;
+
+    protected override async Task OnInitializedAsync() =>
+        _recent = [.. (await Api.ListAsync()).Where(m => m.Kind != MediaKind.Audio).Take(12)];
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        (_percent, _error) = (0, null);
+        var (media, error) = await Uploader.UploadAsync(_input!.Element!.Value, e.File.Name, e.File.Size, percent =>
+        {
+            _percent = percent;
+            InvokeAsync(StateHasChanged);
+        });
+        (_percent, _error) = (null, error);
+        if (media is not null)
+            await ValueChanged.InvokeAsync(media);
+    }
+}

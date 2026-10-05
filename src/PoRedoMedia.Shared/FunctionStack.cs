@@ -50,4 +50,18 @@ public static class FunctionStack
         MediaFunction.Captions => "Auto-captions",
         _ => function.ToString(),
     };
+
+    /// <summary>One line saying what the function does, shown beside its checkbox.</summary>
+    public static string Describe(MediaFunction function) => function switch
+    {
+        MediaFunction.Restyle => "Redraw the picture in a chosen style.",
+        MediaFunction.MemeCaption => "Put meme text on the picture.",
+        MediaFunction.RapRoast => "A roast verse about the picture, performed over a beat.",
+        MediaFunction.PhotoToVideo => "Turn the picture into an 8-second clip with sound.",
+        MediaFunction.BulkStyles => "Up to ten style variations at once. Runs on its own.",
+        MediaFunction.Memeify => "Add meme sounds, stickers and text at the right moments.",
+        MediaFunction.VideoRoast => "Spoken insults about what happens in the video.",
+        MediaFunction.Captions => "Burn in subtitles of what is said.",
+        _ => "",
+    };
 }

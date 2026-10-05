@@ -1,0 +1,11 @@
+.function-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 48px;
+}
+
+.function-row ::deep .function-label {
+    display: flex;
+    flex-direction: column;
+}

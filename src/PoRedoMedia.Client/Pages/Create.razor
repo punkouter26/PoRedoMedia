@@ -1,0 +1,143 @@
+@page "/"
+@inject MediaApi Media
+@inject RunApi Runs
+@inject AppConfigService Config
+
+<PageTitle>Create · PoRedoMedia</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Create</RadzenText>
+
+    <RadzenSteps @bind-SelectedIndex="_step" ShowStepsButtons="false">
+        <Steps>
+            <RadzenStepsItem Text="Media">
+                <MediaPicker Value="_source" ValueChanged="PickAsync" />
+            </RadzenStepsItem>
+
+            <RadzenStepsItem Text="Functions" Disabled="@(_source is null)">
+                @if (_source is not null)
+                {
+                    <div class="create-split">
+                        <RadzenCard class="create-preview">
+                            @if (_source.Kind == MediaKind.Video)
+                            {
+                                <video src="@_source.Url" controls preload="metadata" aria-label="@_source.Title"></video>
+                            }
+                            else
+                            {
+                                <img src="@_source.Url" alt="@_source.Title" />
+                            }
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_source.Title · @_source.Kind.ToString().ToLowerInvariant()</RadzenText>
+                            <RadzenButton Text="Change media" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
+                        </RadzenCard>
+                        <RadzenCard class="create-functions">
+                            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
+                            <FunctionPicker Kind="_source.Kind" @bind-Value="_functions" Available="_available" />
+                            <FunctionOptions Functions="_functions" Options="_options" />
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-4">
+                                <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
+                                <RadzenButton Text="Next" Disabled="@(_functions.Count == 0)" Click="@(() => _step = 2)" />
+                            </RadzenStack>
+                        </RadzenCard>
+                    </div>
+                }
+            </RadzenStepsItem>
+
+            <RadzenStepsItem Text="Run" Disabled="@(_functions.Count == 0)">
+                @if (_source is not null)
+                {
+                    <RadzenCard>
+                        <RadzenStack Gap="0.75rem">
+                            <RadzenText class="rz-m-0">
+                                <strong>@_source.Title</strong> → @string.Join(", then ", _functions.Select(FunctionStack.Label))
+                            </RadzenText>
+                            @if (_quota is { Unlimited: false })
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
+                                    @_quota.Remaining of @_quota.Limit runs left today. A run costs one.
+                                </RadzenText>
+                            }
+                            @if (_problem is not null)
+                            {
+                                <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">@_problem</RadzenAlert>
+                            }
+
+                            @if (_run is null)
+                            {
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
+                                    <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 1)" />
+                                    <RadzenButton Text="Run" Icon="play_arrow" IsBusy="_starting" Click="RunAsync" />
+                                </RadzenStack>
+                            }
+                            else
+                            {
+                                <RunProgress @key="_run.Id" Run="_run" Finished="OnFinishedAsync" />
+                                @if (_done)
+                                {
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenButton Text="Start over" Variant="Variant.Outlined" Click="StartOver" />
+                                        <RadzenLink Path="gallery" Text="Open the gallery" />
+                                    </RadzenStack>
+                                }
+                            }
+                        </RadzenStack>
+                    </RadzenCard>
+                }
+            </RadzenStepsItem>
+        </Steps>
+    </RadzenSteps>
+</RadzenStack>
+
+@code {
+    /// <summary>A gallery item to start from, set by "Use as source".</summary>
+    [SupplyParameterFromQuery] public Guid? Source { get; set; }
+
+    private int _step;
+    private MediaDto? _source;
+    private IReadOnlyList<MediaFunction> _functions = [];
+    private Dictionary<string, string> _options = [];
+    private IReadOnlyCollection<MediaFunction> _available = [];
+    private QuotaStatusDto? _quota;
+    private RunDto? _run;
+    private string? _problem;
+    private bool _starting;
+    private bool _done;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _available = (await Config.GetAsync())?.AvailableFunctions ?? [];
+        _quota = await Runs.GetQuotaAsync();
+        if (Source is { } id && (await Media.ListAsync()).FirstOrDefault(m => m.Id == id) is { } media)
+            await PickAsync(media);
+    }
+
+    private Task PickAsync(MediaDto media)
+    {
+        (_source, _functions, _options, _run, _problem, _done) = (media, [], [], null, null, false);
+        _step = 1;
+        return Task.CompletedTask;
+    }
+
+    private async Task RunAsync()
+    {
+        _problem = FunctionOptions.Missing(_functions, _options);
+        if (_problem is not null)
+            return;
+
+        _starting = true;
+        (_run, _problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], _options));
+        _starting = false;
+    }
+
+    private async Task OnFinishedAsync(RunStatus status)
+    {
+        _done = true;
+        _quota = await Runs.GetQuotaAsync();
+    }
+
+    private void StartOver()
+    {
+        (_source, _functions, _options, _run, _problem, _done) = (null, [], [], null, null, false);
+        _step = 0;
+    }
+}

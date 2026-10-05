@@ -1,0 +1,116 @@
+@* Live state of one run: the step it is on, each result as it arrives, and how it ended. *@
+@implements IAsyncDisposable
+@inject RunApi Runs
+
+<RadzenStack Gap="0.75rem">
+    @if (_status is RunStatus.Queued or RunStatus.Running)
+    {
+        <RadzenProgressBar Value="_percent" Mode="@(_percent == 0 ? ProgressBarMode.Indeterminate : ProgressBarMode.Determinate)"
+                           ShowValue="false" aria-label="Run progress" />
+        <RadzenText class="rz-m-0" aria-live="polite">@_message</RadzenText>
+    }
+    else if (_status == RunStatus.Complete)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false" class="rz-m-0" Style="color: #16181D">Done. The results are in your gallery.</RadzenAlert>
+    }
+    else
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">
+            @_message
+            @if (_outputs.Count > 0)
+            {
+                <span> The results made before that were kept.</span>
+            }
+        </RadzenAlert>
+    }
+
+    @foreach (var note in _notes)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-m-0">@note</RadzenAlert>
+    }
+
+    <div class="run-results">
+        @foreach (var output in _outputs)
+        {
+            <figure class="run-result" data-origin="@output.Origin">
+                @switch (output.Kind)
+                {
+                    case MediaKind.Image:
+                        <img src="@output.Url" alt="@output.Title" />
+                        break;
+                    case MediaKind.Video:
+                        <video src="@output.Url" controls preload="metadata" aria-label="@output.Title"></video>
+                        break;
+                    default:
+                        <audio src="@output.Url" controls aria-label="@output.Title"></audio>
+                        break;
+                }
+                <figcaption>@output.Title</figcaption>
+            </figure>
+        }
+    </div>
+</RadzenStack>
+
+@code {
+    [Parameter, EditorRequired] public RunDto Run { get; set; } = null!;
+
+    /// <summary>Raised once, when the run ends either way.</summary>
+    [Parameter] public EventCallback<RunStatus> Finished { get; set; }
+
+    [Inject] private MediaApi Media { get; set; } = null!;
+
+    private readonly List<MediaDto> _outputs = [];
+    private IReadOnlyList<string> _notes = [];
+    private RunStatus _status = RunStatus.Queued;
+    private double _percent;
+    private string _message = "Waiting to start";
+    private IAsyncDisposable? _subscription;
+    private bool _finished;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _subscription = await Runs.FollowAsync(Run.Id, OnProgressAsync);
+        // The run may have moved on, or finished, before the subscription was in place.
+        if (await Runs.GetAsync(Run.Id) is { } current)
+            await ApplyAsync(current);
+    }
+
+    private Task OnProgressAsync(RunProgressDto progress) => InvokeAsync(async () =>
+    {
+        if (_finished)
+            return;
+
+        (_status, _percent, _message) = (progress.Status, progress.Percent, progress.Message);
+        if (progress.Output is { } output && _outputs.All(o => o.Id != output.Id))
+            _outputs.Add(output);
+        if (progress.Status is RunStatus.Complete or RunStatus.Failed && await Runs.GetAsync(Run.Id) is { } final)
+            await ApplyAsync(final);
+        StateHasChanged();
+    });
+
+    private async Task ApplyAsync(RunDto run)
+    {
+        _status = run.Status;
+        _notes = run.Notes;
+        if (run.Error is not null)
+            _message = run.Error;
+
+        if (run.OutputIds.Any(id => _outputs.All(o => o.Id != id)))
+        {
+            var gallery = await Media.ListAsync();
+            _outputs.AddRange(run.OutputIds.Where(id => _outputs.All(o => o.Id != id)).Select(id => gallery.First(m => m.Id == id)));
+        }
+
+        if (run.Status is RunStatus.Complete or RunStatus.Failed && !_finished)
+        {
+            _finished = true;
+            await Finished.InvokeAsync(run.Status);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_subscription is not null)
+            await _subscription.DisposeAsync();
+    }
+}

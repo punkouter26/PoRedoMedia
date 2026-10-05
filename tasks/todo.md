@@ -102,7 +102,7 @@ Standard verification, unless a task says otherwise:
 - [x] **T22 Meme caption step.** Files: `Api/Features/MemeCaption/MemeCaptionStep.cs`,
   `CaptionWriter.cs`. Vision → caption → render → save as a new `MediaItem`. Test: step output is a
   PNG media item with the source as parent. Deps: T19, T21.
-- [ ] **T23 Create page.** Files: `Client/Pages/Create.razor`, `Client/Shared/MediaPicker.razor`,
+- [x] **T23 Create page.** Files: `Client/Pages/Create.razor`, `Client/Shared/MediaPicker.razor`,
   `Client/Shared/FunctionPicker.razor`, `Client/Shared/RunProgress.razor`, `Client/Services/RunApi.cs`.
   Tests: bUnit picker (example 10); `E2EUI/CreateImageUiTests.cs` for J1 with mocks. Deps: T15, T22.
   **Checkpoint — J1 works.**

@@ -13,7 +13,7 @@ public sealed class LoginUiTests : UiTestBase
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Sign in" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
 
         await page.GetByRole(AriaRole.Button, new() { Name = "Developer sign-in" }).ClickAsync();
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Create" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Create", Exact = true })).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByText("dev@localhost")).ToBeVisibleAsync();
 
         await page.GetByRole(AriaRole.Button, new() { Name = "Sign out" }).ClickAsync();

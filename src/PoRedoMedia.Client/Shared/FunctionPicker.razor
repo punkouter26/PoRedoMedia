@@ -1,0 +1,30 @@
+@* One checkbox per function valid for the picked media. What cannot be added to the current
+   selection, or cannot run on this server, is disabled and says why. *@
+
+<RadzenStack Gap="0.25rem">
+    @foreach (var function in FunctionStack.For(Kind))
+    {
+        var f = function;
+        var available = Available.Contains(f);
+        var ticked = Value.Contains(f);
+        var disabled = !available || (!ticked && !FunctionStack.CanAdd(Value, f));
+        var name = $"fn-{f}";
+        <div class="function-row" data-fn="@f">
+            <RadzenCheckBox TValue="bool" Name="@name" Value="ticked" Disabled="disabled" Change="@(on => ToggleAsync(f, on))" />
+            <RadzenLabel Component="@name" class="function-label">
+                <strong>@FunctionStack.Label(f)</strong>
+                <span>@(available ? FunctionStack.Describe(f) : "Not available on this server.")</span>
+            </RadzenLabel>
+        </div>
+    }
+</RadzenStack>
+
+@code {
+    [Parameter, EditorRequired] public MediaKind Kind { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<MediaFunction> Value { get; set; } = [];
+    [Parameter] public EventCallback<IReadOnlyList<MediaFunction>> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyCollection<MediaFunction> Available { get; set; } = Enum.GetValues<MediaFunction>();
+
+    private Task ToggleAsync(MediaFunction function, bool on) =>
+        ValueChanged.InvokeAsync(on ? FunctionStack.InRunOrder([.. Value, function]) : [.. Value.Where(v => v != function)]);
+}

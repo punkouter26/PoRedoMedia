@@ -1,0 +1,44 @@
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
+using PoRedoMedia.Shared.Models;
+
+namespace PoRedoMedia.Client.Services;
+
+/// <summary>Starting and following runs.</summary>
+public sealed class RunApi(HttpClient http, NavigationManager navigation)
+{
+    public async Task<(RunDto? Run, string? Error)> StartAsync(RunRequest request)
+    {
+        using var response = await http.PostAsJsonAsync("api/runs", request, WireJson.Default.RunRequest);
+        return response.IsSuccessStatusCode
+            ? (await response.Content.ReadFromJsonAsync(WireJson.Default.RunDto), null)
+            : (null, await MediaApi.ReasonAsync(response));
+    }
+
+    public Task<RunDto?> GetAsync(Guid id) => http.GetFromJsonAsync($"api/runs/{id}", WireJson.Default.RunDto);
+
+    public Task<QuotaStatusDto?> GetQuotaAsync() => http.GetFromJsonAsync("api/quota", WireJson.Default.QuotaStatusDto);
+
+    public async Task<List<MemeTemplateDto>> GetMemeTemplatesAsync() =>
+        await http.GetFromJsonAsync("api/meme-templates", WireJson.Default.ListMemeTemplateDto) ?? [];
+
+    /// <summary>
+    /// Subscribes to a run's progress events. Dispose the result to stop. Events sent before the
+    /// subscription was in place are not replayed, so read the run once after this returns.
+    /// </summary>
+    public async Task<IAsyncDisposable> FollowAsync(Guid runId, Func<RunProgressDto, Task> onProgress)
+    {
+        var hub = new HubConnectionBuilder()
+            .WithUrl(navigation.ToAbsoluteUri("hubs/run"))
+            .WithAutomaticReconnect()
+            .AddJsonProtocol(o => o.PayloadSerializerOptions.TypeInfoResolverChain.Insert(0, WireJson.Default))
+            .Build();
+        hub.On("RunProgress", onProgress);
+        hub.Reconnected += _ => hub.InvokeAsync("JoinRun", runId.ToString());
+        await hub.StartAsync();
+        await hub.InvokeAsync("JoinRun", runId.ToString());
+        return hub;
+    }
+}

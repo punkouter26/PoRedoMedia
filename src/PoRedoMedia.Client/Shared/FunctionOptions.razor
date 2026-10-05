@@ -1,0 +1,79 @@
+@* The few settings each ticked function has. Values travel as the run's option dictionary. *@
+@inject RunApi Runs
+
+@if (Functions.Contains(MediaFunction.MemeCaption))
+{
+    <RadzenFieldset Text="Meme caption" class="rz-mt-2">
+        <RadzenStack Gap="0.75rem">
+            <RadzenSelectBar TValue="string" Value="@Mode" Change="@((string mode) => Set(RunOptions.MemeMode, mode))" aria-label="Where the text comes from">
+                <Items>
+                    <RadzenSelectBarItem Text="AI writes it" Value="@RunOptions.MemeModeAi" />
+                    <RadzenSelectBarItem Text="I'll type it" Value="@RunOptions.MemeModeText" />
+                    <RadzenSelectBarItem Text="Template" Value="@RunOptions.MemeModeTemplate" />
+                </Items>
+            </RadzenSelectBar>
+
+            @if (Mode == RunOptions.MemeModeText)
+            {
+                <RadzenFormField Text="Top text">
+                    <RadzenTextBox Value="@Get(RunOptions.MemeTop)" MaxLength="120" Change="@(v => Set(RunOptions.MemeTop, v))" />
+                </RadzenFormField>
+                <RadzenFormField Text="Bottom text">
+                    <RadzenTextBox Value="@Get(RunOptions.MemeBottom)" MaxLength="120" Change="@(v => Set(RunOptions.MemeBottom, v))" />
+                </RadzenFormField>
+            }
+            else if (Mode == RunOptions.MemeModeTemplate)
+            {
+                <RadzenFormField Text="Template">
+                    <RadzenDropDown TValue="string" Data="_templates" ValueProperty="Id" TextProperty="Name"
+                                    Value="@Get(RunOptions.MemeTemplate)" Change="@(v => Set(RunOptions.MemeTemplate, v?.ToString() ?? ""))" />
+                </RadzenFormField>
+                @if (_templates.FirstOrDefault(t => t.Id == Get(RunOptions.MemeTemplate)) is { } template)
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@template.Description</RadzenText>
+                    @for (var i = 0; i < template.ZoneLabels.Length; i++)
+                    {
+                        var index = i;
+                        <RadzenFormField Text="@template.ZoneLabels[index]">
+                            <RadzenTextBox Value="@Get(RunOptions.MemeZone(index))" MaxLength="120" Change="@(v => Set(RunOptions.MemeZone(index), v))" />
+                        </RadzenFormField>
+                    }
+                }
+            }
+        </RadzenStack>
+    </RadzenFieldset>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MediaFunction> Functions { get; set; } = [];
+    [Parameter, EditorRequired] public Dictionary<string, string> Options { get; set; } = [];
+
+    private List<MemeTemplateDto> _templates = [];
+
+    private string Mode => Get(RunOptions.MemeMode) is { Length: > 0 } mode ? mode : RunOptions.MemeModeAi;
+
+    private string Get(string key) => Options.GetValueOrDefault(key, "");
+
+    private async Task Set(string key, string value)
+    {
+        Options[key] = value;
+        if (value == RunOptions.MemeModeTemplate && _templates.Count == 0)
+            _templates = await Runs.GetMemeTemplatesAsync();
+    }
+
+    /// <summary>What still has to be filled in before these options can run, or null.</summary>
+    public static string? Missing(IReadOnlyList<MediaFunction> functions, IReadOnlyDictionary<string, string> options)
+    {
+        if (!functions.Contains(MediaFunction.MemeCaption))
+            return null;
+
+        string Value(string key) => options.GetValueOrDefault(key, "").Trim();
+        return Value(RunOptions.MemeMode) switch
+        {
+            RunOptions.MemeModeText when Value(RunOptions.MemeTop).Length + Value(RunOptions.MemeBottom).Length == 0
+                => "Type the top or the bottom text for the meme.",
+            RunOptions.MemeModeTemplate when Value(RunOptions.MemeTemplate).Length == 0 => "Pick a meme template.",
+            _ => null,
+        };
+    }
+}
