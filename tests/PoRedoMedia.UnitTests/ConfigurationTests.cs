@@ -36,4 +36,23 @@ public sealed class ConfigurationTests
         if (loaded)
             Assert.Equal(configKey, manager.GetKey(new KeyVaultSecret(secretName, "value")));
     }
+
+    [Fact]
+    public void The_sweep_removes_stale_uploads_and_expired_items_but_never_a_pinned_one()
+    {
+        var now = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
+        MediaItem Item(MediaStatus status, int ageDays, bool pinned = false) => new()
+        {
+            Owner = new UserId("u"), Id = MediaId.New(), Kind = PoRedoMedia.Shared.Enums.MediaKind.Image, Status = status, Origin = "Upload",
+            Title = "t", ContentType = "image/png", Extension = ".png", Pinned = pinned, CreatedAt = now.AddDays(-ageDays),
+        };
+        var verdict = (MediaItem item, int days) => PoRedoMedia.Api.Features.Housekeeping.HousekeepingService.Classify(item, now, days).ToString();
+
+        Assert.Equal("Keep", verdict(Item(MediaStatus.Ready, 29), 30));
+        Assert.Equal("DeleteExpired", verdict(Item(MediaStatus.Ready, 31), 30));
+        Assert.Equal("Keep", verdict(Item(MediaStatus.Ready, 400, pinned: true), 30));
+        Assert.Equal("Keep", verdict(Item(MediaStatus.Ready, 400), 0));
+        Assert.Equal("DeleteAbandonedUpload", verdict(Item(MediaStatus.Uploading, 2), 0));
+        Assert.Equal("Keep", verdict(Item(MediaStatus.Uploading, 0), 30));
+    }
 }

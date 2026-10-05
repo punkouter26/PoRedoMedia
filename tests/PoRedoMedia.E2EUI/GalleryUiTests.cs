@@ -36,4 +36,28 @@ public sealed class GalleryUiTests : UiTestBase
 
         await Assertions.Expect(page.GetByText("That file type is not supported")).ToBeVisibleAsync();
     }
+
+    [LiveServerFact]
+    public async Task A_shared_image_opens_for_a_signed_out_visitor_until_sharing_is_stopped()
+    {
+        var page = await SignedInPageAsync("/gallery");
+        await Assertions.Expect(page.GetByText("Nothing here yet")).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await page.SetInputFilesAsync("input[type=file]", new FilePayload { Name = "beach.png", MimeType = "image/png", Buffer = Png });
+        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "beach.png" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+
+        await page.GetByRole(AriaRole.Button, new() { Name = "Share", Exact = true }).ClickAsync();
+        var link = page.GetByRole(AriaRole.Textbox, new() { Name = "Share link" });
+        await Assertions.Expect(link).ToHaveValueAsync(new System.Text.RegularExpressions.Regex("/v/[0-9A-Za-z]{12}$"));
+        var url = await link.InputValueAsync();
+
+        var visitor = await (await Browser.NewContextAsync()).NewPageAsync();
+        await visitor.GotoAsync(url);
+        await Assertions.Expect(visitor.GetByRole(AriaRole.Heading, new() { Name = "beach.png" })).ToBeVisibleAsync();
+        await Assertions.Expect(visitor.GetByRole(AriaRole.Img, new() { Name = "beach.png" })).ToBeVisibleAsync();
+
+        await page.GetByRole(AriaRole.Button, new() { Name = "Stop sharing" }).ClickAsync();
+        await Assertions.Expect(link).ToHaveCountAsync(0);
+        var response = await visitor.GotoAsync(url);
+        Assert.Equal(404, response!.Status);
+    }
 }

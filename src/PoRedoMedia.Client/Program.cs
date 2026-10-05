@@ -24,6 +24,7 @@ builder.Services.AddScoped<AppConfigService>();
 builder.Services.AddScoped<MediaApi>();
 builder.Services.AddScoped<BlobUploadService>();
 builder.Services.AddScoped<RunApi>();
+builder.Services.AddScoped<SoundsApi>();
 builder.Services.AddRadzenComponents();
 
 // Claims only, serialized by the server. The browser never holds a token.

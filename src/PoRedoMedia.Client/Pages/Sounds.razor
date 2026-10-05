@@ -1,0 +1,102 @@
+@page "/sounds"
+@using Microsoft.AspNetCore.Components.Forms
+@inject SoundsApi Api
+@inject NotificationService Notifications
+
+<PageTitle>Sounds · PoRedoMedia</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Sounds</RadzenText>
+        <RadzenTextBox Value="@_search" @oninput="@(e => _search = e.Value?.ToString() ?? "")"
+                       Placeholder="Search names and tags" aria-label="Search names and tags" Style="flex: 1 1 12rem" />
+        <div class="sounds-toggle">
+            <RadzenSwitch @bind-Value="_starredOnly" Name="starred-only" />
+            <RadzenLabel Component="starred-only" Text="Starred only" />
+        </div>
+        <label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default sounds-add">
+            Add a sound
+            <InputFile OnChange="UploadAsync" accept=".mp3,.wav,.ogg" class="sounds-file" />
+        </label>
+    </RadzenStack>
+    <RadzenText class="rz-m-0">Meme-ify picks from these. Starred sounds are preferred. MP3, WAV or OGG up to 15 MB.</RadzenText>
+
+    @if (_sounds is null)
+    {
+        <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" ShowValue="false" aria-label="Loading" />
+    }
+    else
+    {
+        <RadzenDataGrid Data="@Filter(_sounds, _search, _starredOnly)" TItem="SoundAssetDto" AllowPaging="true" PageSize="15"
+                        AllowSorting="true" EmptyText="No sounds match. The library is filled with the seed-sounds command.">
+            <Columns>
+                <RadzenDataGridColumn TItem="SoundAssetDto" Title="Star" Width="5rem" Sortable="false">
+                    <Template Context="sound">
+                        <RadzenButton Icon="@(sound.IsFavorite ? "star" : "star_border")" Variant="Variant.Text"
+                                      aria-label="@(sound.IsFavorite ? $"Unstar {sound.DisplayName}" : $"Star {sound.DisplayName}")"
+                                      aria-pressed="@(sound.IsFavorite ? "true" : "false")" Click="@(() => ToggleAsync(sound))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SoundAssetDto" Property="DisplayName" Title="Name" />
+                <RadzenDataGridColumn TItem="SoundAssetDto" Title="Tags" Sortable="false">
+                    <Template Context="sound">@string.Join(", ", sound.ActionVectorTags)</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SoundAssetDto" Property="DurationMs" Title="Length" Width="6rem">
+                    <Template Context="sound">@((sound.DurationMs / 1000.0).ToString("0.0")) s</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SoundAssetDto" Title="Listen" Width="19rem" Sortable="false">
+                    <Template Context="sound">
+                        <audio controls preload="none" src="@($"api/sounds/{sound.SoundId}/stream")" aria-label="@sound.DisplayName"></audio>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+</RadzenStack>
+
+@code {
+    private List<SoundAssetDto>? _sounds;
+    private string _search = "";
+    private bool _starredOnly;
+
+    protected override async Task OnInitializedAsync() => _sounds = await Api.ListAsync();
+
+    public static IEnumerable<SoundAssetDto> Filter(IEnumerable<SoundAssetDto> sounds, string search, bool starredOnly) =>
+        sounds.Where(s => !starredOnly || s.IsFavorite)
+              .Where(s => s.DisplayName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)
+                       || s.ActionVectorTags.Any(t => t.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase)));
+
+    private async Task ToggleAsync(SoundAssetDto sound)
+    {
+        if (await Api.SetFavoriteAsync(sound.SoundId, !sound.IsFavorite) is { } error)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not change the star", error, 8000);
+            return;
+        }
+
+        _sounds![_sounds.IndexOf(sound)] = new SoundAssetDto
+        {
+            SoundId = sound.SoundId, DisplayName = sound.DisplayName, DurationMs = sound.DurationMs,
+            ActionVectorTags = sound.ActionVectorTags, Attribution = sound.Attribution, IsFavorite = !sound.IsFavorite,
+        };
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        if (e.File.Size > SoundsApi.MaxUploadBytes)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not add that sound", "Sounds can be at most 15 MB.", 8000);
+            return;
+        }
+
+        var (sound, error) = await Api.UploadAsync(e.File);
+        if (sound is null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not add that sound", error ?? "", 8000);
+            return;
+        }
+
+        _sounds!.Insert(0, sound);
+        Notifications.Notify(NotificationSeverity.Success, "Sound added", sound.DisplayName);
+    }
+}

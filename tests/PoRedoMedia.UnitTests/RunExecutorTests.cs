@@ -141,6 +141,7 @@ public sealed class RunExecutorTests
         public Task SaveAsync(Run run, CancellationToken ct = default) { _rows[run.Id] = run; return Task.CompletedTask; }
         public Task<Run?> GetAsync(UserId owner, RunId id, CancellationToken ct = default) => Task.FromResult(_rows.GetValueOrDefault(id));
         public Task<IReadOnlyList<Run>> ListAsync(UserId owner, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Run>>([.. _rows.Values]);
+        public Task<IReadOnlyList<Run>> ListUnfinishedAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Run>>([]);
     }
 
     private sealed class FakeMedia : IMediaRepository
@@ -151,5 +152,6 @@ public sealed class RunExecutorTests
         public Task<MediaItem?> GetAsync(UserId owner, MediaId id, CancellationToken ct = default) => Task.FromResult(_rows.GetValueOrDefault(id));
         public Task<IReadOnlyList<MediaItem>> ListAsync(UserId owner, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaItem>>([.. _rows.Values]);
         public Task DeleteAsync(UserId owner, MediaId id, CancellationToken ct = default) { _rows.Remove(id); return Task.CompletedTask; }
+        public Task<IReadOnlyList<MediaItem>> ListAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaItem>>([.. _rows.Values]);
     }
 }

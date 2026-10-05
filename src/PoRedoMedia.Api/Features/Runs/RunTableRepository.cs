@@ -39,6 +39,18 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
         return [.. runs.OrderByDescending(r => r.CreatedAt)];
     }
 
+    public async Task<IReadOnlyList<Run>> ListUnfinishedAsync(CancellationToken ct = default)
+    {
+        var runs = new List<Run>();
+        await foreach (var row in _table.Value.QueryAsync<TableEntity>(
+            e => e.GetString("Status") == nameof(RunStatus.Queued) || e.GetString("Status") == nameof(RunStatus.Running), cancellationToken: ct))
+        {
+            runs.Add(Map(row));
+        }
+
+        return runs;
+    }
+
     private static Run Map(TableEntity row) => new()
     {
         Owner = new UserId(row.GetString("Owner")),

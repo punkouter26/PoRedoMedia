@@ -40,14 +40,30 @@ public sealed class MediaApi(HttpClient http)
         return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
     }
 
-    /// <summary>The <c>detail</c> of a problem response, or a plain fallback.</summary>
+    /// <summary>The item's public link. Asking again returns the same one.</summary>
+    public async Task<(string? Url, string? Error)> ShareAsync(Guid id)
+    {
+        using var response = await http.PostAsync($"api/media/{id}/share", null);
+        return response.IsSuccessStatusCode
+            ? ((await response.Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto))?.Url, null)
+            : (null, await ReasonAsync(response));
+    }
+
+    public async Task<string?> StopSharingAsync(Guid id)
+    {
+        using var response = await http.DeleteAsync($"api/media/{id}/share");
+        return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
+    }
+
+    /// <summary>The <c>detail</c> (or <c>error</c>) of a failed response, or a plain fallback.</summary>
     public static async Task<string> ReasonAsync(HttpResponseMessage response)
     {
         try
         {
             using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            if (problem.RootElement.TryGetProperty("detail", out var detail) && detail.GetString() is { Length: > 0 } text)
-                return text;
+            foreach (var name in (string[])["detail", "error"])
+                if (problem.RootElement.TryGetProperty(name, out var reason) && reason.ValueKind == JsonValueKind.String && reason.GetString() is { Length: > 0 } text)
+                    return text;
         }
         catch (JsonException)
         {

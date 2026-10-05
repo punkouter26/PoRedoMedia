@@ -15,6 +15,9 @@ public interface IMediaRepository
     Task<IReadOnlyList<MediaItem>> ListAsync(UserId owner, CancellationToken ct = default);
 
     Task DeleteAsync(UserId owner, MediaId id, CancellationToken ct = default);
+
+    /// <summary>Every user's items. For the retention sweep only.</summary>
+    Task<IReadOnlyList<MediaItem>> ListAllAsync(CancellationToken ct = default);
 }
 
 public interface IRunRepository
@@ -27,6 +30,9 @@ public interface IRunRepository
 
     /// <summary>The owner's runs, newest first.</summary>
     Task<IReadOnlyList<Run>> ListAsync(UserId owner, CancellationToken ct = default);
+
+    /// <summary>Every user's runs that have not finished. For the sweep that recovers interrupted ones.</summary>
+    Task<IReadOnlyList<Run>> ListUnfinishedAsync(CancellationToken ct = default);
 }
 
 public interface ISoundAssetRepository

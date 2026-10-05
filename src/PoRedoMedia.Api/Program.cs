@@ -5,6 +5,7 @@ using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
 using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.Captions;
+using PoRedoMedia.Api.Features.Housekeeping;
 using PoRedoMedia.Api.Features.Media;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.Quota;
@@ -56,6 +57,7 @@ builder.Services.AddSingleton<IRunNotifier, RunHubNotifier>();
 builder.Services.AddSingleton<RunExecutor>();
 builder.Services.AddSingleton<RunDispatcher>();
 builder.Services.AddHostedService(services => services.GetRequiredService<RunDispatcher>());
+builder.Services.AddHostedService<HousekeepingService>();
 builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Wire enums travel as their names, matching the client's source-generated JSON.
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

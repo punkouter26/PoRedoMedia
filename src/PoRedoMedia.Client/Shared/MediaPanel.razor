@@ -40,7 +40,18 @@
             <RadzenButton Text="@(Media.Pinned ? "Unpin" : "Pin")" Icon="push_pin" Variant="Variant.Outlined"
                           Click="@(() => SaveAsync(null, !Media.Pinned))" />
             <RadzenButton Text="Delete" Icon="delete" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Click="DeleteAsync" />
+            <RadzenButton Text="@(_shareUrl is null ? "Share" : "Stop sharing")" Icon="link" Variant="Variant.Outlined" Click="ToggleShareAsync" />
         </RadzenStack>
+
+        @if (_shareUrl is not null)
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.End">
+                <RadzenFormField Text="Anyone with this link can view it" Style="flex-grow: 1">
+                    <RadzenTextBox Value="@_shareUrl" ReadOnly="true" aria-label="Share link" />
+                </RadzenFormField>
+                <RadzenButton Text="Copy" Variant="Variant.Outlined" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", _shareUrl))" />
+            </RadzenStack>
+        }
     </RadzenStack>
 </RadzenCard>
 
@@ -51,7 +62,29 @@
 
     private string _title = "";
 
-    protected override void OnInitialized() => _title = Media.Title;
+    private string? _shareUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _title = Media.Title;
+        // Asking for the link of an item that is already shared returns the existing one.
+        if (Media.Shared)
+            (_shareUrl, _) = await Api.ShareAsync(Media.Id);
+    }
+
+    private async Task ToggleShareAsync()
+    {
+        string? error;
+        if (_shareUrl is null)
+            (_shareUrl, error) = await Api.ShareAsync(Media.Id);
+        else if ((error = await Api.StopSharingAsync(Media.Id)) is null)
+            _shareUrl = null;
+
+        if (error is not null)
+            Notifications.Notify(NotificationSeverity.Error, "Could not change sharing", error, 8000);
+        else
+            await Changed.InvokeAsync(Media with { Shared = _shareUrl is not null });
+    }
 
     private async Task SaveAsync(string? title, bool? pinned)
     {

@@ -192,14 +192,14 @@ Standard verification, unless a task says otherwise:
 
 ## M6 — Sharing, sounds page, retention
 
-- [ ] **T45 Share links.** Files: `Api/Features/Sharing/ShareLinkStore.cs`, `SharingEndpoints.cs`,
+- [x] **T45 Share links.** Files: `Api/Features/Sharing/ShareLinkStore.cs`, `SharingEndpoints.cs`,
   `SharePageEndpoints.cs`, `Shared/Models/SharingDtos.cs`, `Client/wwwroot/css/share-page.css`.
   Feed, remix and `IsPublic` removed; page serves image, video or audio. Test: anonymous 200, then
   404 after revoke and after delete (success criterion 8). Deps: T14.
-- [ ] **T46 Share and sounds UI.** Files: `Client/Shared/ShareDialog.razor`, `Client/Pages/Sounds.razor`,
+- [x] **T46 Share and sounds UI.** Files: `Client/Shared/ShareDialog.razor`, `Client/Pages/Sounds.razor`,
   `Client/Services/SoundAudition.cs`, `Client/Services/SoundsApi.cs`. Test: bUnit — starring calls
   the API and reorders. Deps: T34, T45, T15.
-- [ ] **T47 Housekeeping.** Files: `Api/Features/Housekeeping/HousekeepingService.cs`,
+- [x] **T47 Housekeeping.** Files: `Api/Features/Housekeeping/HousekeepingService.cs`,
   `Api/Common/RetentionPolicy.cs`. Sweeps runs and media. Tests: port `HousekeepingClassifyTests`;
   pinned items survive; an interrupted run becomes retryable. Deps: T19, T45.
   **Checkpoint.**

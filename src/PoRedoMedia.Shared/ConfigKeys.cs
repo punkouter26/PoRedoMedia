@@ -14,6 +14,8 @@ public static class ConfigKeys
     public const string MocksUseMockAi = "Mocks:UseMockAi";
     public const string StorageConnectionString = "Storage:ConnectionString";
     public const string RenderQuotaDailyLimit = "RenderQuota:DailyLimit";
+    public const string RetentionDays = "Retention:Days";
+    public const string HousekeepingEnabled = "Housekeeping:Enabled";
 
     public const string OpenAiEndpoint = "OpenAI:Endpoint";
     public const string OpenAiKey = "OpenAI:Key";

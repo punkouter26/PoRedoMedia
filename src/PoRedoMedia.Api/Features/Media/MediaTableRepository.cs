@@ -42,6 +42,14 @@ public sealed class MediaTableRepository(StorageClients storage) : IMediaReposit
         return [.. items.OrderByDescending(m => m.CreatedAt)];
     }
 
+    public async Task<IReadOnlyList<MediaItem>> ListAllAsync(CancellationToken ct = default)
+    {
+        var items = new List<MediaItem>();
+        await foreach (var row in _table.Value.QueryAsync<TableEntity>(cancellationToken: ct))
+            items.Add(Map(row));
+        return items;
+    }
+
     public async Task DeleteAsync(UserId owner, MediaId id, CancellationToken ct = default)
     {
         try

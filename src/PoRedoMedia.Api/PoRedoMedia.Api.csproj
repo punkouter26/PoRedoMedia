@@ -28,6 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PoRedoMedia.UnitTests" />
+    <InternalsVisibleTo Include="PoRedoMedia.IntegrationTests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PoRedoMedia.Client\PoRedoMedia.Client.csproj" />
