@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
@@ -22,6 +23,9 @@ builder.Services.AddSingleton<StorageClients>();
 builder.Services.AddSingleton<BlobStorageService>();
 builder.Services.AddSingleton<FFmpegProcess>();
 builder.Services.AddSingleton<IMediaRepository, MediaTableRepository>();
+builder.Services.AddSingleton<Thumbnails>();
+// Wire enums travel as their names, matching the client's source-generated JSON.
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
 
@@ -54,11 +58,26 @@ app.MapHealth();
 app.MapAntiforgeryToken();
 app.MapAppConfig();
 app.MapAuthEndpoints();
+app.MapMedia();
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(PoRedoMedia.Client.Routes).Assembly)
     .AllowAnonymous();
+
+// The browser uploads to and reads from blob storage directly, so storage must accept the app's
+// origin. Any origin is allowed: every such request already needs a signed, expiring link.
+if (app.Services.GetRequiredService<StorageClients>() is { IsConfigured: true } storage)
+{
+    try
+    {
+        await storage.AllowBrowserAccessAsync("*");
+    }
+    catch (Exception ex) when (ex is Azure.RequestFailedException or AggregateException)
+    {
+        app.Logger.LogWarning(ex, "Storage is not reachable; uploads will fail until it is and the app is restarted");
+    }
+}
 
 app.Run();
 

@@ -1,0 +1,160 @@
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using PoRedoMedia.Api.Common;
+using PoRedoMedia.Shared.Enums;
+using PoRedoMedia.Shared.Models;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
+namespace PoRedoMedia.IntegrationTests;
+
+[Collection(AzuriteCollection.Name)]
+public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
+{
+    private readonly Lazy<AppFactory> _factory = new(() => new AppFactory(azurite.ConnectionString));
+    private static readonly HttpClient Storage = new();
+
+    public void Dispose()
+    {
+        if (_factory.IsValueCreated)
+            _factory.Value.Dispose();
+    }
+
+    private static byte[] Png()
+    {
+        using var image = new Image<Rgba32>(64, 48, new Rgba32(200, 30, 30));
+        using var stream = new MemoryStream();
+        image.SaveAsPng(stream);
+        return stream.ToArray();
+    }
+
+    private static async Task<byte[]> ClipAsync(int seconds)
+    {
+        var ffmpeg = new FFmpegProcess(new ConfigurationBuilder().Build(), NullLogger<FFmpegProcess>.Instance);
+        var path = Path.Combine(Path.GetTempPath(), $"poredomedia-{Guid.NewGuid():N}.mp4");
+        try
+        {
+            // One tiny frame a second keeps even a ten-minute clip to a few kilobytes.
+            var exit = await ffmpeg.RunAsync($"-y -f lavfi -i testsrc=duration={seconds}:size=32x32:rate=1 -pix_fmt yuv420p \"{path}\"", "test", default);
+            Assert.Equal(0, exit);
+            return await File.ReadAllBytesAsync(path);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static async Task<HttpResponseMessage> UploadAndConfirmAsync(HttpClient client, string fileName, byte[] bytes)
+    {
+        var ticketResponse = await client.PostAsJsonAsync("/api/media/sas", new UploadRequest(fileName, bytes.Length));
+        ticketResponse.EnsureSuccessStatusCode();
+        var ticket = (await ticketResponse.Content.ReadFromJsonAsync(WireJson.Default.UploadTicket))!;
+
+        var put = new HttpRequestMessage(HttpMethod.Put, ticket.UploadUrl) { Content = new ByteArrayContent(bytes) };
+        put.Headers.Add("x-ms-blob-type", "BlockBlob");
+        (await Storage.SendAsync(put)).EnsureSuccessStatusCode();
+
+        return await client.PostAsync($"/api/media/{ticket.Id}/confirm", null);
+    }
+
+    private static async Task<List<MediaDto>> ListAsync(HttpClient client) =>
+        (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
+
+    [DockerFact]
+    public async Task An_image_is_uploaded_listed_served_and_deleted_whole()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+
+        var confirmed = await UploadAndConfirmAsync(client, "beach.png", Png());
+        var media = (await confirmed.Content.ReadFromJsonAsync(WireJson.Default.MediaDto))!;
+
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+        Assert.Equal((MediaKind.Image, "beach.png", "Upload"), (media.Kind, media.Title, media.Origin));
+        Assert.Equal(media.Id, Assert.Single(await ListAsync(client)).Id);
+
+        foreach (var url in new[] { media.Url, media.ThumbUrl })
+        {
+            var redirect = await client.GetAsync(url);
+            Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
+            Assert.NotEmpty(await Storage.GetByteArrayAsync(redirect.Headers.Location));
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/media/{media.Id}")).StatusCode);
+        Assert.Empty(await ListAsync(client));
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(media.Url)).StatusCode);
+    }
+
+    [DockerFact]
+    public async Task A_file_that_only_claims_to_be_an_image_is_refused_and_removed()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+
+        var confirmed = await UploadAndConfirmAsync(client, "fake.png", "this is not a picture"u8.ToArray());
+
+        Assert.Equal(HttpStatusCode.BadRequest, confirmed.StatusCode);
+        Assert.Empty(await ListAsync(client));
+    }
+
+    [DockerFact]
+    public async Task A_video_gets_its_measured_duration_and_a_thumbnail()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+
+        var confirmed = await UploadAndConfirmAsync(client, "clip.mp4", await ClipAsync(2));
+        var media = (await confirmed.Content.ReadFromJsonAsync(WireJson.Default.MediaDto))!;
+
+        Assert.Equal(MediaKind.Video, media.Kind);
+        Assert.InRange(media.DurationSeconds!.Value, 1.5, 2.5);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync(media.ThumbUrl)).StatusCode);
+    }
+
+    [DockerFact]
+    public async Task A_video_longer_than_ten_minutes_is_refused()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+
+        var confirmed = await UploadAndConfirmAsync(client, "long.mp4", await ClipAsync(601));
+
+        Assert.Equal(HttpStatusCode.BadRequest, confirmed.StatusCode);
+        Assert.Contains("10 minutes", await confirmed.Content.ReadAsStringAsync());
+    }
+
+    [DockerFact]
+    public async Task One_user_cannot_confirm_read_or_delete_anothers_item()
+    {
+        var alice = await _factory.Value.SignedInAsync($"dev|alice-{Guid.NewGuid()}");
+        var bob = await _factory.Value.SignedInAsync($"dev|bob-{Guid.NewGuid()}");
+        var media = (await (await UploadAndConfirmAsync(alice, "mine.png", Png())).Content.ReadFromJsonAsync(WireJson.Default.MediaDto))!;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await bob.GetAsync(media.Url)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await bob.DeleteAsync($"/api/media/{media.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await bob.PostAsync($"/api/media/{media.Id}/confirm", null)).StatusCode);
+        Assert.Single(await ListAsync(alice));
+    }
+
+    [DockerFact]
+    public async Task Pin_and_title_changes_are_kept()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+        var media = (await (await UploadAndConfirmAsync(client, "a.png", Png())).Content.ReadFromJsonAsync(WireJson.Default.MediaDto))!;
+
+        (await client.PutAsJsonAsync($"/api/media/{media.Id}", new MediaUpdateRequest("Renamed", true))).EnsureSuccessStatusCode();
+
+        var updated = Assert.Single(await ListAsync(client));
+        Assert.Equal(("Renamed", true), (updated.Title, updated.Pinned));
+    }
+
+    [DockerFact]
+    public async Task An_unsupported_type_is_refused_before_any_upload_link_is_issued()
+    {
+        var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+
+        var response = await client.PostAsJsonAsync("/api/media/sas", new UploadRequest("virus.exe", 10));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await ListAsync(client));
+    }
+}

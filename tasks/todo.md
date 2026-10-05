@@ -61,10 +61,10 @@ Standard verification, unless a task says otherwise:
   read another user's item. Deps: T10.
 - [x] **T12 FFmpeg process.** Files: `Api/Common/FFmpegProcess.cs` (port `Meme:Api/Features/Output/FFmpegProcess.cs`).
   Test: probe duration of a generated 1 s clip. Deps: T04.
-- [ ] **T13 Upload.** Files: `Api/Features/Media/MediaEndpoints.cs` (`/sas`, `/{id}/confirm`),
+- [x] **T13 Upload.** Files: `Api/Features/Media/MediaEndpoints.cs` (`/sas`, `/{id}/confirm`),
   `UploadValidation.cs`. Port from `Meme:Api/Features/Ingestion`. Test: wrong type, oversize and
   > 10 min are rejected; confirm ignores a client-supplied path. Deps: T11, T12.
-- [ ] **T14 Gallery API.** Files: `Api/Features/Media/MediaEndpoints.cs` (list, get as 302 to SAS,
+- [x] **T14 Gallery API.** Files: `Api/Features/Media/MediaEndpoints.cs` (list, get as 302 to SAS,
   thumb, pin, title, delete), `Thumbnails.cs`. Test: delete removes the whole prefix. Deps: T13.
 - [ ] **T15 Gallery UI.** Files: `Client/Services/MediaApi.cs`, `Client/Services/BlobUploadService.cs`
   (port), `Client/Pages/Gallery.razor`, `Client/Shared/MediaDetail.razor`,

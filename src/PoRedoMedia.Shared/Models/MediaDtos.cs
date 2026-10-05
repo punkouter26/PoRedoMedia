@@ -17,3 +17,10 @@ public sealed record MediaDto(
     DateTimeOffset CreatedAt,
     string Url,
     string ThumbUrl);
+
+public sealed record UploadRequest(string FileName, long SizeBytes);
+
+/// <summary>Where to PUT the file. The link is valid for one blob and expires.</summary>
+public sealed record UploadTicket(Guid Id, string UploadUrl, DateTimeOffset ExpiresAt);
+
+public sealed record MediaUpdateRequest(string? Title, bool? Pinned);
