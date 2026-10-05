@@ -41,12 +41,15 @@ $run.notes | ForEach-Object { Write-Host "[$Label] note: $_" }
 
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $gallery = Invoke-RestMethod "$BaseUrl/api/media" -WebSession $session
+$n = 0
 foreach ($id in $run.outputIds) {
     $media = $gallery | Where-Object id -eq $id
     $extension = switch ($media.kind) { 'Video' { '.mp4' } 'Audio' { '.mp3' } default { '.png' } }
-    $path = Join-Path $OutDir "$Label-$($media.origin)$extension"
+    $n++
+    $path = Join-Path $OutDir "$Label-$n-$($media.origin)$extension"
     Invoke-WebRequest "$BaseUrl$($media.url)" -WebSession $session -OutFile $path
     Write-Host "[$Label] saved $path ($($media.kind), $([int]((Get-Item $path).Length / 1KB)) KB)"
+    if ($media.text) { Write-Host "[$Label] text: $($media.text)" }
 }
 
 if ($run.status -ne 'Complete') { exit 1 }

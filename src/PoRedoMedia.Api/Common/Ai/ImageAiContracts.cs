@@ -99,3 +99,11 @@ public interface ICombinedVisionAnalyzer
 
 public sealed record CombinedVisionResult(string Description, IReadOnlyList<string> Tags, double ConfidenceScore, SceneDetails Details, long ElapsedMs);
 
+public interface IVideoGenerationService
+{
+    /// <summary>
+    /// Animates a picture as the prompt describes and returns the finished MP4. Takes minutes.
+    /// Throws <see cref="RunStepException"/> when the provider rejects the request or runs out of time.
+    /// </summary>
+    Task<byte[]> GenerateAsync(byte[] image, string prompt, CancellationToken ct = default);
+}

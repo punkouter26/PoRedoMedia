@@ -130,9 +130,10 @@ Standard verification, unless a task says otherwise:
   `SceneDescriber.cs`, `SceneSnapshot.cs`, `Api/Common/Ai/LyriaClient.cs`. Output is an Audio media
   item whose parent is the image, with lyrics. Tests: port `RapRoastTests`,
   `SceneSnapshotParsingTests`; music refusal is reported, not thrown. Deps: T24, T25.
-- [ ] **T31 Rap roast, UI.** Files: `Client/Shared/RoastPlayer.razor`, `Client/Services/RoastScript.cs`,
-  `Client/wwwroot/js/roastStage.js` (port). Test: port `RoastScriptTests`. Deps: T23, T30.
-- [ ] **T32 Photo → video.** Files: `Api/Features/PhotoToVideo/PhotoToVideoStep.cs`,
+- [ ] **T31 Rap roast, UI.** Partly done: lyrics are stored with the track and shown beside the audio
+  player in results and in the gallery. Not ported yet: the karaoke stage (line highlighting), and the
+  PNG card and WebM export from `Redo` `roastStage.js` and `RoastScript.cs`. Deps: T23, T30.
+- [x] **T32 Photo → video.** Files: `Api/Features/PhotoToVideo/PhotoToVideoStep.cs`,
   `VeoVideoService.cs`. The step starts the Veo job and polls server-side; the clip is saved as a
   Video media item. Tests: port `VeoAudioDirectionTests`; timeout fails the step with a retry.
   Then `E2EAPI/ImageRunApiTests.cs`: Restyle + Meme caption + Rap roast + Photo → video in one run

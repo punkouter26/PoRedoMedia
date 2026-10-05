@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.MemeCaption;
+using PoRedoMedia.Api.Features.PhotoToVideo;
 using PoRedoMedia.Api.Features.RapRoast;
 using PoRedoMedia.Api.Features.Restyle;
 
@@ -29,6 +30,9 @@ public static class FunctionRegistration
             o.Retry.MaxRetryAttempts = 2;
         });
 
+        // A Veo call can be slow, and retrying a job start would bill twice: long timeout, no retries.
+        services.AddHttpClient(VeoVideoService.HttpClientName, c => c.Timeout = TimeSpan.FromMinutes(15));
+
         if (MockAi.IsEnabled(configuration, environment))
         {
             services.AddSingleton<MockVisionService>();
@@ -45,6 +49,8 @@ public static class FunctionRegistration
             services.AddSingleton<ISceneDetailProvider, NullSceneDetailProvider>();
             services.AddSingleton<IMusicGenerationService, MockMusicService>();
             AddRoast(services);
+            services.AddSingleton<IVideoGenerationService, MockVideoService>();
+            services.AddSingleton<IRunStep, PhotoToVideoStep>();
             return services;
         }
 
@@ -76,6 +82,8 @@ public static class FunctionRegistration
         {
             services.TryAddSingleton<IImageGenerationService, GeminiImageService>();
             services.AddSingleton<IRunStep, BulkStylesStep>();
+            services.AddSingleton<IVideoGenerationService, VeoVideoService>();
+            services.AddSingleton<IRunStep, PhotoToVideoStep>();
 
             if (canSeeImages)
             {

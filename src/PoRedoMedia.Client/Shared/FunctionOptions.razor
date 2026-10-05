@@ -83,6 +83,16 @@
     </RadzenFieldset>
 }
 
+@if (Functions.Contains(MediaFunction.PhotoToVideo))
+{
+    <RadzenFieldset Text="Photo to video" class="rz-mt-2">
+        <RadzenFormField Text="What should happen in the clip?" Style="width: 100%">
+            <RadzenTextArea Value="@Get(RunOptions.VideoPrompt)" Rows="3" MaxLength="1200" Change="@(v => Set(RunOptions.VideoPrompt, v))" />
+        </RadzenFormField>
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">Makes an 8-second clip with sound. It takes a few minutes.</RadzenText>
+    </RadzenFieldset>
+}
+
 @if (Functions.Contains(MediaFunction.MemeCaption))
 {
     <RadzenFieldset Text="Meme caption" class="rz-mt-2">
@@ -188,6 +198,8 @@
     {
         if (functions.Contains(MediaFunction.BulkStyles) && !options.Keys.Any(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal)))
             return "Tick at least one style.";
+        if (functions.Contains(MediaFunction.PhotoToVideo) && options.GetValueOrDefault(RunOptions.VideoPrompt, "").Trim().Length < 3)
+            return "Describe what should happen in the video.";
         if (!functions.Contains(MediaFunction.MemeCaption))
             return null;
 

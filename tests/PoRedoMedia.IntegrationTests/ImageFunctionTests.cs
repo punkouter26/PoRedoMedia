@@ -169,6 +169,40 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
+    public async Task All_four_stackable_functions_in_one_run_make_two_images_a_track_and_a_clip_from_the_final_image()
+    {
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await _factory.Value.SignedInAsync(user);
+        var source = await AddImageAsync(user);
+
+        var run = await RunAsync(
+            client, source, [MediaFunction.PhotoToVideo, MediaFunction.RapRoast, MediaFunction.MemeCaption, MediaFunction.Restyle],
+            new() { [RunOptions.VideoPrompt] = "The picture slowly zooms in" });
+
+        Assert.True(run.Status == RunStatus.Complete, run.Error);
+        var gallery = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
+        var made = run.OutputIds.Select(id => gallery.Single(m => m.Id == id)).ToList();
+        Assert.Equal(["Restyle", "MemeCaption", "RapRoast", "PhotoToVideo"], made.Select(m => m.Origin));
+        Assert.Equal([MediaKind.Image, MediaKind.Image, MediaKind.Audio, MediaKind.Video], made.Select(m => m.Kind));
+        // The roast and the clip are both made from the captioned image, the last one in the chain.
+        Assert.Equal([made[1].Id, made[1].Id], made.Skip(2).Select(m => m.ParentId!.Value));
+        Assert.InRange(made[3].DurationSeconds!.Value, 1.5, 2.5);
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, (await client.GetAsync(made[3].ThumbUrl)).StatusCode);
+    }
+
+    [DockerFact]
+    public async Task Photo_to_video_without_a_description_fails_with_the_reason()
+    {
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await _factory.Value.SignedInAsync(user);
+
+        var run = await RunAsync(client, await AddImageAsync(user), [MediaFunction.PhotoToVideo]);
+
+        Assert.Equal(RunStatus.Failed, run.Status);
+        Assert.Contains("Describe what should happen", run.Error);
+    }
+
+    [DockerFact]
     public async Task A_roast_the_music_provider_refuses_twice_ends_with_the_lyrics_in_a_note_and_no_audio()
     {
         var refusing = new RefusingMusic();

@@ -31,6 +31,9 @@ public static class RunOptions
     /// <summary>"true" allows profanity in the lyrics.</summary>
     public const string RoastExplicit = "RapRoast.explicit";
 
+    /// <summary>What should happen in the clip. Required for Photo to video.</summary>
+    public const string VideoPrompt = "PhotoToVideo.prompt";
+
     /// <summary>One style prompt for Bulk styles, index 0 to 9. None sent = the user's saved set.</summary>
     public static string BulkPrompt(int index) => $"BulkStyles.prompt{index}";
 }

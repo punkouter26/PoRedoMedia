@@ -25,7 +25,7 @@ public sealed class CreateImageUiTests : UiTestBase
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "What should happen to this image?" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Next" })).ToBeDisabledAsync();
         await page.Locator("[data-fn=MemeCaption] .rz-chkbox-box").ClickAsync();
-        await Assertions.Expect(page.Locator("[data-fn=RapRoast]")).ToContainTextAsync("Not available on this server.");
+        await Assertions.Expect(page.Locator("[data-fn=BulkStyles] input")).ToBeDisabledAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Next" }).ClickAsync();
 
         await Assertions.Expect(page.GetByText("beach.png → Meme caption")).ToBeVisibleAsync();
