@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
+using PoRedoMedia.Api.Features.Media;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddRadzenComponents();
 builder.Services.AddSingleton<StorageClients>();
 builder.Services.AddSingleton<BlobStorageService>();
+builder.Services.AddSingleton<IMediaRepository, MediaTableRepository>();
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
 

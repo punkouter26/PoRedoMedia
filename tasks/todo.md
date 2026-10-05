@@ -55,7 +55,7 @@ Standard verification, unless a task says otherwise:
   blob factories), `BlobStorageService.cs`, `BlobDelivery.cs`, `StronglyTypedIds.cs`. Port from
   `Meme:Api/Common`. Test: `IntegrationTests/AzuriteFixture.cs` + blob round trip; ids serialise as
   bare GUIDs. Deps: T08.
-- [ ] **T11 Media entity and repository.** Files: `Api/Common/MediaItem.cs`,
+- [x] **T11 Media entity and repository.** Files: `Api/Common/MediaItem.cs`,
   `Api/Common/RepositoryContracts.cs`, `Api/Features/Media/MediaTableRepository.cs`,
   `Shared/Models/MediaDtos.cs`, `Shared/Enums/MediaKind.cs`. Test: table round trip; a user cannot
   read another user's item. Deps: T10.
