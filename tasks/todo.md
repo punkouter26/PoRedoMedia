@@ -14,18 +14,18 @@ Standard verification, unless a task says otherwise:
 
 ## M0 — Foundation
 
-- [ ] **T01 Repository scaffold.** Files: `.gitignore`, `global.json`, `Directory.Build.props`,
+- [x] **T01 Repository scaffold.** Files: `.gitignore`, `global.json`, `Directory.Build.props`,
   `Directory.Packages.props`, `PoRedoMedia.slnx`. `git init` on `master`; `PoRedoImage/` and
   `PoMemeVideo/` ignored. Accept: `dotnet restore` succeeds. Deps: none.
-- [ ] **T02 Projects.** Files: `Api/PoRedoMedia.Api.csproj`, `Client/PoRedoMedia.Client.csproj`,
+- [x] **T02 Projects.** Files: `Api/PoRedoMedia.Api.csproj`, `Client/PoRedoMedia.Client.csproj`,
   `Shared/PoRedoMedia.Shared.csproj`, `docker-compose.yml`, `.editorconfig`. Accept: build is
   clean. Deps: T01.
-- [ ] **T03 Test projects and budgets.** Files: four test `.csproj`, `scripts/check-test-budgets.ps1`
+- [x] **T03 Test projects and budgets.** Files: four test `.csproj`, `scripts/check-test-budgets.ps1`
   (port `Meme` script). Accept: script exits 0. Deps: T02.
-- [ ] **T04 Host and health.** Files: `Api/Program.cs`, `Api/Common/HealthEndpoint.cs`,
+- [x] **T04 Host and health.** Files: `Api/Program.cs`, `Api/Common/HealthEndpoint.cs`,
   `Api/Components/App.razor`, `Client/Program.cs`, `Client/Routes.razor`. Test:
   `E2EAPI/HealthApiTests.cs` (`/health/live` 200). Accept: app starts on 4100. Deps: T03.
-- [ ] **T05 Spikes (R1, R2).** Files: `Directory.Packages.props`, `Api/Common/Ai/ChatClients.cs`,
+- [x] **T05 Spikes (R1, R2).** Files: `Directory.Packages.props`, `Api/Common/Ai/ChatClients.cs`,
   `Client/Pages/Home.razor`. Test: `UnitTests/ChatClientsTests.cs` builds an `IChatClient` from an
   `AzureOpenAIClient`; the page renders a `RadzenDataGrid` with filtering. Accept: clean build with
   trim analyzer on. **Stop and ask if R1 conflicts.** Deps: T04.

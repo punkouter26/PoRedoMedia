@@ -111,8 +111,8 @@ Image and video milestones depend only on runs, not on each other.
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R1 | `Microsoft.Extensions.AI.OpenAI` 10.10.1 needs a newer OpenAI SDK than `Azure.AI.OpenAI` 2.1.0 allows | Medium | High | Spike T05. If they conflict I stop and ask: bump Azure.AI.OpenAI (and retest `AiFoundryClient`), or drop Microsoft.Extensions.AI |
-| R2 | Radzen 12 trim warnings break the build | Medium | Medium | Spike T05; suppress at the one call site with a comment, as PoRedoImage does for IL2026 |
+| R1 | `Microsoft.Extensions.AI.OpenAI` 10.10.1 needs a newer OpenAI SDK than `Azure.AI.OpenAI` 2.1.0 allows | Medium | High | T05 result: resolves to OpenAI 2.14.0; a chat request round-trips through a stub transport. Still open for `AiFoundryClient`'s direct SDK calls, which get the same stub test in T35 |
+| R2 | Radzen 12 trim warnings break the build | Medium | Medium | T05 result: a filtering `RadzenDataGrid` builds clean under the analyzer. The analyzer is off for the Api project, which is never trimmed |
 | R3 | A model id copied from old settings has been retired | Medium | Medium | Each provider task starts by checking the id against the provider's docs; changes are reported |
 | R4 | Image generation, Veo waits and FFmpeg share the F1 plan's 60 CPU-min/day | High | High | Quota default 10; one run at a time per process; documented. A paid plan is your call |
 | R5 | F1 recycles after ~20 idle minutes and loses an in-flight run | Medium | Medium | Housekeeping marks it interrupted; retry is free |
