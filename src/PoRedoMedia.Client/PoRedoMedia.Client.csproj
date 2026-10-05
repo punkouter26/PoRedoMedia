@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+    <!-- IL2111: the Razor compiler's generated code for <Router> sets the framework's
+         reflection-annotated NotFoundPage property. Not user code, nothing to fix here. -->
+    <NoWarn>$(NoWarn);IL2111</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PoRedoMedia.Shared\PoRedoMedia.Shared.csproj" />
+  </ItemGroup>
+</Project>

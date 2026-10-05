@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!-- The server is never trimmed, and the code ported from PoMemeVideo was not written against
+         the trim analyzer. It stays on for Client and Shared, which ship to the browser. -->
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PoRedoMedia.Client\PoRedoMedia.Client.csproj" />
+    <ProjectReference Include="..\PoRedoMedia.Shared\PoRedoMedia.Shared.csproj" />
+  </ItemGroup>
+</Project>
