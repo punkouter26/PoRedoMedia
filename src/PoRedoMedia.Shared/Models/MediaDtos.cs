@@ -16,7 +16,8 @@ public sealed record MediaDto(
     bool Shared,
     DateTimeOffset CreatedAt,
     string Url,
-    string ThumbUrl);
+    string ThumbUrl,
+    string? Text = null);
 
 public sealed record UploadRequest(string FileName, long SizeBytes);
 

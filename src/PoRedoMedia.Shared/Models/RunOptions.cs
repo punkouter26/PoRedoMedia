@@ -22,6 +22,15 @@ public static class RunOptions
 
     public static string MemeZone(int index) => $"MemeCaption.zone{index}";
 
+    /// <summary>A <c>RapStyle</c> name. Absent = Trap.</summary>
+    public const string RoastStyle = "RapRoast.style";
+
+    /// <summary>A <c>RoastIntensity</c> name. Absent = Roast.</summary>
+    public const string RoastIntensity = "RapRoast.intensity";
+
+    /// <summary>"true" allows profanity in the lyrics.</summary>
+    public const string RoastExplicit = "RapRoast.explicit";
+
     /// <summary>One style prompt for Bulk styles, index 0 to 9. None sent = the user's saved set.</summary>
     public static string BulkPrompt(int index) => $"BulkStyles.prompt{index}";
 }

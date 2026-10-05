@@ -34,13 +34,16 @@ public sealed record MediaItem
     public double? DurationSeconds { get; init; }
     public bool Pinned { get; init; }
     public string? ShareToken { get; init; }
+
+    /// <summary>Words that belong to the item, such as the lyrics of a roast. Shown beside it.</summary>
+    public string? Text { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
 
     public string SourcePath => MediaBlobPaths.Source(Id, Extension);
 
     public MediaDto ToDto() => new(
         Id.Value, Kind, Title, Origin, ParentId?.Value, ContentType, SizeBytes, DurationSeconds, Pinned,
-        ShareToken is not null, CreatedAt, $"/api/media/{Id}/content", $"/api/media/{Id}/thumb");
+        ShareToken is not null, CreatedAt, $"/api/media/{Id}/content", $"/api/media/{Id}/thumb", Text);
 }
 
 /// <summary>

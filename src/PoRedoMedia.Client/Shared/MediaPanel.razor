@@ -18,6 +18,11 @@
                 break;
         }
 
+        @if (Media.Text is not null)
+        {
+            <pre class="media-text">@Media.Text</pre>
+        }
+
         <RadzenFormField Text="Title">
             <RadzenTextBox @bind-Value="_title" MaxLength="120" Change="@(_ => SaveAsync(_title, null))" />
         </RadzenFormField>

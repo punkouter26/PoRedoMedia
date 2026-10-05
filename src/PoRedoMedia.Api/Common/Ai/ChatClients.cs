@@ -24,3 +24,32 @@ public static class ChatClients
         new OllamaSharp.OllamaApiClient(
             new Uri(configuration[ConfigKeys.OllamaEndpoint] is { Length: > 0 } endpoint ? endpoint : "http://localhost:11434"), model);
 }
+
+/// <summary>
+/// The call shape the ported roast code uses, over an <see cref="IChatClient"/>. With no client it
+/// reports itself unconfigured, which sends callers down their own stated fallbacks.
+/// </summary>
+public sealed class ChatCompletions(IChatClient? chat = null) : IChatCompletionService
+{
+    public bool IsConfigured => chat is not null;
+
+    public async Task<ChatCompletionResult> CompleteAsync(
+        string systemPrompt, string userPrompt, byte[]? image = null, string? jsonSchema = null, CancellationToken ct = default)
+    {
+        if (chat is null)
+            throw new InvalidOperationException("No chat model is configured.");
+
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        List<AIContent> content = image is null ? [] : [new DataContent(image, "image/jpeg")];
+        content.Add(new TextContent(userPrompt));
+        var options = jsonSchema is null
+            ? null
+            : new ChatOptions { ResponseFormat = ChatResponseFormat.ForJsonSchema(System.Text.Json.JsonDocument.Parse(jsonSchema).RootElement, "answer") };
+
+        var response = await chat.GetResponseAsync(
+            [new ChatMessage(ChatRole.System, systemPrompt), new ChatMessage(ChatRole.User, content)], options, ct);
+        return new ChatCompletionResult(
+            response.Text, (int)(response.Usage?.TotalTokenCount ?? 0), (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+    }
+}
+

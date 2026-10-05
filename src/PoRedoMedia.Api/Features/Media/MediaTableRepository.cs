@@ -25,6 +25,7 @@ public sealed class MediaTableRepository(StorageClients storage) : IMediaReposit
             ["Pinned"] = item.Pinned,
             ["ShareToken"] = item.ShareToken,
             ["CreatedAt"] = item.CreatedAt,
+            ["Text"] = item.Text,
         }, TableUpdateMode.Replace, ct);
 
     public async Task<MediaItem?> GetAsync(UserId owner, MediaId id, CancellationToken ct = default)
@@ -69,5 +70,6 @@ public sealed class MediaTableRepository(StorageClients storage) : IMediaReposit
         Pinned = row.GetBoolean("Pinned") ?? false,
         ShareToken = row.GetString("ShareToken"),
         CreatedAt = row.GetDateTimeOffset("CreatedAt") ?? row.Timestamp ?? default,
+        Text = row.GetString("Text"),
     };
 }

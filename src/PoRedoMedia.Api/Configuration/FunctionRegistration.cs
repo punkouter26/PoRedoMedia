@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.MemeCaption;
+using PoRedoMedia.Api.Features.RapRoast;
 using PoRedoMedia.Api.Features.Restyle;
 
 namespace PoRedoMedia.Api.Configuration;
@@ -39,6 +40,11 @@ public static class FunctionRegistration
             services.AddSingleton<ReproductionPromptWriter>();
             services.AddSingleton<IRunStep, RestyleStep>();
             services.AddSingleton<IRunStep, BulkStylesStep>();
+            // No chat model in mock mode: the roast code then takes its own built-in fallbacks.
+            services.AddSingleton<IChatCompletionService>(new ChatCompletions());
+            services.AddSingleton<ISceneDetailProvider, NullSceneDetailProvider>();
+            services.AddSingleton<IMusicGenerationService, MockMusicService>();
+            AddRoast(services);
             return services;
         }
 
@@ -70,11 +76,28 @@ public static class FunctionRegistration
         {
             services.TryAddSingleton<IImageGenerationService, GeminiImageService>();
             services.AddSingleton<IRunStep, BulkStylesStep>();
+
+            if (canSeeImages)
+            {
+                // The roast needs a performer (Lyria, on the Google key) and something that can see.
+                // Without a chat model it still runs, on its built-in lyrics, and says so.
+                services.AddSingleton<IChatCompletionService>(new ChatCompletions(chat));
+                services.AddSingleton<ISceneDetailProvider, AzureSceneDetailService>();
+                services.AddSingleton<IMusicGenerationService, LyriaMusicService>();
+                AddRoast(services);
+            }
         }
 
         return services;
 
         bool Has(string key) => !string.IsNullOrWhiteSpace(configuration[key]);
+    }
+
+    private static void AddRoast(IServiceCollection services)
+    {
+        services.AddSingleton<SceneDescriber>();
+        services.AddSingleton<RoastLyricsWriter>();
+        services.AddSingleton<IRunStep, RapRoastStep>();
     }
 
     private static Dictionary<string, IVisionService> VisionProviders(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)

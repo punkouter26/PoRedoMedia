@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
@@ -147,5 +149,64 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
             gallery.Where(m => m.Origin == "BulkStyles").Select(m => m.Title).Order());
         Assert.All(gallery.Where(m => m.Origin == "BulkStyles"), m => Assert.Equal(source.Id.Value, m.ParentId));
         Assert.Equal(["Mine: only this one"], await client.GetFromJsonAsync("/api/bulk-prompts", WireJson.Default.ListString));
+    }
+
+    [DockerFact]
+    public async Task Rap_roast_saves_the_track_with_its_lyrics()
+    {
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await _factory.Value.SignedInAsync(user);
+        var source = await AddImageAsync(user);
+
+        var run = await RunAsync(client, source, [MediaFunction.RapRoast], new() { [RunOptions.RoastStyle] = "StandUp" });
+
+        Assert.True(run.Status == RunStatus.Complete, run.Error);
+        var roast = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!.Single(m => m.Id == Assert.Single(run.OutputIds));
+        Assert.Equal((MediaKind.Audio, "RapRoast", source.Id.Value, "audio/mpeg"), (roast.Kind, roast.Origin, roast.ParentId, roast.ContentType));
+        Assert.False(string.IsNullOrWhiteSpace(roast.Text));
+        // Mock mode has no chat model, so the lyrics are the built-in ones and the run says so.
+        Assert.NotEmpty(run.Notes);
+    }
+
+    [DockerFact]
+    public async Task A_roast_the_music_provider_refuses_twice_ends_with_the_lyrics_in_a_note_and_no_audio()
+    {
+        var refusing = new RefusingMusic();
+        using var factory = new AppFactory(azurite.ConnectionString, services =>
+        {
+            services.RemoveAll<IMusicGenerationService>();
+            services.AddSingleton<IMusicGenerationService>(refusing);
+        });
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await factory.SignedInAsync(user);
+        var services = factory.Services;
+        using var image = new Image<Rgba32>(64, 64);
+        using var png = new MemoryStream();
+        image.SaveAsPng(png);
+        var source = new MediaItem
+        {
+            Owner = new UserId(user), Id = MediaId.New(), Kind = MediaKind.Image, Status = MediaStatus.Ready, Origin = "Upload",
+            Title = "a.png", ContentType = "image/png", Extension = ".png", CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await services.GetRequiredService<BlobStorageService>().UploadAsync(source.SourcePath, png.ToArray(), "image/png");
+        await services.GetRequiredService<IMediaRepository>().SaveAsync(source);
+
+        var run = await RunAsync(client, source, [MediaFunction.RapRoast]);
+
+        Assert.Equal((RunStatus.Complete, 2), (run.Status, refusing.Calls));
+        Assert.Empty(run.OutputIds);
+        Assert.Contains(run.Notes, n => n.Contains("declined to perform the roast"));
+    }
+
+    private sealed class RefusingMusic : IMusicGenerationService
+    {
+        public int Calls { get; private set; }
+        public bool IsConfigured => true;
+
+        public Task<MusicGenerationResult> GenerateAsync(string lyrics, string stylePrompt, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(MusicGenerationResult.FromRefusal(1, "blocked"));
+        }
     }
 }

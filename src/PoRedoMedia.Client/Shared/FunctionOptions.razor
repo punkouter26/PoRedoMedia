@@ -53,6 +53,36 @@
     </RadzenFieldset>
 }
 
+@if (Functions.Contains(MediaFunction.RapRoast))
+{
+    <RadzenFieldset Text="Rap roast" class="rz-mt-2">
+        <RadzenStack Gap="0.75rem">
+            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.RoastStyle) is { Length: > 0 } style ? style : "Trap")"
+                             Change="@((string v) => Set(RunOptions.RoastStyle, v))" aria-label="How it is performed">
+                <Items>
+                    <RadzenSelectBarItem Text="Trap" Value="@("Trap")" />
+                    <RadzenSelectBarItem Text="Old school" Value="@("OldSchool")" />
+                    <RadzenSelectBarItem Text="Stand-up" Value="@("StandUp")" />
+                </Items>
+            </RadzenSelectBar>
+            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.RoastIntensity) is { Length: > 0 } level ? level : "Roast")"
+                             Change="@((string v) => Set(RunOptions.RoastIntensity, v))" aria-label="How hard it hits">
+                <Items>
+                    <RadzenSelectBarItem Text="Gentle" Value="@("Gentle")" />
+                    <RadzenSelectBarItem Text="Roast" Value="@("Roast")" />
+                    <RadzenSelectBarItem Text="Scorched" Value="@("Scorched")" />
+                    <RadzenSelectBarItem Text="Nuclear" Value="@("Nuclear")" />
+                </Items>
+            </RadzenSelectBar>
+            <div class="bulk-row">
+                <RadzenSwitch Name="roast-explicit" Value="@(Get(RunOptions.RoastExplicit) == "true")"
+                              Change="@(on => Set(RunOptions.RoastExplicit, on ? "true" : "false"))" />
+                <RadzenLabel Component="roast-explicit" Text="Allow strong language" />
+            </div>
+        </RadzenStack>
+    </RadzenFieldset>
+}
+
 @if (Functions.Contains(MediaFunction.MemeCaption))
 {
     <RadzenFieldset Text="Meme caption" class="rz-mt-2">

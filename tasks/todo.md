@@ -126,7 +126,7 @@ Standard verification, unless a task says otherwise:
   `BulkPromptTableEntityRoundTripTests`; a failed slot does not fail the run. Deps: T27.
 - [x] **T29 Bulk styles, UI.** Files: `Client/Shared/BulkBoard.razor`, `Client/Shared/BulkPrompts.razor`.
   Test: bUnit — failed slot shows retry; saving keeps only the selected. Deps: T23, T28.
-- [ ] **T30 Rap roast, server.** Files: `Api/Features/RapRoast/RapRoastStep.cs`, `RoastLyricsWriter.cs`,
+- [x] **T30 Rap roast, server.** Files: `Api/Features/RapRoast/RapRoastStep.cs`, `RoastLyricsWriter.cs`,
   `SceneDescriber.cs`, `SceneSnapshot.cs`, `Api/Common/Ai/LyriaClient.cs`. Output is an Audio media
   item whose parent is the image, with lyrics. Tests: port `RapRoastTests`,
   `SceneSnapshotParsingTests`; music refusal is reported, not thrown. Deps: T24, T25.

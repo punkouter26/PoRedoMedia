@@ -67,3 +67,17 @@ public sealed class MockImageGenerationService : IImageGenerationService
         return new GeneratedImage(stream.ToArray(), "image/png");
     }
 }
+
+/// <summary>Stands in for music generation with a tiny silent MP3.</summary>
+public sealed class MockMusicService : IMusicGenerationService
+{
+    private static readonly byte[] SilentMp3 = Convert.FromBase64String(
+        "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADwAAB"
+        + "pAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+        + "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV");
+
+    public bool IsConfigured => true;
+
+    public Task<MusicGenerationResult> GenerateAsync(string lyrics, string stylePrompt, CancellationToken ct = default) =>
+        Task.FromResult(new MusicGenerationResult(SilentMp3, "audio/mpeg", 1));
+}

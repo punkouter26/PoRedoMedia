@@ -46,6 +46,10 @@
                         break;
                 }
                 <figcaption>@output.Title</figcaption>
+                @if (output.Text is not null)
+                {
+                    <pre class="media-text">@output.Text</pre>
+                }
             </figure>
         }
     </div>
