@@ -1,0 +1,21 @@
+@using Microsoft.AspNetCore.Components.Web
+@using PoRedoMedia.Client
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <HeadOutlet @rendermode="NoPrerender" />
+</head>
+<body>
+    <Routes @rendermode="NoPrerender" />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>
+
+@code {
+    // The WASM client owns the only DI container for UI services, so a server prerender pass
+    // could not resolve them.
+    private static readonly IComponentRenderMode NoPrerender = new InteractiveWebAssemblyRenderMode(prerender: false);
+}
