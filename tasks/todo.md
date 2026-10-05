@@ -59,7 +59,7 @@ Standard verification, unless a task says otherwise:
   `Api/Common/RepositoryContracts.cs`, `Api/Features/Media/MediaTableRepository.cs`,
   `Shared/Models/MediaDtos.cs`, `Shared/Enums/MediaKind.cs`. Test: table round trip; a user cannot
   read another user's item. Deps: T10.
-- [ ] **T12 FFmpeg process.** Files: `Api/Common/FFmpegProcess.cs` (port `Meme:Api/Features/Output/FFmpegProcess.cs`).
+- [x] **T12 FFmpeg process.** Files: `Api/Common/FFmpegProcess.cs` (port `Meme:Api/Features/Output/FFmpegProcess.cs`).
   Test: probe duration of a generated 1 s clip. Deps: T04.
 - [ ] **T13 Upload.** Files: `Api/Features/Media/MediaEndpoints.cs` (`/sas`, `/{id}/confirm`),
   `UploadValidation.cs`. Port from `Meme:Api/Features/Ingestion`. Test: wrong type, oversize and

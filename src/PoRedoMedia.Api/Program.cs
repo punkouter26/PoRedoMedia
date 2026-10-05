@@ -20,6 +20,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddRadzenComponents();
 builder.Services.AddSingleton<StorageClients>();
 builder.Services.AddSingleton<BlobStorageService>();
+builder.Services.AddSingleton<FFmpegProcess>();
 builder.Services.AddSingleton<IMediaRepository, MediaTableRepository>();
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
