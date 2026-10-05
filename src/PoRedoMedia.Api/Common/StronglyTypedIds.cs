@@ -46,7 +46,6 @@ public readonly record struct MediaId(Guid Value) : IGuidId<MediaId>, IParsable<
 public readonly record struct RunId(Guid Value) : IGuidId<RunId>, IParsable<RunId>
 {
     public static RunId New() => new(Guid.NewGuid());
-    public static readonly RunId Empty = new(Guid.Empty);
     public static RunId From(Guid value) => new(value);
     public override string ToString() => Value.ToString();
     public static RunId Parse(string s, IFormatProvider? provider) => new(Guid.Parse(s));
@@ -82,7 +81,6 @@ public readonly record struct SoundId(Guid Value) : IGuidId<SoundId>, IParsable<
 public readonly record struct EntryId(Guid Value) : IGuidId<EntryId>, IParsable<EntryId>
 {
     public static EntryId New() => new(Guid.NewGuid());
-    public static readonly EntryId Empty = new(Guid.Empty);
     public static EntryId From(Guid value) => new(value);
     public override string ToString() => Value.ToString();
     public static EntryId Parse(string s, IFormatProvider? provider) => new(Guid.Parse(s));

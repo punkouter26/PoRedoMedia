@@ -1,6 +1,5 @@
 namespace PoRedoMedia.Shared.Enums;
 
-// Shared with the client: the server's ScriptEntry and the wire ScriptEntryDto both carry it.
 public enum VisualEffectType
 {
     None,

@@ -15,12 +15,6 @@ public static class SessionBlobPaths
     /// <summary>Speech transcript (JSON array of <c>TranscriptSegmentDto</c>).</summary>
     public static string Transcript(Guid mediaId) => $"{Prefix(mediaId)}transcript.json";
 
-    /// <summary>First keyframe of sessions stored before frames became JPEG (thumbnail fallback).</summary>
-    public static string FirstFrame(Guid mediaId) => $"{Prefix(mediaId)}frames/frame_0000.png";
-
-    /// <summary>First keyframe as current clients upload it (JPEG).</summary>
-    public static string FirstFrameJpeg(Guid mediaId) => Frame(mediaId, 0, "jpg");
-
     public static string FramesPrefix(Guid mediaId) => $"{Prefix(mediaId)}frames/";
 
     public static string Frame(Guid mediaId, int index, string extension) => $"{FramesPrefix(mediaId)}frame_{index:D4}.{extension}";

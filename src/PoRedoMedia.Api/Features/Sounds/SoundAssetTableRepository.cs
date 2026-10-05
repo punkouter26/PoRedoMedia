@@ -80,9 +80,3 @@ public sealed class SoundAssetTableRepository : ISoundAssetRepository
     /// <remarks>Fire-and-forget: the contract is synchronous and eviction is not ordered work.</remarks>
     public void InvalidateCache() => _ = _cache.RemoveAsync(CacheKey).AsTask();
 }
-
-public static class SoundAssetTableRepositoryExtensions
-{
-    public static IServiceCollection AddSoundAssetTableRepository(this IServiceCollection services)
-        => services.AddSingleton<ISoundAssetRepository, SoundAssetTableRepository>();
-}

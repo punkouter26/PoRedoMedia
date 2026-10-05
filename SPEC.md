@@ -301,3 +301,25 @@ container hosting · a paid App Service plan.
 | Q6 | Rap roast on an image yields audio beside the image. Should it be muxed into a video instead? | Keep as audio with the image, as PoRedoImage does |
 | Q7 | Retention: 30 days for unpinned items, as PoMemeVideo does? | Yes |
 | Q8 | App name and resource group in Azure, and the Entra app registration | `app-poredomedia` in RG `PoRedoMedia`; a new registration, created when deploy is approved |
+
+## Review outcomes (2026-10-05)
+
+Rules added by the Phase 5 review:
+- An upload link writes to a staging blob. Confirm checks it, copies it inside storage with the
+  app's content type, and deletes it. Images over 40 megapixels are refused.
+- An uploaded sound is visible to its uploader only; the seeded library is shared. 25 uploads per user.
+- Upload links, video frames and sound uploads share a limit of 60 requests per user per hour.
+- A run request whose options a step would refuse is answered 400 before a credit is spent.
+- An item with a run in progress cannot be deleted.
+- Fake auth and mock AI need Development or Test (not merely "not Production").
+- Public share pages hand out 15-minute read links.
+
+Found and not fixed (each needs a decision or is low value):
+- `/logout` is a GET, so another site can sign a user out. Fixing it changes the sign-out flow (auth: ask first).
+- `AzureAd:TenantId` is `common`, so any Microsoft account can sign in. Restrict with allowed tenants if unwanted.
+- Confirming a video upload still transcribes it without spending a credit (bounded by the upload rate limit).
+- Output blobs can be orphaned if the row write fails after the blob write; bulk draws continue briefly after a failed save.
+- Storage clients issue a "create if not exists" call per use (slow, not wrong).
+- Blob CORS rules are replaced at each start: the storage account must not be shared with another app.
+- More than one app instance would make housekeeping fail runs another instance is executing.
+- Unused video trim parameters are left in place for the unbuilt trim feature.

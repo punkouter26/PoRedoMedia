@@ -43,9 +43,6 @@ public sealed class BlobStorageService(StorageClients storage)
         await UploadAsync(path, stream, contentType, ct);
     }
 
-    public Task DeleteBlobIfExistsAsync(string path, CancellationToken ct = default) =>
-        storage.Blob(path).DeleteIfExistsAsync(cancellationToken: ct);
-
     /// <summary>Paths (written <c>container/name</c>) of every blob under a prefix.</summary>
     public async IAsyncEnumerable<string> ListBlobsByPrefixAsync(
         string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)

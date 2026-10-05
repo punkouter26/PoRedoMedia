@@ -255,7 +255,7 @@ Standard verification, unless a task says otherwise:
 
 ## M10 — Verify
 
-- [ ] **T60 Phase 5.** Full suite; `/code-review`; `/security-review`; `/simplify`; re-run tests;
+- [ ] **T60 Phase 5.** *(2026-10-05: full suite, security review, code review and dead-code pass done on the web app and fixed; see SPEC "Review outcomes". Still open: evidence per success criterion after deploy, and the items listed there as not fixed.)* Full suite; `/code-review`; `/security-review`; `/simplify`; re-run tests;
   evidence for each of the 14 success criteria; recap with deferred items.
 
 ## Verification of the plan as a whole

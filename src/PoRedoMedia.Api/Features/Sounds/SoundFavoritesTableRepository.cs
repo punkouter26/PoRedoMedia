@@ -45,9 +45,3 @@ public sealed class SoundFavoritesTableRepository : ISoundFavoritesRepository
         }
     }
 }
-
-public static class SoundFavoritesTableRepositoryExtensions
-{
-    public static IServiceCollection AddSoundFavoritesRepository(this IServiceCollection services)
-        => services.AddSingleton<ISoundFavoritesRepository, SoundFavoritesTableRepository>();
-}
