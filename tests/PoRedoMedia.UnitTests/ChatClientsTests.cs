@@ -1,7 +1,7 @@
 using System.ClientModel.Primitives;
 using System.Net;
 using System.Text;
-using Azure.AI.OpenAI;
+using OpenAI;
 using Microsoft.Extensions.AI;
 using PoRedoMedia.Api.Common.Ai;
 
@@ -15,19 +15,19 @@ public sealed class ChatClientsTests
          "usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}
         """;
 
-    // Guards risk R1: Microsoft.Extensions.AI.OpenAI pulls a newer OpenAI SDK than Azure.AI.OpenAI
-    // was built against, so a request must actually travel the pipeline, not merely compile.
+    // Azure is reached through the plain OpenAI SDK on its v1 endpoint. The request must actually
+    // travel the pipeline and land on that path, not merely compile.
     [Fact]
     public async Task Azure_OpenAI_chat_round_trips_through_IChatClient()
     {
         var handler = new StubHandler();
-        var options = new AzureOpenAIClientOptions { Transport = new HttpClientPipelineTransport(new HttpClient(handler)) };
+        var options = new OpenAIClientOptions { Transport = new HttpClientPipelineTransport(new HttpClient(handler)) };
         using IChatClient client = ChatClients.AzureOpenAi(new Uri("https://example.openai.azure.com/"), "not-a-real-key", "gpt-5.4-nano", options);
 
         var response = await client.GetResponseAsync("hi");
 
         Assert.Equal("hello", response.Text);
-        Assert.Contains("/openai/deployments/gpt-5.4-nano/chat/completions", handler.LastPath);
+        Assert.Contains("/openai/v1/chat/completions", handler.LastPath);
     }
 
     private sealed class StubHandler : HttpMessageHandler

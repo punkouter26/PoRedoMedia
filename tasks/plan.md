@@ -111,7 +111,7 @@ Image and video milestones depend only on runs, not on each other.
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R1 | `Microsoft.Extensions.AI.OpenAI` 10.10.1 needs a newer OpenAI SDK than `Azure.AI.OpenAI` 2.1.0 allows | Medium | High | T05 result: resolves to OpenAI 2.14.0; a chat request round-trips through a stub transport. Still open for `AiFoundryClient`'s direct SDK calls, which get the same stub test in T35 |
+| R1 | `Microsoft.Extensions.AI.OpenAI` 10.10.1 needs a newer OpenAI SDK than `Azure.AI.OpenAI` 2.1.0 allows | Happened | High | Resolved 2026-10-05: the video side failed at runtime with `MissingMethodException`. `Azure.AI.OpenAI` was removed; Azure is called through the plain OpenAI SDK on its v1 endpoint. Vision, director, roast and the image side were re-verified live |
 | R2 | Radzen 12 trim warnings break the build | Medium | Medium | T05 result: a filtering `RadzenDataGrid` builds clean under the analyzer. The analyzer is off for the Api project, which is never trimmed |
 | R3 | A model id copied from old settings has been retired | Medium | Medium | Each provider task starts by checking the id against the provider's docs; changes are reported |
 | R4 | Image generation, Veo waits and FFmpeg share the F1 plan's 60 CPU-min/day | High | High | Quota default 10; one run at a time per process; documented. A paid plan is your call |

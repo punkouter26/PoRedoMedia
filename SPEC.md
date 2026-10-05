@@ -81,7 +81,7 @@ A run takes exactly one source and one or more functions valid for its type.
 | Images | SixLabors.ImageSharp / ImageSharp.Drawing | 3.1.12 / 2.1.7 |
 | Video | FFmpeg, external process (PATH locally, bundled in deploy) | 9.0.1 locally; BtbN `n8.1-latest` on F1 |
 | Storage | Azure.Data.Tables / Azure.Storage.Blobs; Azurite locally | 12.11.0 / 12.25.0 |
-| Azure AI | Azure.AI.OpenAI / Azure.AI.Vision.ImageAnalysis | 2.1.0 / 1.0.0 |
+| Azure AI | OpenAI SDK against Azure's v1 endpoint / Azure.AI.Vision.ImageAnalysis. Azure.AI.OpenAI is not used: its only stable release cannot load beside the OpenAI SDK that Microsoft.Extensions.AI needs | 2.14.0 / 1.0.0 |
 | Auth | Microsoft.Identity.Web (Entra OIDC) + cookie | 4.9.0 |
 | Secrets | Azure.Extensions.AspNetCore.Configuration.Secrets, Azure.Identity | 1.5.1 / 1.21.0 |
 | Logging | Serilog.AspNetCore, OpenTelemetry | 10.0.0 / 1.15.x |

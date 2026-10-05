@@ -1,6 +1,6 @@
-using Azure;
-using Azure.AI.OpenAI;
+using System.ClientModel;
 using Microsoft.Extensions.AI;
+using OpenAI;
 
 namespace PoRedoMedia.Api.Common.Ai;
 
@@ -9,9 +9,13 @@ public static class ChatClients
 {
     public const string DefaultDeployment = "gpt-5.4-nano";
 
-    public static IChatClient AzureOpenAi(Uri endpoint, string key, string deployment, AzureOpenAIClientOptions? options = null) =>
-        new AzureOpenAIClient(endpoint, new AzureKeyCredential(key), options ?? new AzureOpenAIClientOptions())
-            .GetChatClient(deployment).AsIChatClient();
+    /// <param name="options">For tests: a transport to send through. The endpoint is set here either way.</param>
+    public static IChatClient AzureOpenAi(Uri endpoint, string key, string deployment, OpenAIClientOptions? options = null)
+    {
+        options ??= new OpenAIClientOptions();
+        options.Endpoint = AiFoundryClient.AzureV1Endpoint(endpoint.ToString());
+        return new OpenAIClient(new ApiKeyCredential(key), options).GetChatClient(deployment).AsIChatClient();
+    }
 
     /// <summary>The configured Azure OpenAI chat client, or null when its endpoint or key is missing.</summary>
     public static IChatClient? AzureOpenAi(IConfiguration configuration) =>

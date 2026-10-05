@@ -3,9 +3,7 @@ using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Azure;
-using Azure.AI.OpenAI;
-using Azure.AI.OpenAI.Chat;
+using OpenAI;
 using OpenAI.Audio;
 using OpenAI.Chat;
 
@@ -16,7 +14,7 @@ namespace PoRedoMedia.Api.Common;
 /// needs: a strict-JSON completion with a fallback, and token/cost logging.
 /// </summary>
 /// <remarks>
-/// Director, vision and transcription each built their own <see cref="AzureOpenAIClient"/> with
+/// Director, vision and transcription each built their own client with
 /// their own endpoint rules. Only vision honoured the test interception, only vision had a 429
 /// policy, and the director had no timeout in production. Share suggestions, sound tagging and
 /// the studio's director assist also need AI, from three different slices; a cross-cutting facade
@@ -41,8 +39,8 @@ public sealed partial class AiFoundryClient
 
     private const string FallbackDeployment = "gpt-5.4-nano";
 
-    private readonly AzureOpenAIClient? _standard;
-    private readonly AzureOpenAIClient? _failFast;
+    private readonly OpenAIClient? _standard;
+    private readonly OpenAIClient? _failFast;
     private readonly IConfiguration _config;
     private readonly ILogger<AiFoundryClient> _logger;
 
@@ -61,16 +59,16 @@ public sealed partial class AiFoundryClient
         _logger = logger;
 
         var endpoint = Setting(config, "AiFoundry:Endpoint");
-        if (endpoint is null)
+        var key = Setting(config, "AiFoundry:Key");
+        if (endpoint is null || key is null)
             return;
 
-        var key = Setting(config, "AiFoundry:Key");
         var timeout = TimeSpan.FromSeconds(config.GetValue<int?>("AiFoundry:TimeoutSeconds") ?? DefaultTimeoutSeconds);
 
-        _standard = Build(endpoint, key, environment, config, timeout, maxRetries: 2);
+        _standard = Build(endpoint, key, timeout, maxRetries: 2);
         // No SDK retries: callers on an interactive path (vision during upload) cap their own
         // backoff instead of waiting out a 30 s+ Retry-After inside the SDK.
-        _failFast = Build(endpoint, key, environment, config, timeout, maxRetries: 0);
+        _failFast = Build(endpoint, key, timeout, maxRetries: 0);
     }
 
     public bool IsConfigured => _standard is not null;
@@ -192,9 +190,7 @@ public sealed partial class AiFoundryClient
             options.Temperature = t;
         if (maxOutputTokens is { } max)
         {
-            // Sent as max_tokens: Azure.AI.OpenAI 2.1.0's switch to max_completion_tokens
-            // (SetNewMaxCompletionTokensPropertyEnabled) throws ArgumentNullException on fresh
-            // options. A deployment that rejects max_tokens is remembered and called uncapped.
+            // A deployment that rejects the cap is remembered and called uncapped.
             options.MaxOutputTokenCount = max;
         }
         return options;
@@ -203,17 +199,25 @@ public sealed partial class AiFoundryClient
     private static bool Mentions(ClientResultException ex, params string[] terms)
         => terms.Any(t => ex.Message.Contains(t, StringComparison.OrdinalIgnoreCase));
 
-    private static AzureOpenAIClient Build(
-        string endpoint, string? key, IHostEnvironment environment, IConfiguration config, TimeSpan timeout, int maxRetries)
-    {
-        var options = new AzureOpenAIClientOptions();
-        options.NetworkTimeout = timeout;
-        options.RetryPolicy = new ClientRetryPolicy(maxRetries);
+    /// <summary>
+    /// The resource is called through the plain OpenAI SDK on Azure's v1 endpoint, which takes the
+    /// resource key as a bearer token. Azure's own SDK is not used: its only stable release is
+    /// built for an OpenAI SDK far older than the one the rest of the app needs, and the two
+    /// cannot load together.
+    /// </summary>
+    private static OpenAIClient Build(string endpoint, string key, TimeSpan timeout, int maxRetries) =>
+        new(new ApiKeyCredential(key), new OpenAIClientOptions
+        {
+            Endpoint = AzureV1Endpoint(endpoint),
+            NetworkTimeout = timeout,
+            RetryPolicy = new ClientRetryPolicy(maxRetries),
+        });
 
-        return string.IsNullOrWhiteSpace(key)
-            ? new AzureOpenAIClient(new Uri(endpoint), new Azure.Identity.DefaultAzureCredential(), options)
-            : new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(key), options);
-    }
+    /// <summary><c>https://name.cognitiveservices.azure.com/</c> becomes <c>.../openai/v1/</c>.</summary>
+    public static Uri AzureV1Endpoint(string resourceEndpoint) =>
+        resourceEndpoint.Contains("/openai/v1", StringComparison.OrdinalIgnoreCase)
+            ? new Uri(resourceEndpoint.TrimEnd('/') + "/")
+            : new Uri(resourceEndpoint.TrimEnd('/') + "/openai/v1/");
 
     /// <summary>
     /// The JSON inside a Markdown code fence, or the text itself when it has none. Deployments in
