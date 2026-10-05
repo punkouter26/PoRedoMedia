@@ -25,10 +25,11 @@ public sealed class ConfigurationTests
 
     [Theory]
     [InlineData("PoRedoMedia--AiFoundry--Key", true, "AiFoundry:Key")]
-    [InlineData("AzureAd--TenantId", true, "AzureAd:TenantId")]
+    [InlineData("PoRedoMedia--AzureAd--ClientId", true, "AzureAd:ClientId")]
+    [InlineData("AzureAd--ClientId", false, null)]
     [InlineData("PoMemeVideo--AiFoundry--Key", false, null)]
     [InlineData("PoRedoImage-OpenAI-ApiKey", false, null)]
-    public void Only_this_apps_secrets_and_the_shared_sign_in_secrets_are_loaded(string secretName, bool loaded, string? configKey)
+    public void Only_this_apps_secrets_are_loaded(string secretName, bool loaded, string? configKey)
     {
         var manager = new PrefixKeyVaultSecretManager("PoRedoMedia");
 

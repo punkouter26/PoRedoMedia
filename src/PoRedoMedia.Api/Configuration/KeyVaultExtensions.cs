@@ -34,23 +34,16 @@ public static class KeyVaultExtensions
 }
 
 /// <summary>
-/// Maps <c>PoRedoMedia--AiFoundry--Key</c> to <c>AiFoundry:Key</c> and the shared
-/// <c>AzureAd--*</c> secrets to <c>AzureAd:*</c>. Every other secret in the shared vault belongs
-/// to another app and is not loaded.
+/// Maps <c>PoRedoMedia--AiFoundry--Key</c> to <c>AiFoundry:Key</c>. Every other secret in the
+/// shared vault belongs to another app and is not loaded, including the unprefixed
+/// <c>AzureAd--*</c> pair: this app signs in with its own registration.
 /// </summary>
 internal sealed class PrefixKeyVaultSecretManager(string prefix) : KeyVaultSecretManager
 {
     private readonly string _prefix = prefix + "--";
 
-    public override bool Load(SecretProperties secret) =>
-        secret.Name.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase)
-        || secret.Name.StartsWith("AzureAd--", StringComparison.OrdinalIgnoreCase);
+    public override bool Load(SecretProperties secret) => secret.Name.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase);
 
-    public override string GetKey(KeyVaultSecret secret)
-    {
-        var name = secret.Name.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase)
-            ? secret.Name[_prefix.Length..]
-            : secret.Name;
-        return name.Replace("--", ConfigurationPath.KeyDelimiter);
-    }
+    public override string GetKey(KeyVaultSecret secret) =>
+        secret.Name[_prefix.Length..].Replace("--", ConfigurationPath.KeyDelimiter);
 }
