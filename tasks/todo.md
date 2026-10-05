@@ -33,10 +33,10 @@ Standard verification, unless a task says otherwise:
 
 ## M1 — Auth and shell
 
-- [ ] **T06 Auth modes.** Files: `Api/Features/Auth/AuthServiceExtensions.cs`, `AuthEndpoints.cs`,
+- [x] **T06 Auth modes.** Files: `Api/Features/Auth/AuthServiceExtensions.cs`, `AuthEndpoints.cs`,
   `FakeAuthHandler.cs`, `Api/Common/PoEnvironments.cs`. Port `Redo:Web/Features/Auth` (drop
   `SignInTelemetry`). Test: fake auth throws in Production; dev-login sets a cookie. Deps: T04.
-- [ ] **T07 Antiforgery and deny by default.** Files: `Api/Common/Antiforgery.cs` (token endpoint,
+- [x] **T07 Antiforgery and deny by default.** Files: `Api/Common/Antiforgery.cs` (token endpoint,
   filter, extension), `Client/Http/AntiforgeryTokenHandler.cs`, `Client/Http/CorrelationHeaderHandler.cs`.
   Test: `E2EAPI/RoutingContractApiTests.cs` — anonymous surface equals the allow-list; write
   without token is 400. Deps: T06.
