@@ -7,6 +7,7 @@ public static class StorageNames
     {
         public const string Media = "Media";
         public const string Runs = "Runs";
+        public const string ShareLinks = "ShareLinks";
         public const string BulkPrompts = "BulkPrompts";
         public const string SoundAssets = "SoundAssets";
 

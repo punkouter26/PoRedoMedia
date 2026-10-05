@@ -157,4 +157,39 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Empty(await ListAsync(client));
     }
+
+    [DockerFact]
+    public async Task A_shared_item_is_public_until_sharing_stops_or_it_is_deleted()
+    {
+        var owner = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+        var visitor = _factory.Value.CreateClient(new() { AllowAutoRedirect = false });
+        var media = (await (await UploadAndConfirmAsync(owner, "<b>beach.png", Png())).Content.ReadFromJsonAsync(WireJson.Default.MediaDto))!;
+
+        var link = (await (await owner.PostAsync($"/api/media/{media.Id}/share", null)).Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto))!;
+        var again = (await (await owner.PostAsync($"/api/media/{media.Id}/share", null)).Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto))!;
+        var path = new Uri(link.Url).AbsolutePath;
+
+        Assert.Equal(link.Url, again.Url);
+        var page = await visitor.GetAsync(path);
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("og:image", html);
+        // The title came from a file name the user chose; it must arrive as text, not markup.
+        Assert.Contains("&lt;b&gt;beach.png", html);
+        Assert.DoesNotContain("<b>beach", html);
+        var content = await visitor.GetAsync(path + "/content");
+        Assert.Equal(HttpStatusCode.Redirect, content.StatusCode);
+        Assert.NotEmpty(await Storage.GetByteArrayAsync(content.Headers.Location));
+        Assert.True(Assert.Single(await ListAsync(owner)).Shared);
+
+        (await owner.DeleteAsync($"/api/media/{media.Id}/share")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync(path + "/content")).StatusCode);
+
+        var second = (await (await owner.PostAsync($"/api/media/{media.Id}/share", null)).Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto))!;
+        Assert.NotEqual(link.Url, second.Url);
+        (await owner.DeleteAsync($"/api/media/{media.Id}")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync(new Uri(second.Url).AbsolutePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync("/v/not-a-token")).StatusCode);
+    }
 }

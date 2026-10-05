@@ -57,7 +57,7 @@ public static class MediaEndpoints
     /// </summary>
     private static async Task<Results<Ok<MediaDto>, NotFound, ProblemHttpResult>> ConfirmUploadAsync(
         MediaId id, ClaimsPrincipal user, IMediaRepository media, StorageClients storage, BlobStorageService blobs,
-        FFmpegProcess ffmpeg, Thumbnails thumbnails, ISourceAudioAnalysis audio, CancellationToken ct)
+        FFmpegProcess ffmpeg, Thumbnails thumbnails, ISourceAudioAnalysis audio, IShareLinks links, CancellationToken ct)
     {
         var item = await media.GetAsync(UserId.From(user), id, ct);
         if (item is null || item.Status != MediaStatus.Uploading)
@@ -98,7 +98,7 @@ public static class MediaEndpoints
 
         if (problem is not null)
         {
-            await RemoveAsync(item, media, blobs, ct);
+            await RemoveAsync(item, media, blobs, links, ct);
             return Refused(problem);
         }
 
@@ -209,19 +209,23 @@ public static class MediaEndpoints
     }
 
     private static async Task<Results<NoContent, NotFound>> DeleteAsync(
-        MediaId id, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs, CancellationToken ct)
+        MediaId id, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs, IShareLinks links, CancellationToken ct)
     {
         var item = await media.GetAsync(UserId.From(user), id, ct);
         if (item is null)
             return TypedResults.NotFound();
 
-        await RemoveAsync(item, media, blobs, ct);
+        await RemoveAsync(item, media, blobs, links, ct);
         return TypedResults.NoContent();
     }
 
     /// <summary>Blobs first: if the row went first and the blob delete failed, nothing would point at the orphans.</summary>
-    private static async Task RemoveAsync(MediaItem item, IMediaRepository media, BlobStorageService blobs, CancellationToken ct)
+    private static async Task RemoveAsync(MediaItem item, IMediaRepository media, BlobStorageService blobs, IShareLinks links, CancellationToken ct)
     {
+        // A deleted item must not stay reachable through its link.
+        if (item.ShareToken is not null)
+            await links.RevokeAsync(item.ShareToken, ct);
+
         await blobs.DeletePrefixAsync(MediaBlobPaths.Prefix(item.Id), ct);
         await media.DeleteAsync(item.Owner, item.Id, ct);
     }

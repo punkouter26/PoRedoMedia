@@ -30,3 +30,6 @@ public sealed record MediaUpdateRequest(string? Title, bool? Pinned);
 public sealed record FrameUploadRequest(List<string> Frames, List<double>? Timestamps = null);
 
 public sealed record FramesResult(int FramesStored, int MomentsFound);
+
+/// <summary>The public address of a shared item.</summary>
+public sealed record ShareLinkDto(string Url);

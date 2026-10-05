@@ -74,3 +74,10 @@ public interface IRenderQuota
 
     Task RefundAsync(UserId userId, CancellationToken ct = default);
 }
+
+/// <summary>Share links, as far as other slices need them.</summary>
+public interface IShareLinks
+{
+    /// <summary>Turns a link off. The item it pointed at is untouched.</summary>
+    Task RevokeAsync(string token, CancellationToken ct = default);
+}
