@@ -26,7 +26,7 @@ public sealed class RapRoastStep(
         var explicitLanguage = context.Option(RunOptions.RoastExplicit) == "true";
 
         await context.ReportAsync("Studying the picture");
-        var (baseDescription, tags, details) = await AnalyseAsync(image, context.Option(RunOptions.VisionModel), ct);
+        var (baseDescription, tags, details) = await AnalyseAsync(context, image, ct);
         var scene = await sceneDescriber.DescribeAsync(image, baseDescription, tags, details, ct);
         if (scene.FallbackReason is not null)
             context.AddNote(scene.FallbackReason);
@@ -66,9 +66,9 @@ public sealed class RapRoastStep(
 
     /// <summary>One combined call when the detail provider can do it; otherwise vision and detail side by side.</summary>
     private async Task<(string Description, IReadOnlyList<string> Tags, SceneDetails Details)> AnalyseAsync(
-        byte[] image, string? modelId, CancellationToken ct)
+        RunContext context, byte[] image, CancellationToken ct)
     {
-        if (modelId is null && sceneDetails is ICombinedVisionAnalyzer { SupportsCombinedAnalysis: true } combined)
+        if (context.Option(RunOptions.VisionModel) is null && context.Option(RunOptions.VisionDescription) is null && sceneDetails is ICombinedVisionAnalyzer { SupportsCombinedAnalysis: true } combined)
         {
             try
             {
@@ -81,7 +81,7 @@ public sealed class RapRoastStep(
             }
         }
 
-        var seeing = visionRouter.Resolve(modelId).AnalyzeAsync(image, ct);
+        var seeing = visionRouter.SeeAsync(context, image, ct);
         var reading = SafeDetailsAsync(image, ct);
         await Task.WhenAll(seeing, reading);
         return ((await seeing).Description, (await seeing).Tags, await reading);

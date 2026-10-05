@@ -6,6 +6,12 @@ public static class RunOptions
     /// <summary>Model id from the model picker for looking at an image. Absent = the default provider.</summary>
     public const string VisionModel = "Vision.model";
 
+    /// <summary>
+    /// A description of the picture written on the user's device. When present the server does not
+    /// look at the picture itself.
+    /// </summary>
+    public const string VisionDescription = "Vision.description";
+
     /// <summary>Id of a recipe in <see cref="StyleRecipeCatalog"/>. Absent = recreate the picture as it is.</summary>
     public const string RestyleStyle = "Restyle.style";
 

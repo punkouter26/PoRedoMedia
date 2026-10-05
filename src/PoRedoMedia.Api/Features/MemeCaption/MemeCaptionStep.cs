@@ -39,7 +39,7 @@ public sealed class MemeCaptionStep(
 
             default:
                 await context.ReportAsync("Looking at the picture");
-                var seen = await vision.Resolve(context.Option(RunOptions.VisionModel)).AnalyzeAsync(image, ct);
+                var seen = await vision.SeeAsync(context, image, ct);
                 if (seen.FallbackReason is not null)
                     context.AddNote(seen.FallbackReason);
                 await context.ReportAsync("Writing the caption");

@@ -46,8 +46,8 @@
                 var index = i;
                 var name = $"bulk-{index}";
                 <div class="bulk-row">
-                    <RadzenCheckBox TValue="bool" Name="@name" Value="_bulkTicked[index]" Change="@(on => TickBulk(index, on))" />
-                    <RadzenLabel Component="@name" Text="@BulkPrompts.Title(_bulk[index])" />
+                    <input type="checkbox" id="@name" checked="@_bulkTicked[index]" @onchange="@(e => TickBulk(index, e.Value is true))" />
+                    <label for="@name">@BulkPrompts.Title(_bulk[index])</label>
                 </div>
             }
             <RadzenPanel AllowCollapse="true" Collapsed="true" Text="Edit the style prompts">
@@ -82,7 +82,7 @@
                 <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@recipe.Category · @recipe.Description</RadzenText>
             }
             <RadzenFormField Text="Or describe a style in your own words">
-                <RadzenTextBox Value="@Get(RunOptions.RestylePrompt)" MaxLength="400" Change="@(v => Set(RunOptions.RestylePrompt, v))" />
+                <RadzenTextBox Value="@Get(RunOptions.RestylePrompt)" MaxLength="400" aria-label="Style in your own words" Change="@(v => Set(RunOptions.RestylePrompt, v))" />
             </RadzenFormField>
         </RadzenStack>
     </RadzenFieldset>
@@ -122,7 +122,7 @@
 {
     <RadzenFieldset Text="Photo to video" class="rz-mt-2">
         <RadzenFormField Text="What should happen in the clip?" Style="width: 100%">
-            <RadzenTextArea Value="@Get(RunOptions.VideoPrompt)" Rows="3" MaxLength="1200" Change="@(v => Set(RunOptions.VideoPrompt, v))" />
+            <RadzenTextArea Value="@Get(RunOptions.VideoPrompt)" Rows="3" MaxLength="1200" aria-label="What should happen in the clip" Change="@(v => Set(RunOptions.VideoPrompt, v))" />
         </RadzenFormField>
         <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">Makes an 8-second clip with sound. It takes a few minutes.</RadzenText>
     </RadzenFieldset>
@@ -143,10 +143,10 @@
             @if (Mode == RunOptions.MemeModeText)
             {
                 <RadzenFormField Text="Top text">
-                    <RadzenTextBox Value="@Get(RunOptions.MemeTop)" MaxLength="120" Change="@(v => Set(RunOptions.MemeTop, v))" />
+                    <RadzenTextBox Value="@Get(RunOptions.MemeTop)" MaxLength="120" aria-label="Top text" Change="@(v => Set(RunOptions.MemeTop, v))" />
                 </RadzenFormField>
                 <RadzenFormField Text="Bottom text">
-                    <RadzenTextBox Value="@Get(RunOptions.MemeBottom)" MaxLength="120" Change="@(v => Set(RunOptions.MemeBottom, v))" />
+                    <RadzenTextBox Value="@Get(RunOptions.MemeBottom)" MaxLength="120" aria-label="Bottom text" Change="@(v => Set(RunOptions.MemeBottom, v))" />
                 </RadzenFormField>
             }
             else if (Mode == RunOptions.MemeModeTemplate)
@@ -162,7 +162,7 @@
                     {
                         var index = i;
                         <RadzenFormField Text="@template.ZoneLabels[index]">
-                            <RadzenTextBox Value="@Get(RunOptions.MemeZone(index))" MaxLength="120" Change="@(v => Set(RunOptions.MemeZone(index), v))" />
+                            <RadzenTextBox Value="@Get(RunOptions.MemeZone(index))" MaxLength="120" aria-label="@template.ZoneLabels[index]" Change="@(v => Set(RunOptions.MemeZone(index), v))" />
                         </RadzenFormField>
                     }
                 }

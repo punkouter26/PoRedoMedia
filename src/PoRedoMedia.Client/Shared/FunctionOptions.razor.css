@@ -4,3 +4,10 @@
     gap: 0.75rem;
     min-height: 44px;
 }
+
+.bulk-row input {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    accent-color: var(--rz-primary);
+}

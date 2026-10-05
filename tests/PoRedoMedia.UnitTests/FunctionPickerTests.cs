@@ -4,7 +4,6 @@ using PoRedoMedia.Client.Shared;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
 using Radzen;
-using Radzen.Blazor;
 using static PoRedoMedia.Shared.Enums.MediaFunction;
 
 namespace PoRedoMedia.UnitTests;
@@ -24,7 +23,7 @@ public sealed class FunctionPickerTests
     }
 
     private static Dictionary<string, bool> Disabled(IRenderedComponent<FunctionPicker> cut) =>
-        cut.FindComponents<RadzenCheckBox<bool>>().ToDictionary(c => c.Instance.Name!["fn-".Length..], c => c.Instance.Disabled);
+        cut.FindAll("input[type=checkbox]").ToDictionary(c => c.Id!["fn-".Length..], c => c.HasAttribute("disabled"));
 
     [Fact]
     public void Only_the_functions_for_the_media_kind_are_offered()
@@ -65,8 +64,7 @@ public sealed class FunctionPickerTests
         IReadOnlyList<MediaFunction>? reported = null;
         var cut = Render(ctx, MediaKind.Image, [RapRoast], changed: v => reported = v);
 
-        var restyle = cut.FindComponents<RadzenCheckBox<bool>>().First(c => c.Instance.Name == "fn-Restyle");
-        await cut.InvokeAsync(() => restyle.Instance.Change.InvokeAsync(true));
+        await cut.Find("#fn-Restyle").ChangeAsync(new Microsoft.AspNetCore.Components.ChangeEventArgs { Value = true });
 
         Assert.Equal([Restyle, RapRoast], reported);
     }

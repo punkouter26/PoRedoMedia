@@ -1,10 +1,15 @@
 @page "/"
 @inject MediaApi Media
 @inject RunApi Runs
+@using PoRedoMedia.Client.LocalAi
 @inject AppConfigService Config
+@inject SessionCostService Cost
+@inject LocalAiService LocalAi
+@inject HttpClient Http
 
 <PageTitle>Create · PoRedoMedia</PageTitle>
 
+<div class="create-page">
 <RadzenStack Gap="1rem">
     <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Create</RadzenText>
 
@@ -34,6 +39,19 @@
                             <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
                             <FunctionPicker Kind="_source.Kind" @bind-Value="_functions" Available="_available" />
                             <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" />
+                            @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
+                            {
+                                <RadzenFieldset Text="AI model" class="rz-mt-2">
+                                    <RadzenFormField Text="What looks at the picture" Style="width: 100%">
+                                        <RadzenDropDown TValue="string" Data="_visionOptions" ValueProperty="Id" TextProperty="Name"
+                                                        Value="@(_options.GetValueOrDefault(RunOptions.VisionModel, ""))"
+                                                        Change="@(v => _options[RunOptions.VisionModel] = v?.ToString() ?? "")" />
+                                    </RadzenFormField>
+                                    <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">
+                                        @(_visionOptions.FirstOrDefault(o => o.Id == _options.GetValueOrDefault(RunOptions.VisionModel, ""))?.Hint)
+                                    </RadzenText>
+                                </RadzenFieldset>
+                            }
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-4">
                                 <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
                                 <RadzenButton Text="Next" Disabled="@(_functions.Count == 0)" Click="@(() => _step = 2)" />
@@ -56,6 +74,13 @@
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
                                     @_quota.Remaining of @_quota.Limit runs left today. A run costs one.
                                 </RadzenText>
+                            }
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
+                                Estimated cost: $@(AiCatalog.EstimateCost(_functions, _options, _pricing).ToString("0.00"))
+                            </RadzenText>
+                            @if (_localStatus is not null)
+                            {
+                                <RadzenText class="rz-m-0" aria-live="polite">@_localStatus</RadzenText>
                             }
                             @if (_problem is not null)
                             {
@@ -87,6 +112,7 @@
         </Steps>
     </RadzenSteps>
 </RadzenStack>
+</div>
 
 @code {
     /// <summary>A gallery item to start from, set by "Use as source".</summary>
@@ -98,6 +124,9 @@
     private Dictionary<string, string> _options = [];
     private IReadOnlyCollection<MediaFunction> _available = [];
     private IReadOnlyList<string> _roastVoices = [];
+    private IReadOnlyList<AiModelOption> _visionOptions = [];
+    private AiPricingDto _pricing = new(0, 0, 0, 0, 0);
+    private string? _localStatus;
     private QuotaStatusDto? _quota;
     private RunDto? _run;
     private string? _problem;
@@ -109,6 +138,8 @@
         var config = await Config.GetAsync();
         _available = config?.AvailableFunctions ?? [];
         _roastVoices = config?.RoastVoices ?? [];
+        _visionOptions = AiCatalog.VisionOptions(config?.VisionModels ?? []);
+        _pricing = config?.Pricing ?? _pricing;
         _quota = await Runs.GetQuotaAsync();
         if (Source is { } id && (await Media.ListAsync()).FirstOrDefault(m => m.Id == id) is { } media)
             await PickAsync(media);
@@ -128,8 +159,56 @@
             return;
 
         _starting = true;
-        (_run, _problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], _options));
-        _starting = false;
+        try
+        {
+            if (AiCatalog.RunsInBrowser(_options.GetValueOrDefault(RunOptions.VisionModel)) && !await DescribeOnDeviceAsync())
+                return;
+
+            var estimate = AiCatalog.EstimateCost(_functions, _options, _pricing);
+            (_run, _problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], _options));
+            if (_run is not null)
+                Cost.Add(estimate);
+        }
+        finally
+        {
+            _starting = false;
+        }
+    }
+
+    /// <summary>
+    /// Runs the on-device vision model on the picked image and puts what it wrote into the run's
+    /// options. A failure is shown as it is and stops the run: quietly using a paid model in its
+    /// place would be a charge the user did not choose.
+    /// </summary>
+    private async Task<bool> DescribeOnDeviceAsync()
+    {
+        try
+        {
+            _localStatus = "Fetching the picture…";
+            StateHasChanged();
+            var image = await Http.GetByteArrayAsync(_source!.Url);
+            var outcome = await LocalAi.DescribeImageAsync(image, prompt: null, new Progress<LocalInferenceStatus>(status =>
+            {
+                _localStatus = status.LoadPercent is { } percent ? $"Getting the on-device model ready: {percent}%" : "Looking at the picture on your device…";
+                InvokeAsync(StateHasChanged);
+            }));
+            _options[RunOptions.VisionDescription] = outcome.Text;
+            return true;
+        }
+        catch (LocalInferenceException ex)
+        {
+            _problem = LocalAiErrorClassifier.Describe(ex.Failure);
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            _problem = "The picture could not be fetched for the on-device model.";
+            return false;
+        }
+        finally
+        {
+            _localStatus = null;
+        }
     }
 
     private async Task OnFinishedAsync(RunStatus status)

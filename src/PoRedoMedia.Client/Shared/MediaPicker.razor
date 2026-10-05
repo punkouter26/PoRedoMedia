@@ -5,13 +5,26 @@
 @inject IJSRuntime JS
 
 <RadzenStack Gap="1rem">
-    <div class="picker-drop">
+    <div class="picker-drop" @ref="_zone">
         <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-m-0">Choose a photo or a video</RadzenText>
+        <RadzenText class="rz-m-0">Drop it here, paste it, pick a file, or use the camera.</RadzenText>
         <RadzenText class="rz-m-0">JPG, PNG, WEBP or GIF up to 10 MB. MP4, MOV or WEBM up to 200 MB and 10 minutes.</RadzenText>
         <label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default picker-choose">
             Choose file
             <InputFile @ref="_input" OnChange="UploadAsync" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm" class="picker-file" />
         </label>
+        @if (_hasCamera && !_cameraOn)
+        {
+            <RadzenButton Text="Use the camera" Icon="photo_camera" Variant="Variant.Outlined" Click="StartCameraAsync" />
+        }
+        <video @ref="_camera" class="picker-camera" hidden="@(!_cameraOn)" playsinline muted aria-label="Camera preview"></video>
+        @if (_cameraOn)
+        {
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="Take the photo" Icon="camera" Click="TakePhotoAsync" />
+                <RadzenButton Text="Cancel" Variant="Variant.Outlined" Click="StopCameraAsync" />
+            </RadzenStack>
+        }
         @if (_percent is { } percent)
         {
             <RadzenProgressBar Value="percent" aria-label="Upload progress" Style="width: 100%" />
@@ -52,8 +65,42 @@
     private bool _analysing;
     private InputFile? _input;
 
+    private ElementReference _zone;
+    private ElementReference _camera;
+    private bool _hasCamera;
+    private bool _cameraOn;
+
     protected override async Task OnInitializedAsync() =>
         _recent = [.. (await Api.ListAsync()).Where(m => m.Kind != MediaKind.Audio).Take(12)];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await JS.InvokeVoidAsync("poMedia.acceptDropAndPaste", _zone, _input!.Element);
+        _hasCamera = await JS.InvokeAsync<bool>("poMedia.hasCamera");
+        StateHasChanged();
+    }
+
+    private async Task StartCameraAsync()
+    {
+        _cameraOn = await JS.InvokeAsync<bool>("poMedia.startCamera", _camera);
+        _error = _cameraOn ? null : "The camera could not be opened. Check that this site is allowed to use it.";
+    }
+
+    private async Task TakePhotoAsync()
+    {
+        // The photo arrives through the file input, exactly as a chosen file does.
+        await JS.InvokeAsync<bool>("poMedia.takePhoto", _camera, _input!.Element);
+        _cameraOn = false;
+    }
+
+    private async Task StopCameraAsync()
+    {
+        await JS.InvokeVoidAsync("poMedia.stopCamera", _camera);
+        _cameraOn = false;
+    }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {

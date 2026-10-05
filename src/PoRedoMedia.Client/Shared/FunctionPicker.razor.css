@@ -5,7 +5,14 @@
     min-height: 48px;
 }
 
-.function-row ::deep .function-label {
+.function-row input {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    accent-color: var(--rz-primary);
+}
+
+.function-row .function-label {
     display: flex;
     flex-direction: column;
 }

@@ -14,7 +14,7 @@
                         <NavLink href="gallery">Gallery</NavLink>
                         <NavLink href="sounds">Sounds</NavLink>
                     </nav>
-                    <span class="shell-user">@context.User.Identity?.Name</span>
+                    <span class="shell-user"><SessionCostChip /> @context.User.Identity?.Name</span>
                     <RadzenButton Text="Sign out" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
                                   Click="@(() => Navigation.NavigateTo("logout", forceLoad: true))" />
                 </Authorized>

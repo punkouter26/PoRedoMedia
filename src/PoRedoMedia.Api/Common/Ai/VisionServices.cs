@@ -208,3 +208,16 @@ public sealed class VisionServiceRouter(IReadOnlyDictionary<string, IVisionServi
             : throw new RunStepException("The picked vision model is not available on this server.");
     }
 }
+
+public static class VisionInput
+{
+    /// <summary>
+    /// What the picture shows: the description the user's own device wrote when there is one, and
+    /// otherwise the picked provider's. With a device description the server never looks at the
+    /// picture, so choosing the free on-device model can never cost a provider call.
+    /// </summary>
+    public static async Task<VisionResult> SeeAsync(this IVisionServiceRouter router, RunContext context, byte[] image, CancellationToken ct) =>
+        UserText.Clean(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionDescription), 2000) is { } onDevice
+            ? new VisionResult(onDevice, [], 1)
+            : await router.Resolve(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionModel)).AnalyzeAsync(image, ct);
+}

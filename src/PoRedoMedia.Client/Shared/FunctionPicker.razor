@@ -10,11 +10,14 @@
         var disabled = !available || (!ticked && !FunctionStack.CanAdd(Value, f));
         var name = $"fn-{f}";
         <div class="function-row" data-fn="@f">
-            <RadzenCheckBox TValue="bool" Name="@name" Value="ticked" Disabled="disabled" Change="@(on => ToggleAsync(f, on))" />
-            <RadzenLabel Component="@name" class="function-label">
+            @* A native checkbox: Radzen's nests an input inside a role="checkbox" element, which
+               assistive technology reads as two controls with no name. *@
+            <input type="checkbox" id="@name" checked="@ticked" disabled="@disabled"
+                   @onchange="@(e => ToggleAsync(f, e.Value is true))" />
+            <label for="@name" class="function-label">
                 <strong>@FunctionStack.Label(f)</strong>
                 <span>@(available ? FunctionStack.Describe(f) : "Not available on this server.")</span>
-            </RadzenLabel>
+            </label>
         </div>
     }
 </RadzenStack>

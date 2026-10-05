@@ -12,7 +12,12 @@ public abstract class UiTestBase : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _playwright = await Playwright.CreateAsync();
-        Browser = await _playwright.Chromium.LaunchAsync(new() { Headless = Environment.GetEnvironmentVariable("HEADED") != "1" });
+        Browser = await _playwright.Chromium.LaunchAsync(new()
+        {
+            Headless = Environment.GetEnvironmentVariable("HEADED") != "1",
+            // A synthetic camera, granted without a prompt, so the camera path can be tested.
+            Args = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+        });
     }
 
     public async Task DisposeAsync()

@@ -65,6 +65,64 @@ window.poMedia = {
         }
     },
 
+    // Drop, paste and the camera all hand their file to the picker's own file input, so one
+    // upload path serves every way of choosing media.
+    setFile(input, file) {
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+
+    // Makes a region accept dropped files, and the page accept pasted images, for one input.
+    acceptDropAndPaste(zone, input) {
+        const stop = (e) => { e.preventDefault(); };
+        zone.addEventListener('dragover', stop);
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer && e.dataTransfer.files[0];
+            if (file) window.poMedia.setFile(input, file);
+        });
+        const onPaste = (e) => {
+            const file = [...(e.clipboardData ? e.clipboardData.files : [])][0];
+            if (file && document.body.contains(input)) window.poMedia.setFile(input, file);
+        };
+        document.addEventListener('paste', onPaste);
+    },
+
+    hasCamera() {
+        return Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    },
+
+    async startCamera(video) {
+        try {
+            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            await video.play();
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    stopCamera(video) {
+        (video.srcObject ? video.srcObject.getTracks() : []).forEach((track) => track.stop());
+        video.srcObject = null;
+    },
+
+    // Takes the current camera frame as a JPEG file and hands it to the picker's input.
+    takePhoto(video, input) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        return new Promise((resolve) => canvas.toBlob((blob) => {
+            window.poMedia.stopCamera(video);
+            if (!blob) { resolve(false); return; }
+            window.poMedia.setFile(input, new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+            resolve(true);
+        }, 'image/jpeg', 0.92));
+    },
+
     download(url) {
         const a = document.createElement('a');
         a.href = url;

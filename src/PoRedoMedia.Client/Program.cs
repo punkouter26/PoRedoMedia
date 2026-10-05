@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using PoRedoMedia.Client.Http;
+using PoRedoMedia.Client.LocalAi;
 using PoRedoMedia.Client.Services;
 using Radzen;
 
@@ -25,6 +26,8 @@ builder.Services.AddScoped<MediaApi>();
 builder.Services.AddScoped<BlobUploadService>();
 builder.Services.AddScoped<RunApi>();
 builder.Services.AddScoped<SoundsApi>();
+builder.Services.AddScoped<SessionCostService>();
+builder.Services.AddScoped<LocalAiService>();
 builder.Services.AddRadzenComponents();
 
 // Claims only, serialized by the server. The browser never holds a token.

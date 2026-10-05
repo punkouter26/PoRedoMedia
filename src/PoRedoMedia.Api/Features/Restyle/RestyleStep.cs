@@ -21,12 +21,14 @@ public sealed class RestyleStep(
         var image = ImageBytes.ForProcessing(await blobs.ReadAllBytesAsync(context.Current.SourcePath, ct));
 
         await context.ReportAsync("Studying the picture");
-        var prompt = await writer.TryWriteAsync(image, ct);
+        // With a description from the user's device, that is the prompt: the detailed read is a
+        // metered call, and they picked the model that costs nothing.
+        var prompt = UserText.Clean(context.Option(RunOptions.VisionDescription), 2000) ?? await writer.TryWriteAsync(image, ct);
         if (prompt is null)
         {
             // The detailed read failed. A plain description still gives a usable picture, but the
             // user must know the result came from less.
-            var seen = await vision.Resolve(context.Option(RunOptions.VisionModel)).AnalyzeAsync(image, ct);
+            var seen = await vision.SeeAsync(context, image, ct);
             prompt = $"{seen.Description}. Elements: {string.Join(", ", seen.Tags)}";
             context.AddNote("The detailed read of your picture failed, so the new image was drawn from a short description instead.");
         }

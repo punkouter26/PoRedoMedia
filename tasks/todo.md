@@ -206,14 +206,14 @@ Standard verification, unless a task says otherwise:
 
 ## M7 — Model picker, local AI, capture, PWA
 
-- [ ] **T48 Catalog and pricing.** Files: `Shared/AiProviderIds.cs`, `Shared/AiCatalog.cs`
+- [x] **T48 Catalog and pricing.** Files: `Shared/AiProviderIds.cs`, `Shared/AiCatalog.cs`
   (capabilities, options), `Api/Features/AiCatalog/PricingEndpoints.cs`, `Shared/Models/AiPricingDto.cs`.
   Tests: port `AiServiceCatalogTests`. Deps: T26.
-- [ ] **T49 Picker and cost chip.** Files: `Client/Shared/AiServicePicker.razor`,
+- [x] **T49 Picker and cost chip.** Files: `Client/Shared/AiServicePicker.razor`,
   `Client/Services/AiSelectionState.cs`, `Client/Services/SessionCostService.cs`,
   `Client/Shared/SessionCostChip.razor`, `Shared/Models/RunDtos.cs` (model ids on the request).
   Tests: port `SessionCostServiceTests`; a run with `remote:gemini-vision` resolves Gemini. Deps: T48, T23.
-- [ ] **T50 Local AI, core.** Files: `Client/LocalAi/LocalModelRegistry.cs`, `DtypeChain.cs`,
+- [x] **T50 Local AI, core.** Files: `Client/LocalAi/LocalModelRegistry.cs`, `DtypeChain.cs`,
   `LocalInferenceSession.cs`, `LocalAiService.cs`, `LocalAiErrorClassifier.cs` (plus the small
   record files beside them). Tests: port `LocalAiChainTests`. Deps: T48.
 - [ ] **T51 Local AI, browser runtime.** Files: `Client/LocalAi/JsLocalInferenceRuntime.cs`,
@@ -221,11 +221,11 @@ Standard verification, unless a task says otherwise:
   `Api/Features/Runs/RunsEndpoints.cs` (accept a precomputed description). Test: a run carrying a
   precomputed description makes no server vision call (success criterion 10); a local failure does
   not fall back. Deps: T49, T50.
-- [ ] **T52 Webcam, paste, drop, PWA.** Files: `Client/wwwroot/js/intake.js` (from `Redo` `ux.js`:
+- [x] **T52 Webcam, paste, drop, PWA.** Files: `Client/wwwroot/js/intake.js` (from `Redo` `ux.js`:
   intake and camera only), `Client/Shared/MediaPicker.razor`, `Client/wwwroot/manifest.webmanifest`,
   `Client/wwwroot/sw.js`, `Api/Components/App.razor`. Test: port `CameraCaptureUiTests`
   (success criterion 11). Deps: T23.
-- [ ] **T53 Accessibility.** Files: `E2EUI/AccessibilityUiTests.cs` only, plus fixes it forces.
+- [x] **T53 Accessibility.** Files: `E2EUI/AccessibilityUiTests.cs` only, plus fixes it forces.
   Scans Login, Create, Gallery, Sounds. Accept: no WCAG 2.2 AA violations. Deps: T46, T52.
   **Checkpoint.**
 

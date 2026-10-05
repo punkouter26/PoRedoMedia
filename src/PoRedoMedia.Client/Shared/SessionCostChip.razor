@@ -1,0 +1,17 @@
+@implements IDisposable
+@inject SessionCostService Cost
+
+@if (Cost.Total > 0)
+{
+    <span class="cost-chip" title="An estimate from list prices for the runs started in this tab. Not a bill.">
+        ≈ $@Cost.Total.ToString("0.00") this session
+    </span>
+}
+
+@code {
+    protected override void OnInitialized() => Cost.Changed += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Cost.Changed -= Refresh;
+}

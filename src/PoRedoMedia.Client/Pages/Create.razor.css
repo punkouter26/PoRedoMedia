@@ -24,3 +24,15 @@
 .create-split ::deep .create-functions {
     flex: 2 1 360px;
 }
+
+/* The theme's step titles (grey when idle, pink when current, faded when disabled) do not meet
+   contrast on the page background. The numbered circle still shows which step is current. */
+.create-page ::deep .rz-steps .rz-steps-item,
+.create-page ::deep .rz-steps .rz-steps-item .rz-steps-title {
+    color: #16181d;
+    opacity: 1;
+}
+
+.create-page ::deep .rz-steps .rz-steps-current .rz-steps-title {
+    font-weight: 600;
+}

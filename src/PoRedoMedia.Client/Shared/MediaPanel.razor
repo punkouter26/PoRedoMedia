@@ -24,7 +24,7 @@
         }
 
         <RadzenFormField Text="Title">
-            <RadzenTextBox @bind-Value="_title" MaxLength="120" Change="@(_ => SaveAsync(_title, null))" />
+            <RadzenTextBox @bind-Value="_title" MaxLength="120" aria-label="Title" Change="@(_ => SaveAsync(_title, null))" />
         </RadzenFormField>
         <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
             @Media.Origin · @Media.CreatedAt.LocalDateTime.ToString("d MMM yyyy")

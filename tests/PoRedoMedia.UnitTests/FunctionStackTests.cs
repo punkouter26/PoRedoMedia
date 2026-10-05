@@ -57,4 +57,21 @@ public sealed class FunctionStackTests
         Assert.False(FunctionStack.CanAdd([Memeify], Restyle));
         Assert.Equal(VideoFunctions, FunctionStack.For(MediaKind.Video));
     }
+
+    [Fact]
+    public void A_run_is_priced_from_what_it_will_call_and_the_on_device_model_removes_the_vision_and_prompt_calls()
+    {
+        var prices = new PoRedoMedia.Shared.Models.AiPricingDto(VisionUsd: 1, TextUsd: 10, ImageUsd: 100, MusicUsd: 1000, VideoUsd: 10000);
+        decimal Cost(MediaFunction[] functions, params (string Key, string Value)[] options) =>
+            AiCatalog.EstimateCost(functions, options.ToDictionary(o => o.Key, o => o.Value), prices);
+
+        Assert.Equal(11, Cost([MemeCaption]));
+        Assert.Equal(0, Cost([MemeCaption], ("MemeCaption.mode", "text")));
+        Assert.Equal(110, Cost([Restyle]));
+        Assert.Equal(100 + 10, Cost([Restyle, MemeCaption], ("Vision.model", AiCatalog.BrowserVision)));
+        Assert.Equal(300, Cost([BulkStyles], ("BulkStyles.prompt0", "a"), ("BulkStyles.prompt1", "b"), ("BulkStyles.prompt2", "c")));
+        Assert.Equal(1021 + 10000, Cost([RapRoast, PhotoToVideo]));
+        Assert.Equal(11 + 20, Cost([Memeify, VideoRoast, Captions]));
+        Assert.Equal(["Automatic", "Google Gemini", "On this device (Florence-2)"], AiCatalog.VisionOptions([AiProviderIds.GeminiVision, "unknown"]).Select(o => o.Name));
+    }
 }

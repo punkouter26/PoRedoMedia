@@ -152,6 +152,57 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
+    public async Task A_description_written_on_the_device_means_the_server_never_looks_at_the_picture()
+    {
+        var vision = new CountingVision();
+        using var factory = new AppFactory(azurite.ConnectionString, services =>
+        {
+            services.RemoveAll<IVisionServiceRouter>();
+            services.AddSingleton<IVisionServiceRouter>(vision);
+        });
+        var user = $"dev|{Guid.NewGuid()}";
+        var client = await factory.SignedInAsync(user);
+        using var image = new Image<Rgba32>(64, 64);
+        using var png = new MemoryStream();
+        image.SaveAsPng(png);
+        var source = new MediaItem
+        {
+            Owner = new UserId(user), Id = MediaId.New(), Kind = MediaKind.Image, Status = MediaStatus.Ready, Origin = "Upload",
+            Title = "a.png", ContentType = "image/png", Extension = ".png", CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await factory.Services.GetRequiredService<BlobStorageService>().UploadAsync(source.SourcePath, png.ToArray(), "image/png");
+        await factory.Services.GetRequiredService<IMediaRepository>().SaveAsync(source);
+        var onDevice = new Dictionary<string, string> { [RunOptions.VisionModel] = "browser:florence2-base", [RunOptions.VisionDescription] = "A cat in a box" };
+
+        var described = await RunAsync(client, source, [MediaFunction.Restyle, MediaFunction.MemeCaption, MediaFunction.RapRoast], onDevice);
+        var notDescribed = await RunAsync(client, source, [MediaFunction.MemeCaption], new() { [RunOptions.VisionModel] = "browser:florence2-base" });
+
+        Assert.True(described.Status == RunStatus.Complete, described.Error);
+        Assert.Equal(0, vision.Calls);
+        // A browser model with nothing from the browser is refused, not replaced by a paid one.
+        Assert.Equal(RunStatus.Failed, notDescribed.Status);
+        Assert.Equal(1, vision.Resolves);
+    }
+
+    private sealed class CountingVision : IVisionServiceRouter, IVisionService
+    {
+        public int Calls { get; private set; }
+        public int Resolves { get; private set; }
+
+        public IVisionService Resolve(string? modelId)
+        {
+            Resolves++;
+            return modelId is null ? this : throw new RunStepException("The picked vision model is not available on this server.");
+        }
+
+        public Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(new VisionResult("seen by the server", [], 1));
+        }
+    }
+
+    [DockerFact]
     public async Task Rap_roast_saves_the_track_with_its_lyrics()
     {
         var user = $"dev|{Guid.NewGuid()}";
