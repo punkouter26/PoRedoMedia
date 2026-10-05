@@ -4,6 +4,9 @@ using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
 using PoRedoMedia.Api.Features.Media;
+using PoRedoMedia.Api.Features.Quota;
+using PoRedoMedia.Api.Features.Runs;
+using PoRedoMedia.Api.Hubs;
 using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +27,14 @@ builder.Services.AddSingleton<BlobStorageService>();
 builder.Services.AddSingleton<FFmpegProcess>();
 builder.Services.AddSingleton<IMediaRepository, MediaTableRepository>();
 builder.Services.AddSingleton<Thumbnails>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IRenderQuota, RenderQuotaService>();
+builder.Services.AddSingleton<IRunRepository, RunTableRepository>();
+builder.Services.AddSingleton<IRunNotifier, RunHubNotifier>();
+builder.Services.AddSingleton<RunExecutor>();
+builder.Services.AddSingleton<RunDispatcher>();
+builder.Services.AddHostedService(services => services.GetRequiredService<RunDispatcher>());
+builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Wire enums travel as their names, matching the client's source-generated JSON.
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddPoAntiforgery(builder.Environment);
@@ -59,6 +70,9 @@ app.MapAntiforgeryToken();
 app.MapAppConfig();
 app.MapAuthEndpoints();
 app.MapMedia();
+app.MapQuota();
+app.MapRuns();
+app.MapHub<RunHub>(RunHub.Path);
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()

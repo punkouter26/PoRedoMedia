@@ -74,17 +74,17 @@ Standard verification, unless a task says otherwise:
 
 ## M3 — Runs
 
-- [ ] **T16 Stack rules.** Files: `Shared/Enums/MediaFunction.cs`, `Shared/FunctionStack.cs`.
+- [x] **T16 Stack rules.** Files: `Shared/Enums/MediaFunction.cs`, `Shared/FunctionStack.cs`.
   Test: one theory over every combination in `SPEC.md` §2.1 (success criterion 4). Deps: T02.
-- [ ] **T17 Quota.** Files: `Api/Features/Quota/RenderQuotaService.cs`, `QuotaEndpoints.cs`,
+- [x] **T17 Quota.** Files: `Api/Features/Quota/RenderQuotaService.cs`, `QuotaEndpoints.cs`,
   `Shared/Models/QuotaStatusDto.cs`. Port `Meme:Api/Features/Quota`. Test: 11th run of the day is
   refused. Deps: T10.
-- [ ] **T18 Run entity and dispatcher.** Files: `Api/Common/Run.cs`, `Api/Common/ServiceContracts.cs`
+- [x] **T18 Run entity and dispatcher.** Files: `Api/Common/Run.cs`, `Api/Common/ServiceContracts.cs`
   (`IRunStep`, `IRunNotifier`), `Api/Features/Runs/RunTableRepository.cs`, `RunDispatcher.cs` (port
   `Meme:.../EngineRunDispatcher.cs` without `QueueRender`). Test: steps run in the fixed order; a
   failing step stops the chain and keeps earlier outputs; second run on a busy source is refused.
   Deps: T11, T16.
-- [ ] **T19 Runs API and hub.** Files: `Api/Features/Runs/RunsEndpoints.cs`, `Api/Hubs/RunHub.cs`,
+- [x] **T19 Runs API and hub.** Files: `Api/Features/Runs/RunsEndpoints.cs`, `Api/Hubs/RunHub.cs`,
   `Api/Hubs/RunHubNotifier.cs`, `Shared/Models/RunDtos.cs`. Test: invalid stack is 400 and spends
   no quota; quota spent is 429; busy is 409; hub join by a non-owner is refused. Deps: T17, T18.
   **Checkpoint.**
