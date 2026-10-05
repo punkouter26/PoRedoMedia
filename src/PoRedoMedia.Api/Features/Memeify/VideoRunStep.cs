@@ -82,7 +82,7 @@ public sealed class VideoRunStep(
             SourceBlobPath: source.SourcePath,
             OutputBlobPath: output.SourcePath,
             // The loud personas deep-fry the whole picture; that is a Meme-ify look, not a caption or roast one.
-            AggressiveVisuals: memeify && persona is "Brainrot" or "MLG",
+            AggressiveVisuals: memeify && DirectorPrompt.Persona(persona) is "brainrot" or "mlg",
             Cues: cues,
             AspectRatio: context.Option(RunOptions.VideoAspect),
             Subtitles: captions && transcript.Count > 0 ? transcript : null), ct);
@@ -129,7 +129,7 @@ public sealed class VideoRunStep(
         try
         {
             await context.ReportAsync("Watching the video");
-            var sounds = await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct);
+            var sounds = (await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
             var labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(sounds), ct);
             await VisionStore.SaveLabelsAsync(blobs, context.Source.Id, labels, ct);
             return labels;
@@ -147,7 +147,7 @@ public sealed class VideoRunStep(
         RunContext context, SceneLabel[] labels, IReadOnlyList<TranscriptSegmentDto> transcript, SourceAudio sourceAudio,
         double duration, string? persona, CancellationToken ct)
     {
-        var library = await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct);
+        var library = (await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
         if (library.Count == 0)
         {
             context.AddNote("The sound library is empty, so no meme sounds were added. Seed it with the seed-sounds command.");
@@ -156,8 +156,8 @@ public sealed class VideoRunStep(
 
         var favorites = await services.GetRequiredService<ISoundFavoritesRepository>().GetAsync(context.Run.Owner, ct);
         var sceneLabels = PlacementPlanner.SceneLabels(labels, transcript, duration);
-        var ranked = await services.GetRequiredService<ISemanticMatchingService>()
-            .GetTopCandidatesBatchAsync([.. sceneLabels.Select(PlacementPlanner.MatchQuery)], topN: 5, ct);
+        var ranked = services.GetRequiredService<ISemanticMatchingService>()
+            .GetTopCandidatesBatch(library, [.. sceneLabels.Select(PlacementPlanner.MatchQuery)], topN: 5);
         var plan = PlacementPlanner.Plan(sceneLabels, ranked, library, favorites, duration);
 
         await context.ReportAsync("Directing");

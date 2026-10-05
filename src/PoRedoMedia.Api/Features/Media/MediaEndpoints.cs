@@ -13,9 +13,9 @@ public static class MediaEndpoints
     public static IEndpointRouteBuilder MapMedia(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/media").RequireAntiforgeryValidation();
-        group.MapPost("/sas", StartUploadAsync);
+        group.MapPost("/sas", StartUploadAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapPost("/{id}/confirm", ConfirmUploadAsync);
-        group.MapPost("/{id}/frames", UploadFramesAsync);
+        group.MapPost("/{id}/frames", UploadFramesAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapGet("/", ListAsync);
         group.MapGet("/{id}/content", ContentAsync);
         group.MapGet("/{id}/thumb", ThumbAsync);
@@ -170,7 +170,7 @@ public static class MediaEndpoints
         {
             try
             {
-                var sounds = await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct);
+                var sounds = (await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct)).VisibleTo(UserId.From(user));
                 labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(sounds), ct);
                 await VisionStore.SaveLabelsAsync(blobs, id, labels, ct);
             }
@@ -233,12 +233,16 @@ public static class MediaEndpoints
         return TypedResults.Ok(item.ToDto());
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeleteAsync(
-        MediaId id, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs, IShareLinks links, CancellationToken ct)
+    private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> DeleteAsync(
+        MediaId id, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs, IShareLinks links,
+        Features.Runs.RunDispatcher dispatcher, CancellationToken ct)
     {
         var item = await media.GetAsync(UserId.From(user), id, ct);
         if (item is null)
             return TypedResults.NotFound();
+        // The run would fail half way, its credit spent, and write results under a deleted item.
+        if (dispatcher.IsBusy(id))
+            return TypedResults.Problem(detail: "This item has a run in progress. Delete it when the run ends.", statusCode: StatusCodes.Status409Conflict);
 
         await RemoveAsync(item, media, blobs, links, ct);
         return TypedResults.NoContent();

@@ -37,7 +37,11 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
     /// Subscribes to a run's progress events. Dispose the result to stop. Events sent before the
     /// subscription was in place are not replayed, so read the run once after this returns.
     /// </summary>
-    public async Task<IAsyncDisposable> FollowAsync(Guid runId, Func<RunProgressDto, Task> onProgress)
+    /// <param name="onGap">
+    /// Called when events may have been missed: after a reconnect, and when reconnecting is given
+    /// up. The caller reads the run again there, or a run that ended in the gap spins forever.
+    /// </param>
+    public async Task<IAsyncDisposable> FollowAsync(Guid runId, Func<RunProgressDto, Task> onProgress, Func<Task> onGap)
     {
         var hub = new HubConnectionBuilder()
             .WithUrl(navigation.ToAbsoluteUri("hubs/run"))
@@ -45,7 +49,12 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
             .AddJsonProtocol(o => o.PayloadSerializerOptions.TypeInfoResolverChain.Insert(0, WireJson.Default))
             .Build();
         hub.On("RunProgress", onProgress);
-        hub.Reconnected += _ => hub.InvokeAsync("JoinRun", runId.ToString());
+        hub.Reconnected += async _ =>
+        {
+            await hub.InvokeAsync("JoinRun", runId.ToString());
+            await onGap();
+        };
+        hub.Closed += _ => onGap();
         await hub.StartAsync();
         await hub.InvokeAsync("JoinRun", runId.ToString());
         return hub;

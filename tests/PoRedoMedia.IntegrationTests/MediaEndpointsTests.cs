@@ -129,6 +129,23 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
+    public async Task An_uploaded_sound_belongs_to_its_uploader_alone()
+    {
+        var owner = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+        var other = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
+        var name = $"honk-{Guid.NewGuid():N}";
+        using var form = new MultipartFormDataContent { { new ByteArrayContent(new byte[2048]), "file", "honk.mp3" } };
+
+        var created = await owner.PostAsync($"/api/sounds/upload?displayName={name}", form);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        Assert.Equal(1, (await owner.GetFromJsonAsync($"/api/sounds?query={name}", WireJson.Default.SoundPageDto))!.TotalCount);
+        Assert.Equal(0, (await other.GetFromJsonAsync($"/api/sounds?query={name}", WireJson.Default.SoundPageDto))!.TotalCount);
+        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(created.Headers.Location)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(created.Headers.Location)).StatusCode);
+    }
+
+    [DockerFact]
     public async Task A_file_that_only_claims_to_be_an_image_is_refused_and_removed()
     {
         var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");

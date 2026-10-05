@@ -34,27 +34,10 @@ public sealed class SemanticMatchingService : ISemanticMatchingService
     /// <summary>Tokens shorter than this are noise ("a", "of", "in") and are dropped.</summary>
     private const int MinTokenLength = 3;
 
-    private readonly ISoundAssetRepository _repository;
-
-    // Memoised for the lifetime of the scope. The service is Scoped, so one engine run reuses a
-    // single index across all of its labels and a later run always rebuilds from a fresh load.
-    private SearchIndex? _index;
-
-    public SemanticMatchingService(ISoundAssetRepository repository) => _repository = repository;
-
-    public async Task<IReadOnlyList<SoundCandidate>> GetTopCandidatesAsync(
-        string actionLabel,
-        int topN = 3,
-        CancellationToken cancellationToken = default)
-        => (await GetTopCandidatesBatchAsync([actionLabel], topN, cancellationToken))[0];
-
-    public async Task<IReadOnlyList<IReadOnlyList<SoundCandidate>>> GetTopCandidatesBatchAsync(
-        IReadOnlyList<string> queries,
-        int topN = 3,
-        CancellationToken cancellationToken = default)
+    public IReadOnlyList<IReadOnlyList<SoundCandidate>> GetTopCandidatesBatch(
+        IReadOnlyList<SoundAsset> library, IReadOnlyList<string> queries, int topN = 3)
     {
-        _index ??= BuildIndex(await _repository.LoadAllAsync(cancellationToken));
-        var index = _index;
+        var index = BuildIndex(library);
         if (queries.Count == 0)
             return [];
         if (index.Documents.Length == 0)

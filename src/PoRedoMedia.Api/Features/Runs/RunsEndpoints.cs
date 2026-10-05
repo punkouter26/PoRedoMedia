@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Api.Features.Runs;
@@ -24,7 +25,8 @@ public static class RunsEndpoints
     /// </summary>
     private static async Task<Results<Accepted<RunDto>, NotFound, ProblemHttpResult>> StartAsync(
         RunRequest request, ClaimsPrincipal user, IMediaRepository media, IRunRepository runs,
-        RunDispatcher dispatcher, RunExecutor executor, IRenderQuota quota, CancellationToken ct)
+        RunDispatcher dispatcher, RunExecutor executor, IRenderQuota quota,
+        Features.MemeCaption.MemeTemplateService templates, CancellationToken ct)
     {
         var owner = UserId.From(user);
         var source = await media.GetAsync(owner, MediaId.From(request.SourceId), ct);
@@ -41,6 +43,14 @@ public static class RunsEndpoints
         var options = request.Options ?? [];
         if (options.Count > MaxOptions || options.Any(o => o.Key.Length > 64 || o.Value is null || o.Value.Length > MaxOptionLength))
             return Problem("The options are too large.", StatusCodes.Status400BadRequest);
+
+        // Anything a step would refuse on sight is refused here, while it still costs nothing.
+        var missing = FunctionStack.MissingOption(functions, options)
+            ?? (functions.Contains(MediaFunction.MemeCaption) && options.GetValueOrDefault(RunOptions.MemeMode) == RunOptions.MemeModeTemplate
+                ? templates.Problem(options)
+                : null);
+        if (missing is not null)
+            return Problem(missing, StatusCodes.Status400BadRequest);
 
         if (!dispatcher.TryReserve(source.Id))
             return Problem("This item already has a run in progress.", StatusCodes.Status409Conflict);
@@ -59,7 +69,7 @@ public static class RunsEndpoints
         var spent = false;
         try
         {
-            var (allowed, status) = await quota.TryConsumeAsync(owner, ct);
+            var (allowed, status) = await quota.TryConsumeAsync(owner, CancellationToken.None);
             if (!allowed)
             {
                 dispatcher.Release(source.Id);
@@ -69,7 +79,7 @@ public static class RunsEndpoints
             }
 
             spent = true;
-            await runs.SaveAsync(run, ct);
+            await runs.SaveAsync(run, CancellationToken.None);
         }
         catch
         {

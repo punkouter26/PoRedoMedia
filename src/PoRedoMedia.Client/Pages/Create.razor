@@ -54,7 +54,7 @@
                             }
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-4">
                                 <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
-                                <RadzenButton Text="Next" Disabled="@(_functions.Count == 0)" Click="@(() => _step = 2)" />
+                                <RadzenButton Text="Next" Disabled="@(_functions.Count == 0)" Click="@ToRunStep" />
                             </RadzenStack>
                         </RadzenCard>
                     </div>
@@ -152,11 +152,23 @@
         return Task.CompletedTask;
     }
 
+    /// <summary>Coming back to the last step after a finished run offers a new run on the same source.</summary>
+    private void ToRunStep()
+    {
+        if (_done)
+            (_run, _problem, _done) = (null, null, false);
+        _step = 2;
+    }
+
     private async Task RunAsync()
     {
         _problem = FunctionOptions.Missing(_functions, _options);
         if (_problem is not null)
             return;
+
+        // A description left over from an earlier on-device attempt must not ride along with a
+        // server model: the server would use it and never look at the picture.
+        _options.Remove(RunOptions.VisionDescription);
 
         _starting = true;
         try
@@ -165,7 +177,12 @@
                 return;
 
             var estimate = AiCatalog.EstimateCost(_functions, _options, _pricing);
-            (_run, _problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], _options));
+            // Options of functions that were ticked and then unticked stay in the form; they are not sent.
+            var sent = _options
+                .Where(o => o.Key.StartsWith("Vision.", StringComparison.Ordinal) || o.Key.StartsWith("Video.", StringComparison.Ordinal)
+                    || _functions.Any(f => o.Key.StartsWith(f + ".", StringComparison.Ordinal)))
+                .ToDictionary(o => o.Key, o => o.Value);
+            (_run, _problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], sent));
             if (_run is not null)
                 Cost.Add(estimate);
         }

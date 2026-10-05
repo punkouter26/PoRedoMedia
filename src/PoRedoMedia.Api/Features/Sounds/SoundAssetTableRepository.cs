@@ -52,6 +52,7 @@ public sealed class SoundAssetTableRepository : ISoundAssetRepository
                 Priority = entity.GetBoolean("Priority") ?? false,
                 UseCase = entity.GetString("UseCase") ?? string.Empty,
                 Attribution = entity.GetString("Attribution") ?? string.Empty,
+                Owner = entity.GetString("Owner"),
             });
         }
 
@@ -70,6 +71,7 @@ public sealed class SoundAssetTableRepository : ISoundAssetRepository
             ["Priority"] = asset.Priority,
             ["UseCase"] = asset.UseCase,
             ["Attribution"] = asset.Attribution,
+            ["Owner"] = asset.Owner,
         };
         await client.UpsertEntityAsync(entity, TableUpdateMode.Replace, cancellationToken);
         InvalidateCache();

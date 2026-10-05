@@ -234,22 +234,9 @@
     }
 
     /// <summary>What still has to be filled in before these options can run, or null.</summary>
-    public static string? Missing(IReadOnlyList<MediaFunction> functions, IReadOnlyDictionary<string, string> options)
-    {
-        if (functions.Contains(MediaFunction.BulkStyles) && !options.Keys.Any(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal)))
-            return "Tick at least one style.";
-        if (functions.Contains(MediaFunction.PhotoToVideo) && options.GetValueOrDefault(RunOptions.VideoPrompt, "").Trim().Length < 3)
-            return "Describe what should happen in the video.";
-        if (!functions.Contains(MediaFunction.MemeCaption))
-            return null;
-
-        string Value(string key) => options.GetValueOrDefault(key, "").Trim();
-        return Value(RunOptions.MemeMode) switch
-        {
-            RunOptions.MemeModeText when Value(RunOptions.MemeTop).Length + Value(RunOptions.MemeBottom).Length == 0
-                => "Type the top or the bottom text for the meme.",
-            RunOptions.MemeModeTemplate when Value(RunOptions.MemeTemplate).Length == 0 => "Pick a meme template.",
-            _ => null,
-        };
-    }
+    public static string? Missing(IReadOnlyList<MediaFunction> functions, IReadOnlyDictionary<string, string> options) =>
+        // Only the page insists on a ticked style: a request with none uses the saved set.
+        functions.Contains(MediaFunction.BulkStyles) && !options.Keys.Any(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))
+            ? "Tick at least one style."
+            : FunctionStack.MissingOption(functions, options);
 }

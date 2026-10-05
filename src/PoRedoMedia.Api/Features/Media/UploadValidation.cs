@@ -28,8 +28,9 @@ public static class UploadValidation
 
     public static long MaxBytes(MediaKind kind) => kind == MediaKind.Video ? MaxVideoBytes : MaxImageBytes;
 
-    public static Result Classify(string fileName, long sizeBytes)
+    public static Result Classify(string? fileName, long sizeBytes)
     {
+        fileName ??= string.Empty;
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
         if (!Types.TryGetValue(extension, out var type))
             return Refuse("That file type is not supported. Use JPG, PNG, WEBP, GIF, MP4, MOV or WEBM.");

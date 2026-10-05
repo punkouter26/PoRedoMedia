@@ -88,17 +88,23 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         Assert.True(white > 100, "the saved image has no caption drawn on it");
     }
 
-    [DockerFact]
-    public async Task Typed_mode_with_no_text_fails_the_run_with_a_reason_and_saves_nothing()
+    [DockerTheory]
+    [InlineData(MediaFunction.MemeCaption, "MemeCaption.mode=text", "Type the top or the bottom text")]
+    [InlineData(MediaFunction.MemeCaption, "MemeCaption.mode=template;MemeCaption.template=drake;MemeCaption.zone0=only one", "needs 2 lines")]
+    [InlineData(MediaFunction.PhotoToVideo, null, "Describe what should happen")]
+    [InlineData(MediaFunction.Restyle, "Restyle.style=no-such-style", "Pick a style")]
+    public async Task Options_a_step_would_refuse_are_refused_up_front_and_cost_nothing(MediaFunction function, string? options, string reason)
     {
         var user = $"dev|{Guid.NewGuid()}";
         var client = await _factory.Value.SignedInAsync(user);
         var source = await AddImageAsync(user);
+        var sent = (options ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Split('=')).ToDictionary(o => o[0], o => o[1]);
 
-        var run = await RunAsync(client, source, [MediaFunction.MemeCaption], new() { [RunOptions.MemeMode] = "text" });
+        var response = await client.PostAsJsonAsync("/api/runs", new RunRequest(source.Id.Value, [function], sent), WireJson.Default.RunRequest);
 
-        Assert.Equal((RunStatus.Failed, "Type the top or the bottom text."), (run.Status, run.Error));
-        Assert.Empty(run.OutputIds);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(reason, await response.Content.ReadAsStringAsync());
+        Assert.Equal(0, (await client.GetFromJsonAsync("/api/quota", WireJson.Default.QuotaStatusDto))!.Used);
     }
 
     [DockerFact]
@@ -239,18 +245,6 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         Assert.Equal([made[1].Id, made[1].Id], made.Skip(2).Select(m => m.ParentId!.Value));
         Assert.InRange(made[3].DurationSeconds!.Value, 1.5, 2.5);
         Assert.Equal(System.Net.HttpStatusCode.Redirect, (await client.GetAsync(made[3].ThumbUrl)).StatusCode);
-    }
-
-    [DockerFact]
-    public async Task Photo_to_video_without_a_description_fails_with_the_reason()
-    {
-        var user = $"dev|{Guid.NewGuid()}";
-        var client = await _factory.Value.SignedInAsync(user);
-
-        var run = await RunAsync(client, await AddImageAsync(user), [MediaFunction.PhotoToVideo]);
-
-        Assert.Equal(RunStatus.Failed, run.Status);
-        Assert.Contains("Describe what should happen", run.Error);
     }
 
     [DockerFact]

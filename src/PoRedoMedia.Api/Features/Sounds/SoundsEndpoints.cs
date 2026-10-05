@@ -12,6 +12,7 @@ public static class SoundsEndpoints
 
     /// <summary>Upload limits. The size matches what the client checks before it sends the file.</summary>
     internal const long MaxUploadBytes = 15 * 1024 * 1024;
+    internal const int MaxUploadsPerUser = 25;
     internal const int MaxDisplayNameLength = 60;
     internal const int MaxUploadTags = 6;
     internal const int MaxTagLength = 24;
@@ -31,7 +32,7 @@ public static class SoundsEndpoints
             int offset = 0,
             CancellationToken cancellationToken = default) =>
         {
-            var allSounds = await repository.LoadAllAsync(cancellationToken);
+            var allSounds = (await repository.LoadAllAsync(cancellationToken)).VisibleTo(UserId.From(httpContext.User));
             var favorites = await favoritesRepository.GetAsync(UserId.From(httpContext.User), cancellationToken);
 
             var filtered = allSounds.AsEnumerable();
@@ -92,8 +93,14 @@ public static class SoundsEndpoints
             ISoundAssetRepository repository,
             BlobStorageService blobService,
             SoundTagger tagger,
+            HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
+            var owner = UserId.From(httpContext.User);
+            var library = await repository.LoadAllAsync(cancellationToken);
+            if (library.Count(s => s.Owner == owner.Key) >= MaxUploadsPerUser)
+                return Results.BadRequest(new { error = $"You can keep up to {MaxUploadsPerUser} uploaded sounds." });
+
             if (file is null || file.Length == 0)
                 return Results.BadRequest(new { error = "No audio file provided." });
 
@@ -124,26 +131,29 @@ public static class SoundsEndpoints
                 ActionVectorTags = CleanTags(tags),
                 BlobUrl = blobPath,
                 Priority = false,
-                UseCase = "custom-upload"
+                UseCase = "custom-upload",
+                Owner = owner.Key,
             };
 
-            await tagger.TagAsync(asset, SoundVocabulary.Tags(await repository.LoadAllAsync(cancellationToken)), cancellationToken);
+            await tagger.TagAsync(asset, SoundVocabulary.Tags(library.VisibleTo(owner)), cancellationToken);
             await repository.AddSoundAsync(asset, cancellationToken);
 
             return Results.Created($"/api/sounds/{soundId}/stream", ToDto(asset));
         })
         // The built-in form check is off because the group's filter already validates the
         // token; running both rejects even a correct one.
-        .DisableAntiforgery();
+        .DisableAntiforgery()
+        .RequireRateLimiting(UploadRateLimit.Policy);
 
         // GET /api/sounds/{soundId}/stream — proxy sound file from blob storage to browser.
         group.MapGet("/{soundId:guid}/stream", async (
             SoundId soundId,
             ISoundAssetRepository repository,
             BlobStorageService blobService,
+            HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var allSounds = await repository.LoadAllAsync(cancellationToken);
+            var allSounds = (await repository.LoadAllAsync(cancellationToken)).VisibleTo(UserId.From(httpContext.User));
             var sound = allSounds.FirstOrDefault(s => s.SoundId == soundId);
             if (sound is null || !await blobService.ExistsAsync(sound.BlobPath, cancellationToken))
                 return Results.NotFound();

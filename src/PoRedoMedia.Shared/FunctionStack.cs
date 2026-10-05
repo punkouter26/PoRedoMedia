@@ -1,3 +1,4 @@
+using PoRedoMedia.Shared.Models;
 using PoRedoMedia.Shared.Enums;
 
 namespace PoRedoMedia.Shared;
@@ -64,4 +65,29 @@ public static class FunctionStack
         MediaFunction.Captions => "Burn in subtitles of what is said.",
         _ => "",
     };
+
+    /// <summary>
+    /// What still has to be filled in before these functions can run with these options, or null.
+    /// The page checks it before sending and the server before spending a credit.
+    /// </summary>
+    public static string? MissingOption(IReadOnlyCollection<MediaFunction> functions, IReadOnlyDictionary<string, string> options)
+    {
+        string Value(string key) => options.GetValueOrDefault(key, "")?.Trim() ?? "";
+
+        if (functions.Contains(MediaFunction.PhotoToVideo) && Value(RunOptions.VideoPrompt).Length is < 3 or > 1200)
+            return "Describe what should happen in the video.";
+        if (functions.Contains(MediaFunction.Restyle) && Value(RunOptions.RestyleStyle) is { Length: > 0 } style
+            && StyleRecipeCatalog.All.All(r => r.Id != style))
+            return "Pick a style from the list.";
+        if (!functions.Contains(MediaFunction.MemeCaption))
+            return null;
+
+        return Value(RunOptions.MemeMode) switch
+        {
+            RunOptions.MemeModeText when Value(RunOptions.MemeTop).Length + Value(RunOptions.MemeBottom).Length == 0
+                => "Type the top or the bottom text for the meme.",
+            RunOptions.MemeModeTemplate when Value(RunOptions.MemeTemplate).Length == 0 => "Pick a meme template.",
+            _ => null,
+        };
+    }
 }

@@ -75,18 +75,9 @@ public sealed record SoundCandidate(SoundAsset Sound, float Score);
 /// <summary>Ranks the sound library against a vision label. Implemented by the MemeLibrary slice.</summary>
 public interface ISemanticMatchingService
 {
-    Task<IReadOnlyList<SoundCandidate>> GetTopCandidatesAsync(
-        string actionLabel,
-        int topN = 3,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Ranks every query in one pass over one index of the library. Results are in query order.
-    /// </summary>
-    Task<IReadOnlyList<IReadOnlyList<SoundCandidate>>> GetTopCandidatesBatchAsync(
-        IReadOnlyList<string> queries,
-        int topN = 3,
-        CancellationToken cancellationToken = default);
+    /// <summary>For each query, the best-matching sounds in <paramref name="library"/>, best first.</summary>
+    IReadOnlyList<IReadOnlyList<SoundCandidate>> GetTopCandidatesBatch(
+        IReadOnlyList<SoundAsset> library, IReadOnlyList<string> queries, int topN = 3);
 }
 
 /// <summary>

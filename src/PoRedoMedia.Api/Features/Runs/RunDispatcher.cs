@@ -69,6 +69,23 @@ public sealed class RunExecutor(
 
     public async Task ExecuteAsync(Run run, CancellationToken ct)
     {
+        try
+        {
+            await ExecuteStepsAsync(run, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            // Recording the outcome failed (a storage blip). One more attempt, so the run is not
+            // left showing "Running" until the next restart. Outputs are read back, not guessed.
+            var latest = await runs.GetAsync(run.Owner, run.Id, CancellationToken.None) ?? run;
+            if (latest.Status is RunStatus.Queued or RunStatus.Running)
+                await runs.SaveAsync(latest with { Status = RunStatus.Failed, Error = "The run could not be recorded. Try again." }, CancellationToken.None);
+            throw;
+        }
+    }
+
+    private async Task ExecuteStepsAsync(Run run, CancellationToken ct)
+    {
         var source = await media.GetAsync(run.Owner, run.SourceId, ct);
         if (source is null)
         {
@@ -103,7 +120,8 @@ public sealed class RunExecutor(
                 // Outputs made by earlier steps stay in the gallery; the run says where it stopped.
                 if (ex is not RunStepException)
                     logger.LogError(ex, "Run {RunId} failed in {Function}", run.Id, function);
-                var reason = ex is RunStepException ? ex.Message : $"{FunctionStack.Label(function)} failed unexpectedly.";
+                // A render that overran its time limit carries a message written for the user too.
+                var reason = ex is RunStepException or TimeoutException ? ex.Message : $"{FunctionStack.Label(function)} failed unexpectedly.";
                 await FinishAsync(run with { Status = RunStatus.Failed, Error = reason, Notes = [.. context.Notes] }, ct);
                 return;
             }

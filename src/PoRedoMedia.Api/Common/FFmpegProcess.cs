@@ -72,6 +72,7 @@ public sealed partial class FFmpegProcess
         catch (OperationCanceledException)
         {
             process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(CancellationToken.None);
 
             // Distinguish our render timeout from a genuine host-shutdown cancellation: the former
             // is a real failure the user should see; the latter is an expected teardown.

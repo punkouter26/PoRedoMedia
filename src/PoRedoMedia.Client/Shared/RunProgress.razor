@@ -77,10 +77,36 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _subscription = await Runs.FollowAsync(Run.Id, OnProgressAsync);
+        try
+        {
+            _subscription = await Runs.FollowAsync(Run.Id, OnProgressAsync, ResyncAsync);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            // No live updates. The run is already started and paid for, so fall back to asking.
+            _ = PollAsync();
+        }
+
         // The run may have moved on, or finished, before the subscription was in place.
-        if (await Runs.GetAsync(Run.Id) is { } current)
+        await ResyncAsync();
+    }
+
+    private Task ResyncAsync() => InvokeAsync(async () =>
+    {
+        if (!_finished && await Runs.GetAsync(Run.Id) is { } current)
+        {
             await ApplyAsync(current);
+            StateHasChanged();
+        }
+    });
+
+    private async Task PollAsync()
+    {
+        while (!_finished && !_disposed)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            await ResyncAsync();
+        }
     }
 
     private Task OnProgressAsync(RunProgressDto progress) => InvokeAsync(async () =>
@@ -106,7 +132,7 @@
         if (run.OutputIds.Any(id => _outputs.All(o => o.Id != id)))
         {
             var gallery = await Media.ListAsync();
-            _outputs.AddRange(run.OutputIds.Where(id => _outputs.All(o => o.Id != id)).Select(id => gallery.First(m => m.Id == id)));
+            _outputs.AddRange(run.OutputIds.Where(id => _outputs.All(o => o.Id != id)).Select(id => gallery.FirstOrDefault(m => m.Id == id)).OfType<MediaDto>());
         }
 
         if (run.Status is RunStatus.Complete or RunStatus.Failed && !_finished)
@@ -116,8 +142,11 @@
         }
     }
 
+    private bool _disposed;
+
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         if (_subscription is not null)
             await _subscription.DisposeAsync();
     }

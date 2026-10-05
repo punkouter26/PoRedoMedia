@@ -61,6 +61,7 @@ builder.Services.AddHostedService<HousekeepingService>();
 builder.Services.AddSignalR().AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Wire enums travel as their names, matching the client's source-generated JSON.
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddUploadRateLimit();
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
 
@@ -87,6 +88,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapHealth();

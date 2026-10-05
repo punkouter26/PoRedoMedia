@@ -31,6 +31,13 @@ public class SoundAsset
     }
 
     /// <summary>Curated wojak-storytelling staples the director should favor over generic matches.</summary>
+    /// <summary>
+    /// Who uploaded it, as <see cref="UserId.Key"/>. Null for the seeded library, which everyone
+    /// shares. An uploaded sound is its uploader's alone: its name and tags are quoted in the
+    /// director's prompt, so sharing it would let one user steer another user's video.
+    /// </summary>
+    public string? Owner { get; init; }
+
     public bool Priority { get; set; }
 
     /// <summary>Human-readable hint for the AI director describing when this sound fits.</summary>
@@ -38,4 +45,11 @@ public class SoundAsset
 
     /// <summary>Licence credit for third-party sounds that need one; empty otherwise.</summary>
     public string Attribution { get; set; } = string.Empty;
+}
+
+public static class SoundLibrary
+{
+    /// <summary>The shared library plus this user's own uploads.</summary>
+    public static IReadOnlyList<SoundAsset> VisibleTo(this IReadOnlyList<SoundAsset> sounds, UserId user) =>
+        [.. sounds.Where(s => s.Owner is null || s.Owner == user.Key)];
 }

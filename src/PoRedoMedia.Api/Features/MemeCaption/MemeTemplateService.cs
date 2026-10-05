@@ -1,3 +1,4 @@
+using PoRedoMedia.Shared.Models;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
@@ -25,6 +26,16 @@ public sealed class MemeTemplateService
     }
 
     public IReadOnlyList<MemeTemplate> GetTemplates() => _templates;
+
+    /// <summary>Why a template run cannot start with these options, or null. Used before a credit is spent and again by the step.</summary>
+    public string? Problem(IReadOnlyDictionary<string, string> options)
+    {
+        if (GetById(options.GetValueOrDefault(RunOptions.MemeTemplate, "")) is not { } template)
+            return "Pick a meme template.";
+        return Enumerable.Range(0, template.RequiredZoneCount).Any(i => string.IsNullOrWhiteSpace(options.GetValueOrDefault(RunOptions.MemeZone(i))))
+            ? $"{template.Name} needs {template.RequiredZoneCount} lines of text."
+            : null;
+    }
 
     public MemeTemplate? GetById(string id) =>
         _templates.FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.OrdinalIgnoreCase));
