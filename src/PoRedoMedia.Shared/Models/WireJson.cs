@@ -11,4 +11,9 @@ namespace PoRedoMedia.Shared.Models;
 [JsonSerializable(typeof(UploadRequest))]
 [JsonSerializable(typeof(UploadTicket))]
 [JsonSerializable(typeof(MediaUpdateRequest))]
+[JsonSerializable(typeof(QuotaStatusDto))]
+[JsonSerializable(typeof(RunRequest))]
+[JsonSerializable(typeof(RunDto))]
+[JsonSerializable(typeof(List<RunDto>))]
+[JsonSerializable(typeof(RunProgressDto))]
 public sealed partial class WireJson : JsonSerializerContext;

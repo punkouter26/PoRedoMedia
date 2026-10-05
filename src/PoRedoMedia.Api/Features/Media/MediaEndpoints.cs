@@ -104,13 +104,13 @@ public static class MediaEndpoints
         item = item with { Status = MediaStatus.Ready, SizeBytes = size, DurationSeconds = duration };
         await thumbnails.CreateAsync(item, ct);
         await media.SaveAsync(item, ct);
-        return TypedResults.Ok(ToDto(item));
+        return TypedResults.Ok(item.ToDto());
     }
 
     private static async Task<Ok<List<MediaDto>>> ListAsync(ClaimsPrincipal user, IMediaRepository media, CancellationToken ct) =>
         TypedResults.Ok((await media.ListAsync(UserId.From(user), ct))
             .Where(m => m.Status == MediaStatus.Ready)
-            .Select(ToDto)
+            .Select(m => m.ToDto())
             .ToList());
 
     private static async Task<IResult> ContentAsync(
@@ -137,7 +137,7 @@ public static class MediaEndpoints
 
         item = item with { Title = title ?? item.Title, Pinned = request.Pinned ?? item.Pinned };
         await media.SaveAsync(item, ct);
-        return TypedResults.Ok(ToDto(item));
+        return TypedResults.Ok(item.ToDto());
     }
 
     private static async Task<Results<NoContent, NotFound>> DeleteAsync(
@@ -166,9 +166,4 @@ public static class MediaEndpoints
 
     private static ProblemHttpResult Refused(string reason) =>
         TypedResults.Problem(detail: reason, statusCode: StatusCodes.Status400BadRequest);
-
-    public static MediaDto ToDto(MediaItem item) => new(
-        item.Id.Value, item.Kind, item.Title, item.Origin, item.ParentId?.Value, item.ContentType, item.SizeBytes,
-        item.DurationSeconds, item.Pinned, item.ShareToken is not null, item.CreatedAt,
-        $"/api/media/{item.Id}/content", $"/api/media/{item.Id}/thumb");
 }

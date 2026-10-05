@@ -1,4 +1,5 @@
 using PoRedoMedia.Shared.Enums;
+using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Api.Common;
 
@@ -36,6 +37,10 @@ public sealed record MediaItem
     public required DateTimeOffset CreatedAt { get; init; }
 
     public string SourcePath => MediaBlobPaths.Source(Id, Extension);
+
+    public MediaDto ToDto() => new(
+        Id.Value, Kind, Title, Origin, ParentId?.Value, ContentType, SizeBytes, DurationSeconds, Pinned,
+        ShareToken is not null, CreatedAt, $"/api/media/{Id}/content", $"/api/media/{Id}/thumb");
 }
 
 /// <summary>

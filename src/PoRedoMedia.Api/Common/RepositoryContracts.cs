@@ -16,3 +16,15 @@ public interface IMediaRepository
 
     Task DeleteAsync(UserId owner, MediaId id, CancellationToken ct = default);
 }
+
+public interface IRunRepository
+{
+    /// <summary>Creates or replaces the run.</summary>
+    Task SaveAsync(Run run, CancellationToken ct = default);
+
+    /// <summary>Null when the run does not exist or belongs to someone else.</summary>
+    Task<Run?> GetAsync(UserId owner, RunId id, CancellationToken ct = default);
+
+    /// <summary>The owner's runs, newest first.</summary>
+    Task<IReadOnlyList<Run>> ListAsync(UserId owner, CancellationToken ct = default);
+}
