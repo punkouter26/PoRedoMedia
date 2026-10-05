@@ -121,7 +121,7 @@ dotnet run --project src/PoRedoMedia.Api -- seed-sounds
 dotnet test tests/PoRedoMedia.UnitTests
 dotnet test tests/PoRedoMedia.IntegrationTests
 dotnet test tests/PoRedoMedia.E2EAPI
-$env:E2E_BASE_URL='http://localhost:4100'; dotnet test tests/PoRedoMedia.E2EUI
+pwsh scripts/run-e2e.ps1                           # starts a mock-mode instance, runs the browser tests, stops it
 dotnet test --filter "FullyQualifiedName~SomeClass.SomeMethod"
 
 # No Key Vault access: mock AI, no real provider calls

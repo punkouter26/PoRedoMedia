@@ -1,0 +1,30 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+
+<RadzenComponents />
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1.5rem" Wrap="FlexWrap.Wrap" class="rz-px-4 rz-py-2">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span" class="rz-m-0">PoRedoMedia</RadzenText>
+            <AuthorizeView>
+                <Authorized>
+                    <nav class="shell-nav" aria-label="Main">
+                        <NavLink href="" Match="NavLinkMatch.All">Create</NavLink>
+                        <NavLink href="gallery">Gallery</NavLink>
+                        <NavLink href="sounds">Sounds</NavLink>
+                    </nav>
+                    <span class="shell-user">@context.User.Identity?.Name</span>
+                    <RadzenButton Text="Sign out" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                  Click="@(() => Navigation.NavigateTo("logout", forceLoad: true))" />
+                </Authorized>
+            </AuthorizeView>
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenBody>
+        <MockDataBanner />
+        <main class="shell-main">
+            @Body
+        </main>
+    </RadzenBody>
+</RadzenLayout>

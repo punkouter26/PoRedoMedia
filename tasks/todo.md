@@ -44,7 +44,7 @@ Standard verification, unless a task says otherwise:
   (`PoRedoMedia--` prefix; port `Meme:Api/Configuration/PrefixKeyVaultSecretManager.cs`),
   `Api/Common/MockAi.cs`, `Shared/ConfigKeys.cs`, `Api/appsettings.json`,
   `Api/appsettings.Development.json`. Test: gate is false in Production whatever the flag. Deps: T04.
-- [ ] **T09 Client shell.** Files: `Client/Layout/MainLayout.razor` (+css), `Client/_Imports.razor`,
+- [x] **T09 Client shell.** Files: `Client/Layout/MainLayout.razor` (+css), `Client/_Imports.razor`,
   `Client/Pages/Login.razor`, `Client/Shared/RedirectToLogin.razor`, `Client/Shared/MockDataBanner.razor`.
   Built to the Phase 3 design. Test: `E2EUI/LoginUiTests.cs`. Deps: T07, design chosen.
   **Checkpoint.**

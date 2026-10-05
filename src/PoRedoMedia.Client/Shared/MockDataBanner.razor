@@ -1,0 +1,14 @@
+@inject AppConfigService Config
+
+@if (_useMockAi)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false" Shade="Shade.Lighter" class="rz-m-0">
+        Using mock data. No AI provider is being called; results are placeholders.
+    </RadzenAlert>
+}
+
+@code {
+    private bool _useMockAi;
+
+    protected override async Task OnInitializedAsync() => _useMockAi = (await Config.GetAsync())?.UseMockAi == true;
+}

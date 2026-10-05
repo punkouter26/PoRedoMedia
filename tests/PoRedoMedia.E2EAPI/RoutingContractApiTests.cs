@@ -12,6 +12,7 @@ public sealed class RoutingContractApiTests(ApiFactory factory) : IClassFixture<
     private static readonly string[] AnonymousAllowList =
     [
         "/api/antiforgery/token",
+        "/api/config",
         "/challenge-microsoft",
         "/dev-login",
         "/health/live",

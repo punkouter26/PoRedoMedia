@@ -1,16 +1,19 @@
 @using Microsoft.AspNetCore.Components.Web
 @using PoRedoMedia.Client
+@using Radzen.Blazor
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <RadzenTheme Theme="material" />
     <HeadOutlet @rendermode="NoPrerender" />
 </head>
 <body>
     <Routes @rendermode="NoPrerender" />
     <script src="_framework/blazor.web.js"></script>
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
 </body>
 </html>
 

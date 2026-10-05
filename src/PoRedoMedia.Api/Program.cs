@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
+using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,7 @@ builder.AddPoRedoMediaKeyVault();
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents()
     .AddAuthenticationStateSerialization();
+builder.Services.AddRadzenComponents();
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
 
@@ -45,6 +47,7 @@ app.UseAntiforgery();
 
 app.MapHealth();
 app.MapAntiforgeryToken();
+app.MapAppConfig();
 app.MapAuthEndpoints();
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()

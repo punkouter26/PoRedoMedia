@@ -1,0 +1,37 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+@inject AppConfigService Config
+
+<PageTitle>Sign in · PoRedoMedia</PageTitle>
+
+<RadzenStack AlignItems="AlignItems.Center" class="rz-mt-12">
+    <RadzenCard Style="max-width: 420px; width: 100%">
+        <RadzenStack Gap="1rem">
+            <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Sign in</RadzenText>
+            <RadzenText class="rz-m-0">Turn a photo or a video into a meme, a roast or a clip.</RadzenText>
+            <RadzenButton Text="Sign in with Microsoft" Click="@(() => Go("challenge-microsoft"))" />
+            @if (_config?.DevLoginEnabled == true)
+            {
+                <RadzenButton Text="Developer sign-in" Variant="Variant.Outlined"
+                              Click="@(() => Go("dev-login?email=dev%40localhost"))" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private AppConfigDto? _config;
+
+    protected override async Task OnInitializedAsync() => _config = await Config.GetAsync();
+
+    // These are server routes, so the browser must leave the app to reach them.
+    private void Go(string path)
+    {
+        var separator = path.Contains('?') ? '&' : '?';
+        var target = string.IsNullOrEmpty(ReturnUrl) ? path : $"{path}{separator}returnUrl={Uri.EscapeDataString(ReturnUrl)}";
+        Navigation.NavigateTo(target, forceLoad: true);
+    }
+}
