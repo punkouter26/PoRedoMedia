@@ -20,7 +20,7 @@ public static class KeyVaultExtensions
         {
             // Built separately so a failed load leaves no half-added source behind.
             var secrets = new ConfigurationBuilder()
-                .AddAzureKeyVault(new Uri(uri), new DefaultAzureCredential(), new PrefixKeyVaultSecretManager("PoRedoMedia"))
+                .AddAzureKeyVault(new Uri(uri), new DefaultAzureCredential(), new PrefixKeyVaultSecretManager("PoRedoMedia", localStorage: builder.Environment.IsDevelopment()))
                 .Build();
             builder.Configuration.AddConfiguration(secrets);
         }
@@ -38,11 +38,17 @@ public static class KeyVaultExtensions
 /// shared vault belongs to another app and is not loaded, including the unprefixed
 /// <c>AzureAd--*</c> pair: this app signs in with its own registration.
 /// </summary>
-internal sealed class PrefixKeyVaultSecretManager(string prefix) : KeyVaultSecretManager
+/// <param name="localStorage">
+/// True on a developer's machine: the vault's storage secret is the deployed app's account, and a
+/// local run must keep using the local emulator rather than write into it.
+/// </param>
+internal sealed class PrefixKeyVaultSecretManager(string prefix, bool localStorage = false) : KeyVaultSecretManager
 {
     private readonly string _prefix = prefix + "--";
 
-    public override bool Load(SecretProperties secret) => secret.Name.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase);
+    public override bool Load(SecretProperties secret) =>
+        secret.Name.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase)
+        && !(localStorage && secret.Name.StartsWith(_prefix + "Storage--", StringComparison.OrdinalIgnoreCase));
 
     public override string GetKey(KeyVaultSecret secret) =>
         secret.Name[_prefix.Length..].Replace("--", ConfigurationPath.KeyDelimiter);

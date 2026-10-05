@@ -36,6 +36,11 @@ public sealed class ConfigurationTests
         Assert.Equal(loaded, manager.Load(SecretModelFactory.SecretProperties(name: secretName)));
         if (loaded)
             Assert.Equal(configKey, manager.GetKey(new KeyVaultSecret(secretName, "value")));
+
+        // A developer's machine never takes the deployed app's storage account from the vault.
+        var storage = SecretModelFactory.SecretProperties(name: "PoRedoMedia--Storage--ConnectionString");
+        Assert.True(manager.Load(storage));
+        Assert.False(new PrefixKeyVaultSecretManager("PoRedoMedia", localStorage: true).Load(storage));
     }
 
     [Fact]
