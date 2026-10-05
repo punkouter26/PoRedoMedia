@@ -13,4 +13,5 @@ public static class ConfigKeys
     public const string KeyVaultUri = "KeyVault:Uri";
     public const string MocksUseMockAi = "Mocks:UseMockAi";
     public const string StorageConnectionString = "Storage:ConnectionString";
+    public const string RenderQuotaDailyLimit = "RenderQuota:DailyLimit";
 }

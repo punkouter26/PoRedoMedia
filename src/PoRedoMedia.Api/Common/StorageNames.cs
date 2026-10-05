@@ -6,6 +6,10 @@ public static class StorageNames
     public static class Tables
     {
         public const string Media = "Media";
+        public const string Runs = "Runs";
+
+        /// <summary>Per-user daily run counters, partitioned by UTC day.</summary>
+        public const string RenderQuotas = "RenderQuotas";
     }
 
     public static class Containers
