@@ -8,8 +8,10 @@
 
 // Pinned to a specific version: an unpinned CDN import would let a transformers.js release change
 // inference behaviour without a deploy. Vendor this file to wwwroot to drop the CDN entirely.
+// Florence-2 has its own model class. The generic AutoModelForVision2Seq does not know the
+// "florence2" model type and fails with "Unsupported model type" before any weights load.
 import {
-    AutoProcessor, AutoTokenizer, AutoModelForVision2Seq, RawImage, env,
+    AutoProcessor, AutoTokenizer, Florence2ForConditionalGeneration, RawImage, env,
 } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6';
 
 // The worker fetches weights itself; disabling the local-model path stops it probing a /models/
@@ -56,7 +58,7 @@ self.onmessage = async (event) => {
             const [processor, tokenizer, model] = await Promise.all([
                 AutoProcessor.from_pretrained(repoId, { progress_callback: onProgress }),
                 AutoTokenizer.from_pretrained(repoId, { progress_callback: onProgress }),
-                AutoModelForVision2Seq.from_pretrained(repoId, {
+                Florence2ForConditionalGeneration.from_pretrained(repoId, {
                     dtype,
                     device: device === 'WebGpu' ? 'webgpu' : 'wasm',
                     progress_callback: onProgress,
@@ -71,11 +73,16 @@ self.onmessage = async (event) => {
         const image = await RawImage.fromBlob(base64ToBlob(imageBase64));
         const task = prompt && prompt.trim() ? prompt : '<MORE_DETAILED_CAPTION>';
 
-        const inputs = await cached.processor(image, task);
-        const generated = await cached.model.generate({ ...inputs, max_new_tokens: 256 });
-        const decoded = cached.tokenizer.batch_decode(generated, { skip_special_tokens: true });
+        // Florence-2 is driven by a task token, which the processor expands into the prompt the
+        // model was trained on. Text and picture are prepared separately and generated together.
+        const textInputs = cached.tokenizer(cached.processor.construct_prompts(task));
+        const visionInputs = await cached.processor(image);
+        const generated = await cached.model.generate({ ...textInputs, ...visionInputs, max_new_tokens: 256 });
+        const raw = cached.tokenizer.batch_decode(generated, { skip_special_tokens: false })[0];
+        const parsed = cached.processor.post_process_generation(raw, task, image.size);
+        const text = typeof parsed?.[task] === 'string' ? parsed[task] : String(raw ?? '');
 
-        post({ type: 'complete', text: (decoded?.[0] ?? '').trim() });
+        post({ type: 'complete', text: text.trim() });
     } catch (err) {
         const reason = err?.message ?? String(err);
         console.error('[LocalAI/transformers] Failed:', reason, err);

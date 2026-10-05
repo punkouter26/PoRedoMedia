@@ -92,15 +92,11 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
         await Assertions.Expect(page.GetByText("Estimated cost: $0.00")).ToBeVisibleAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Run" }).ClickAsync();
 
-        try
-        {
-            await Assertions.Expect(page.GetByText("Done. The results are in your gallery.")).ToBeVisibleAsync(new() { Timeout = 600_000 });
-        }
-        catch (Exception)
-        {
-            var shown = await page.Locator(".rz-alert").AllInnerTextsAsync();
-            throw new Xunit.Sdk.XunitException($"On-device run did not finish. Shown: {string.Join(" | ", shown)}. Console: {string.Join(" | ", log.TakeLast(8))}");
-        }
+        // Either the run finishes or the page shows why it could not; both end the wait.
+        var outcome = page.Locator(".create-page .rz-alert").First;
+        await outcome.WaitForAsync(new() { Timeout = 600_000 });
+        var shown = await outcome.InnerTextAsync();
+        Assert.True(shown.Contains("Done. The results are in your gallery."), $"Shown: {shown}. Console: {string.Join(" | ", log.TakeLast(8))}");
     }
 }
 

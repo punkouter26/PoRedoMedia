@@ -216,7 +216,7 @@ Standard verification, unless a task says otherwise:
 - [x] **T50 Local AI, core.** Files: `Client/LocalAi/LocalModelRegistry.cs`, `DtypeChain.cs`,
   `LocalInferenceSession.cs`, `LocalAiService.cs`, `LocalAiErrorClassifier.cs` (plus the small
   record files beside them). Tests: port `LocalAiChainTests`. Deps: T48.
-- [ ] **T51 Local AI, browser runtime.** Files: `Client/LocalAi/JsLocalInferenceRuntime.cs`,
+- [x] **T51 Local AI, browser runtime.** Files: `Client/LocalAi/JsLocalInferenceRuntime.cs`,
   `Client/wwwroot/js/local-ai/local-ai-interop.js`, `transformers-worker.js`, `webllm-worker.js`,
   `Api/Features/Runs/RunsEndpoints.cs` (accept a precomputed description). Test: a run carrying a
   precomputed description makes no server vision call (success criterion 10); a local failure does
