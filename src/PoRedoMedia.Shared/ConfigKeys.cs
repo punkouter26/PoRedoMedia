@@ -14,4 +14,16 @@ public static class ConfigKeys
     public const string MocksUseMockAi = "Mocks:UseMockAi";
     public const string StorageConnectionString = "Storage:ConnectionString";
     public const string RenderQuotaDailyLimit = "RenderQuota:DailyLimit";
+
+    public const string OpenAiEndpoint = "OpenAI:Endpoint";
+    public const string OpenAiKey = "OpenAI:Key";
+    public const string OpenAiChatDeployment = "OpenAI:ChatCompletionsDeployment";
+    public const string ComputerVisionEndpoint = "ComputerVision:Endpoint";
+    public const string ComputerVisionApiKey = "ComputerVision:ApiKey";
+    public const string ComputerVisionMinTagConfidence = "ComputerVision:MinTagConfidence";
+    public const string GoogleApiKey = "Google:ApiKey";
+    public const string GoogleVisionModel = "Google:VisionModel";
+    public const string OllamaEndpoint = "Ollama:Endpoint";
+    public const string OllamaVisionModel = "Ollama:VisionModel";
+    public const string OllamaChatModel = "Ollama:ChatModel";
 }

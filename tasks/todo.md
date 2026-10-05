@@ -106,14 +106,14 @@ Standard verification, unless a task says otherwise:
   `Client/Shared/FunctionPicker.razor`, `Client/Shared/RunProgress.razor`, `Client/Services/RunApi.cs`.
   Tests: bUnit picker (example 10); `E2EUI/CreateImageUiTests.cs` for J1 with mocks. Deps: T15, T22.
   **Checkpoint — J1 works.**
-- [ ] **T24 Chat clients.** Files: `Api/Common/Ai/ChatClients.cs`, `Api/Common/Ai/CachingChatClient.cs`.
+- [x] **T24 Chat clients.** Files: `Api/Common/Ai/ChatClients.cs`, `Api/Common/Ai/CachingChatClient.cs`.
   Replaces `Redo` `AzureOpenAiChatCompletionService`, `OllamaChatCompletionService`,
   `CachingChatCompletionService`, `AzureOpenAiService` caption path. Tests: port the caption cases of
   `OpenAIServiceTests`; cache hit skips the inner client. Deps: T05.
-- [ ] **T25 Vision: Azure CV, router, cache.** Files: `Api/Common/Ai/AzureVisionService.cs`,
+- [x] **T25 Vision: Azure CV, router, cache.** Files: `Api/Common/Ai/AzureVisionService.cs`,
   `AzureSceneDetailService.cs`, `VisionServiceRouter.cs`, `CachingVisionService.cs`. Tests: port
   `VisionServiceRouterTests`, `VisionFallbackTests`, `ComputerVisionServiceTests`. Deps: T20.
-- [ ] **T26 Vision: Gemini, Azure OpenAI, Ollama.** Files: `Api/Common/Ai/GeminiVisionService.cs`,
+- [x] **T26 Vision: Gemini, Azure OpenAI, Ollama.** Files: `Api/Common/Ai/GeminiVisionService.cs`,
   `OpenAiVisionService.cs`, `OllamaVisionService.cs`. Test: router picks each by id namespace.
   Deps: T24, T25.
 - [ ] **T27 Restyle.** Files: `Api/Features/Restyle/RestyleStep.cs`, `ReproductionPromptWriter.cs`,

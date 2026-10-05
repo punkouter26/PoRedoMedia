@@ -59,13 +59,23 @@ internal static class MemeTextRenderer
         var textOptions = new RichTextOptions(font)
         {
             HorizontalAlignment = alignment,
+            // Lines of a wrapped caption line up the same way the block does.
+            TextAlignment = alignment switch
+            {
+                HorizontalAlignment.Center => TextAlignment.Center,
+                HorizontalAlignment.Right => TextAlignment.End,
+                _ => TextAlignment.Start,
+            },
             VerticalAlignment = VerticalAlignment.Top,
             Origin = origin,
             WrappingLength = maxWidth,
             WordBreaking = WordBreaking.BreakWord
         };
 
-        ctx.DrawText(textOptions, text, Brushes.Solid(Color.White), Pens.Solid(Color.Black, strokeWidth));
+        // Outline first, then the fill on top. Drawn in one call the outline is painted over the
+        // fill and eats into the letters.
+        ctx.DrawText(textOptions, text, Pens.Solid(Color.Black, strokeWidth));
+        ctx.DrawText(textOptions, text, Brushes.Solid(Color.White));
     }
 }
 
