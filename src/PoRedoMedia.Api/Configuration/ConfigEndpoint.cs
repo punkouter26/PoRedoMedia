@@ -10,7 +10,8 @@ public static class ConfigEndpoint
     {
         app.MapGet("/api/config", (IConfiguration configuration, IWebHostEnvironment env, RunExecutor executor) =>
             TypedResults.Ok(new AppConfigDto(
-                MockAi.IsEnabled(configuration, env), env.IsDevOrTest(), [.. executor.Available.Order()]))).AllowAnonymous();
+                MockAi.IsEnabled(configuration, env), env.IsDevOrTest(), [.. executor.Available.Order()],
+                [.. SessionRoast.Voices(configuration, env)]))).AllowAnonymous();
         return app;
     }
 }

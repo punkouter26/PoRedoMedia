@@ -184,7 +184,7 @@ Standard verification, unless a task says otherwise:
 - [x] **T43 Captions output.** Files: `Api/Features/Captions/CaptionsEndpoints.cs`
   (`GET /api/media/{id}/captions.srt`, transcript). Test: SRT matches the transcript; not offered
   when Whisper is unconfigured and mocks are off. Deps: T41.
-- [ ] **T44 Video UI.** Files: `Client/wwwroot/js/video-frames.js` (port), `Client/Shared/VideoOptions.razor`
+- [x] **T44 Video UI.** Files: `Client/wwwroot/js/video-frames.js` (port), `Client/Shared/VideoOptions.razor`
   (persona, aspect, voice, captions), `Client/Shared/MediaPicker.razor` (frame capture after a video
   upload), `Client/Services/ConfigApi.cs`, `Api/Features/Runs/ConfigEndpoints.cs` (which functions
   and voices are available). Test: `E2EUI/CreateVideoUiTests.cs` for J2 with mocks. Deps: T23, T42, T43.

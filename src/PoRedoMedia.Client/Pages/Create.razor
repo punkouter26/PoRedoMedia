@@ -33,7 +33,7 @@
                         <RadzenCard class="create-functions">
                             <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
                             <FunctionPicker Kind="_source.Kind" @bind-Value="_functions" Available="_available" />
-                            <FunctionOptions Functions="_functions" Options="_options" />
+                            <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" />
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-4">
                                 <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
                                 <RadzenButton Text="Next" Disabled="@(_functions.Count == 0)" Click="@(() => _step = 2)" />
@@ -97,6 +97,7 @@
     private IReadOnlyList<MediaFunction> _functions = [];
     private Dictionary<string, string> _options = [];
     private IReadOnlyCollection<MediaFunction> _available = [];
+    private IReadOnlyList<string> _roastVoices = [];
     private QuotaStatusDto? _quota;
     private RunDto? _run;
     private string? _problem;
@@ -105,7 +106,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _available = (await Config.GetAsync())?.AvailableFunctions ?? [];
+        var config = await Config.GetAsync();
+        _available = config?.AvailableFunctions ?? [];
+        _roastVoices = config?.RoastVoices ?? [];
         _quota = await Runs.GetQuotaAsync();
         if (Source is { } id && (await Media.ListAsync()).FirstOrDefault(m => m.Id == id) is { } media)
             await PickAsync(media);

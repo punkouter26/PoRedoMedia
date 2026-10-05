@@ -1,6 +1,41 @@
 @* The few settings each ticked function has. Values travel as the run's option dictionary. *@
 @inject RunApi Runs
 
+@if (Functions.Any(f => FunctionStack.KindOf(f) == MediaKind.Video))
+{
+    <RadzenFieldset Text="Video" class="rz-mt-2">
+        <RadzenStack Gap="0.75rem">
+            @if (Functions.Contains(MediaFunction.Memeify))
+            {
+                <RadzenFormField Text="Meme-ify style">
+                    <RadzenDropDown TValue="string" Data="Personas" Value="@(Get(RunOptions.VideoPersona) is { Length: > 0 } persona ? persona : "standard")"
+                                    Change="@(v => Set(RunOptions.VideoPersona, v?.ToString() ?? ""))" />
+                </RadzenFormField>
+            }
+            @if (Functions.Contains(MediaFunction.VideoRoast) && RoastVoices.Count > 0)
+            {
+                <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.VideoRoastVoice) is { Length: > 0 } voice ? voice : RoastVoices[0])"
+                                 Change="@((string v) => Set(RunOptions.VideoRoastVoice, v))" aria-label="Roast voice">
+                    <Items>
+                        @foreach (var voice in RoastVoices)
+                        {
+                            <RadzenSelectBarItem Text="@($"{voice} voice")" Value="@voice" />
+                        }
+                    </Items>
+                </RadzenSelectBar>
+            }
+            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.VideoAspect) is { Length: > 0 } aspect ? aspect : "original")"
+                             Change="@((string v) => Set(RunOptions.VideoAspect, v))" aria-label="Shape of the result">
+                <Items>
+                    <RadzenSelectBarItem Text="Original shape" Value="@("original")" />
+                    <RadzenSelectBarItem Text="Tall 9:16" Value="@("9:16")" />
+                    <RadzenSelectBarItem Text="Square 1:1" Value="@("1:1")" />
+                </Items>
+            </RadzenSelectBar>
+        </RadzenStack>
+    </RadzenFieldset>
+}
+
 @if (Functions.Contains(MediaFunction.BulkStyles))
 {
     <RadzenFieldset Text="Bulk styles" class="rz-mt-2">
@@ -139,6 +174,11 @@
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<MediaFunction> Functions { get; set; } = [];
     [Parameter, EditorRequired] public Dictionary<string, string> Options { get; set; } = [];
+
+    /// <summary>Voices the server can perform the video roast in.</summary>
+    [Parameter] public IReadOnlyList<string> RoastVoices { get; set; } = [];
+
+    private static readonly string[] Personas = ["standard", "brainrot", "mlg", "sitcom", "drama", "anime"];
 
     private List<MemeTemplateDto> _templates = [];
     private List<string> _bulk = [];

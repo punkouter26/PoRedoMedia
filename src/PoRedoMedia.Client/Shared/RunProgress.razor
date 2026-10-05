@@ -46,6 +46,10 @@
                         break;
                 }
                 <figcaption>@output.Title</figcaption>
+                @if (output.Kind == MediaKind.Video && Run.Functions.Contains(MediaFunction.Captions))
+                {
+                    <a href="@($"api/media/{output.Id}/captions.srt")" download="captions.srt">Download the captions (SRT)</a>
+                }
                 @if (output.Text is not null)
                 {
                     <pre class="media-text">@output.Text</pre>

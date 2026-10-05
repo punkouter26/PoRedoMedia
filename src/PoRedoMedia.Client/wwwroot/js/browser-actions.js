@@ -18,6 +18,53 @@ window.poMedia = {
         });
     },
 
+    // Samples a frame every few seconds from the video file still held by the input, and posts
+    // them for analysis. Done here, not in .NET: the frames are megabytes of image data that
+    // would otherwise be copied into and out of the WASM heap. Resolves to the number of moments
+    // found, or -1 when the browser could not read the video (the run then places by time).
+    async analyseVideo(input, mediaId) {
+        const file = input.files && input.files[0];
+        if (!file) return -1;
+        const video = document.createElement('video');
+        video.muted = true;
+        video.preload = 'auto';
+        const url = URL.createObjectURL(file);
+        try {
+            await new Promise((resolve, reject) => {
+                video.onloadedmetadata = resolve;
+                video.onerror = reject;
+                video.src = url;
+            });
+            if (!isFinite(video.duration) || video.duration <= 0) return -1;
+
+            const every = Math.max(3, video.duration / 40);
+            const scale = Math.min(1, 512 / video.videoWidth);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            const context = canvas.getContext('2d');
+            const frames = [], timestamps = [];
+            for (let t = Math.min(0.5, video.duration / 2); t < video.duration; t += every) {
+                await new Promise((resolve) => { video.onseeked = resolve; video.currentTime = t; });
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                frames.push(canvas.toDataURL('image/jpeg', 0.7));
+                timestamps.push(t);
+            }
+
+            const token = (await (await fetch('api/antiforgery/token')).json()).token;
+            const response = await fetch(`api/media/${mediaId}/frames`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+                body: JSON.stringify({ frames, timestamps }),
+            });
+            return response.ok ? (await response.json()).momentsFound : -1;
+        } catch {
+            return -1;
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    },
+
     download(url) {
         const a = document.createElement('a');
         a.href = url;

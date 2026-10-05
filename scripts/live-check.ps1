@@ -27,6 +27,20 @@ $ticket = Invoke-RestMethod "$BaseUrl/api/media/sas" -Method Post -WebSession $s
 Invoke-WebRequest $ticket.uploadUrl -Method Put -InFile $item.FullName -Headers @{ 'x-ms-blob-type' = 'BlockBlob' } | Out-Null
 $source = Invoke-RestMethod "$BaseUrl/api/media/$($ticket.id)/confirm" -Method Post -WebSession $session -Headers $headers
 
+# A video is analysed from sampled frames. The browser does this in the app; here ffmpeg does.
+if ($source.kind -eq 'Video') {
+    $frameDir = Join-Path ([IO.Path]::GetTempPath()) "live-frames-$([guid]::NewGuid().ToString('N'))"
+    [IO.Directory]::CreateDirectory($frameDir) | Out-Null
+    ffmpeg -v error -i $item.FullName -vf "fps=1/3,scale=512:-2" -q:v 6 (Join-Path $frameDir 'f%03d.jpg')
+    $files = Get-ChildItem $frameDir -Filter *.jpg | Sort-Object Name
+    $frames = @($files | ForEach-Object { 'data:image/jpeg;base64,' + [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName)) })
+    $times = @(0..($files.Count - 1) | ForEach-Object { 1.5 + 3 * $_ })
+    $analysed = Invoke-RestMethod "$BaseUrl/api/media/$($source.id)/frames" -Method Post -WebSession $session -Headers $headers -ContentType 'application/json' `
+        -Body (@{ frames = $frames; timestamps = $times } | ConvertTo-Json)
+    Write-Host "[$Label] frames sent: $($files.Count), moments found: $($analysed.momentsFound)"
+    [IO.Directory]::Delete($frameDir, $true)
+}
+
 $started = Get-Date
 $run = Invoke-RestMethod "$BaseUrl/api/runs" -Method Post -WebSession $session -Headers $headers -ContentType 'application/json' `
     -Body (@{ sourceId = $source.id; functions = $Functions; options = $Options } | ConvertTo-Json)
