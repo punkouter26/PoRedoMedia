@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:PoRedoMedia.Mobile.Converters"
+             x:Class="PoRedoMedia.Mobile.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <conv:NullToFalseConverter x:Key="NullToFalseConverter" />
+            <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+
+            <!-- Minimalist Dark Palette -->
+            <Color x:Key="BgDark">#0B0F19</Color>
+            <Color x:Key="BgCard">#161F30</Color>
+            <Color x:Key="BgCardHover">#1E293B</Color>
+            <Color x:Key="Primary">#3B82F6</Color>
+            <Color x:Key="PrimaryDark">#1D4ED8</Color>
+            <Color x:Key="AccentPurple">#8B5CF6</Color>
+            <Color x:Key="AccentPink">#EC4899</Color>
+            <Color x:Key="AccentAmber">#F59E0B</Color>
+            <Color x:Key="AccentEmerald">#10B981</Color>
+            <Color x:Key="TextPrimary">#F8FAFC</Color>
+            <Color x:Key="TextSecondary">#94A3B8</Color>
+            <Color x:Key="BorderLight">#334155</Color>
+
+            <Style TargetType="Label">
+                <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+            </Style>
+
+            <Style TargetType="Button">
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="Padding" Value="14,10" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -231,14 +231,14 @@ Standard verification, unless a task says otherwise:
 
 ## M8 — Mobile
 
-- [ ] **T54 Mobile project.** Mechanical copy of `Redo:Mobile` into `Mobile/` with namespaces
+- [x] **T54 Mobile project.** Mechanical copy of `Redo:Mobile` into `Mobile/` with namespaces
   renamed, plus `PoRedoMedia.Mobile.slnx`. This one task exceeds five files by nature; it changes
   no behaviour. **Starts by checking the Android SDK; I ask before installing anything.** Accept:
   builds for `net10.0-android`. Deps: T53.
-- [ ] **T55 Mobile API client.** Files: `Mobile/Services/MobileApiClient.cs`, `IMobileApiClient.cs`.
-  SAS upload, create run, poll `GET /api/runs/{id}`, gallery. Tests: port `MobileApiClientTests`.
+- [x] **T55 Mobile API client.** Files: `Mobile/Services/MobileApiClient.cs`, `IMobileApiClient.cs`.
+  SAS upload, create run, poll `GET /api/runs/{id}`, gallery. Test: `IntegrationTests/MobileClientTests.cs` (the old app had no client tests to port).
   Deps: T54.
-- [ ] **T56 Mobile view models.** Files: `Mobile/ViewModels/MainViewModel.cs`, `GalleryViewModel.cs`,
+- [ ] **T56 Mobile view models.** *(Code done and building for `net10.0-android`; the client is proven against the real server by `MobileClientTests`. Still open: J1 on a device. No emulator image is installed and no phone is attached.)* Files: `Mobile/ViewModels/MainViewModel.cs`, `GalleryViewModel.cs`,
   `BulkItemViewModel.cs`. Accept: J1 on the emulator against the local Api (success criterion 12).
   Deps: T55. **Checkpoint.**
 

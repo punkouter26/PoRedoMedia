@@ -88,7 +88,7 @@ A run takes exactly one source and one or more functions valid for its type.
 | API docs | Scalar.AspNetCore | 2.14.11 |
 | Tests | xunit, NSubstitute, Microsoft.AspNetCore.Mvc.Testing, Microsoft.Playwright | 2.9.3 / 5.3.0 / 10.0.10 / 1.59.0 |
 | Test tools | bunit, Testcontainers.Azurite, Deque.AxeCore.Playwright, coverlet.collector | 2.11.3 / 4.14.0 / 4.12.0 / 6.0.2 |
-| Mobile | Microsoft.Maui.Controls, CommunityToolkit.Mvvm, Microsoft.ML.OnnxRuntimeGenAI | 10.0.10 / 8.4.0 / 0.15.2 |
+| Mobile | Microsoft.Maui.Controls, CommunityToolkit.Mvvm, Xamarin.AndroidX.Biometric | 10.0.10 / 8.4.0 / 1.1.0.33 |
 
 Versions are the newer of the two source repos. All versions live in `Directory.Packages.props`
 (central package management with transitive pinning).
@@ -279,6 +279,11 @@ container hosting · a paid App Service plan.
     completes an analysis with no server AI call. Proven by a Playwright test and a server log.
 11. The app installs as a PWA and captures a source image from the webcam.
 12. The Android app builds from `PoRedoMedia.Mobile.slnx` and completes J1 against the local Api.
+    Mobile scope as built (2026-10-05): meme caption, restyle, bulk styles, rap roast, photo to
+    video and the gallery, each as a run. Not carried over: the on-device Qwen caption model (the
+    new API has no describe-only call for it to build on) and the "Describe" action. The app signs
+    in through `/dev-login`, so it works only against a Development or Test server until a phone
+    sign-in for Entra is added (an auth change: ask first).
 13. CI builds and runs Unit tests on push; the deployed app answers `/health` as healthy on the F1
     plan.
 14. No secret is present in the repository (checked by `/security-review`).
