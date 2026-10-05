@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using PoRedoMedia.Api.Components;
+using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 // build output too, and without this every asset answers empty and the WASM app never boots.
 if (builder.Environment.IsEnvironment(PoEnvironments.Test))
     builder.WebHost.UseStaticWebAssets();
+
+builder.AddPoRedoMediaKeyVault();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents()

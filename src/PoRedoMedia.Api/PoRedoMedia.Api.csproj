@@ -7,10 +7,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
+    <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Azure.AI.OpenAI" />
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
     <PackageReference Include="Radzen.Blazor" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PoRedoMedia.UnitTests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PoRedoMedia.Client\PoRedoMedia.Client.csproj" />

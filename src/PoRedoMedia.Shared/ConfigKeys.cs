@@ -10,4 +10,6 @@ public static class ConfigKeys
     public const string AzureAdSignedOutCallbackPath = "AzureAd:SignedOutCallbackPath";
     public const string AzureAdAllowedTenantIds = "AzureAd:AllowedTenantIds";
     public const string AuthEnableFakeAuth = "Auth:EnableFakeAuth";
+    public const string KeyVaultUri = "KeyVault:Uri";
+    public const string MocksUseMockAi = "Mocks:UseMockAi";
 }

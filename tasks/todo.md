@@ -40,7 +40,7 @@ Standard verification, unless a task says otherwise:
   filter, extension), `Client/Http/AntiforgeryTokenHandler.cs`, `Client/Http/CorrelationHeaderHandler.cs`.
   Test: `E2EAPI/RoutingContractApiTests.cs` — anonymous surface equals the allow-list; write
   without token is 400. Deps: T06.
-- [ ] **T08 Configuration, Key Vault, mock gate.** Files: `Api/Configuration/KeyVaultExtensions.cs`
+- [x] **T08 Configuration, Key Vault, mock gate.** Files: `Api/Configuration/KeyVaultExtensions.cs`
   (`PoRedoMedia--` prefix; port `Meme:Api/Configuration/PrefixKeyVaultSecretManager.cs`),
   `Api/Common/MockAi.cs`, `Shared/ConfigKeys.cs`, `Api/appsettings.json`,
   `Api/appsettings.Development.json`. Test: gate is false in Production whatever the flag. Deps: T04.
