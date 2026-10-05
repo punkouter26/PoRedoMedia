@@ -73,7 +73,7 @@ A run takes exactly one source and one or more functions valid for its type.
 | SDK | .NET, `global.json` `rollForward: latestMinor` | 10.0.100 (10.0.400 installed) |
 | Language | C#, `Nullable`, `TreatWarningsAsErrors`, NuGet audit `low`; `EnableTrimAnalyzer` on Client and Shared only (the server is never trimmed) | `LangVersion` latest |
 | Server | ASP.NET Core minimal APIs, SignalR | 10.0.x |
-| Client | Blazor WebAssembly, no prerender, no AOT | 10.0.7 |
+| Client | Blazor WebAssembly, no prerender, no AOT | 10.0.10 |
 | UI | Radzen.Blazor | 12.0.5 |
 | Chat abstraction | Microsoft.Extensions.AI / .OpenAI (image-side chat only) | 10.10.0 / 10.10.1 |
 | Caching, resilience | Microsoft.Extensions.Caching.Hybrid, Microsoft.Extensions.Http.Resilience | 10.8.0 / latest 10.x |
@@ -86,7 +86,7 @@ A run takes exactly one source and one or more functions valid for its type.
 | Secrets | Azure.Extensions.AspNetCore.Configuration.Secrets, Azure.Identity | 1.5.1 / 1.21.0 |
 | Logging | Serilog.AspNetCore, OpenTelemetry | 10.0.0 / 1.15.x |
 | API docs | Scalar.AspNetCore | 2.14.11 |
-| Tests | xunit, NSubstitute, Microsoft.AspNetCore.Mvc.Testing, Microsoft.Playwright | 2.9.3 / 5.3.0 / 10.0.7 / 1.59.0 |
+| Tests | xunit, NSubstitute, Microsoft.AspNetCore.Mvc.Testing, Microsoft.Playwright | 2.9.3 / 5.3.0 / 10.0.10 / 1.59.0 |
 | Test tools | bunit, Testcontainers.Azurite, Deque.AxeCore.Playwright, coverlet.collector | 2.11.3 / 4.14.0 / 4.12.0 / 6.0.2 |
 | Mobile | Microsoft.Maui.Controls, CommunityToolkit.Mvvm, Microsoft.ML.OnnxRuntimeGenAI | 10.0.10 / 8.4.0 / 0.15.2 |
 
