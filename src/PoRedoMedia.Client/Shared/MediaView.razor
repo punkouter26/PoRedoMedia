@@ -1,0 +1,20 @@
+@* One media item, shown as what it is: a picture, a video player or an audio player. *@
+@switch (Media.Kind)
+{
+    case MediaKind.Image:
+        <img class="@Class" src="@Media.Url" alt="@Media.Title" />
+        break;
+    case MediaKind.Video:
+        <video class="@Class" src="@Media.Url" controls preload="metadata" aria-label="@Media.Title"></video>
+        break;
+    default:
+        <audio src="@Media.Url" controls aria-label="@Media.Title"></audio>
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public MediaDto Media { get; set; } = null!;
+
+    /// <summary>Class for the picture or the video. Style it from the parent with <c>::deep</c>.</summary>
+    [Parameter] public string Class { get; set; } = "media-view";
+}

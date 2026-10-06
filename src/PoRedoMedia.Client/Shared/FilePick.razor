@@ -1,0 +1,22 @@
+@* A button that opens the file chooser. The input stays in the page for the keyboard, for
+   assistive technology, and so dropped, pasted and camera files can be handed to it. *@
+@using Microsoft.AspNetCore.Components.Forms
+
+<label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default po-file-label" aria-disabled="@(Disabled ? "true" : "false")">
+    @Text
+    <InputFile @ref="_input" OnChange="OnChange" accept="@Accept" disabled="@Disabled" class="po-file" />
+</label>
+
+@code {
+    public const string MediaTypes = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm";
+
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter] public string Accept { get; set; } = MediaTypes;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnChange { get; set; }
+
+    private InputFile? _input;
+
+    /// <summary>The input element, for the browser-side upload and intake calls.</summary>
+    public ElementReference Element => _input!.Element!.Value;
+}

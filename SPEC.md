@@ -1,7 +1,7 @@
 # PoRedoMedia — Specification
 
 Status: approved 2026-10-05, updated with Phase 2 decisions · Companions:
-[CAPABILITY-MAP.md](CAPABILITY-MAP.md), [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md)
+[CAPABILITY-MAP.md](CAPABILITY-MAP.md), [tasks/plan-archive.md](tasks/plan-archive.md), [tasks/todo.md](tasks/todo.md)
 
 ## 1. Objective
 
@@ -84,11 +84,10 @@ A run takes exactly one source and one or more functions valid for its type.
 | Azure AI | OpenAI SDK against Azure's v1 endpoint / Azure.AI.Vision.ImageAnalysis. Azure.AI.OpenAI is not used: its only stable release cannot load beside the OpenAI SDK that Microsoft.Extensions.AI needs | 2.14.0 / 1.0.0 |
 | Auth | Microsoft.Identity.Web (Entra OIDC) + cookie | 4.9.0 |
 | Secrets | Azure.Extensions.AspNetCore.Configuration.Secrets, Azure.Identity | 1.5.1 / 1.21.0 |
-| Logging | Serilog.AspNetCore, OpenTelemetry | 10.0.0 / 1.15.x |
-| API docs | Scalar.AspNetCore | 2.14.11 |
+| Logging | Microsoft.Extensions.Logging (built in). Serilog, OpenTelemetry and Scalar were planned and never added | — |
 | Tests | xunit, NSubstitute, Microsoft.AspNetCore.Mvc.Testing, Microsoft.Playwright | 2.9.3 / 5.3.0 / 10.0.10 / 1.59.0 |
-| Test tools | bunit, Testcontainers.Azurite, Deque.AxeCore.Playwright, coverlet.collector | 2.11.3 / 4.14.0 / 4.12.0 / 6.0.2 |
-| Mobile | Microsoft.Maui.Controls, CommunityToolkit.Mvvm, Xamarin.AndroidX.Biometric | 10.0.10 / 8.4.0 / 1.1.0.33 |
+| Test tools | bunit, Testcontainers.Azurite, Deque.AxeCore.Playwright, coverlet.collector | 2.11.3 / 4.14.0 / 4.13.0 / 6.0.2 |
+| Phone | The installable web app, with a share target. The MAUI Android app was removed on 2026-10-05 | — |
 
 Versions are the newer of the two source repos. All versions live in `Directory.Packages.props`
 (central package management with transitive pinning).
@@ -139,19 +138,18 @@ Ports 4100/4101 are fixed in `launchSettings.json`. They avoid 4000 (PoRedoImage
 
 ```
 PoRedoMedia.slnx            Directory.Build.props   Directory.Packages.props   global.json
-PoRedoMedia.Mobile.slnx     docker-compose.yml      SPEC.md   CAPABILITY-MAP.md   tasks/
+docker-compose.yml          SPEC.md   CAPABILITY-MAP.md   AGENTS.md   DOCS/   tasks/
 src/
   PoRedoMedia.Api/
     Features/<Slice>/       endpoint + handler + entity + repository + services, co-located
-    Common/                 entities, typed ids, cross-slice contracts, storage, AI clients, health
+    Common/                 cross-slice contracts; Domain/ entities and typed ids; Storage/; Ai/ clients
     Configuration/          composition root (the only place that sees every slice)
     Components/App.razor    host document only; renders the Client's routes as WASM
   PoRedoMedia.Client/       Pages/ Layout/ Shared/ LocalAi/ Services/ wwwroot/
   PoRedoMedia.Shared/       Models/ Enums/ Json/
-  PoRedoMedia.Mobile/
 tests/
   PoRedoMedia.UnitTests/  PoRedoMedia.IntegrationTests/  PoRedoMedia.E2EAPI/  PoRedoMedia.E2EUI/
-scripts/                    setup.ps1, meme-sounds/sounds-metadata.json
+scripts/                    run-e2e.ps1, check-test-budgets.ps1, live-check.ps1, package.py, meme-sounds/
 PoRedoImage/  PoMemeVideo/  read-only reference, gitignored
 ```
 
@@ -170,7 +168,7 @@ Slices: `Auth`, `Media`, `Runs`, `Restyle`, `MemeCaption`, `BulkStyles`, `RapRoa
 - **Typed ids** inside (`MediaId`, `RunId`, `UserId`, `SoundId`); raw `Guid` in wire DTOs.
 - **Storage names** come from `StorageNames`; config keys from `ConfigKeys`. No string literals.
 - **Radzen first.** Use a Radzen component wherever one exists; custom markup only where none does.
-- **All UI lives in `.Client`.** No inline styles; scoped `.razor.css`.
+- **All UI lives in `.Client`.** No inline styles: tokens and shared rules in `wwwroot/css/app.css`, component layout in scoped `.razor.css`. Colours come from theme variables so light and dark both work.
 - **A fallback must tell the user.** Any path that substitutes canned or degraded AI output sets a
   reason the UI shows.
 - **Async all the way**; no `.Result` or `.Wait()`. Delete dead code in the same change.
@@ -191,7 +189,7 @@ public static class QuotaEndpoints
 }
 ```
 
-**Git.** `master` only. One commit per task. Never push unless asked.
+**Git.** `master` only. Commit and push when asked for a git sync (see AGENTS.md).
 
 ## 7. Testing strategy
 
@@ -278,13 +276,8 @@ container hosting · a paid App Service plan.
 10. The model picker changes which provider serves image analysis, and a browser-local model
     completes an analysis with no server AI call. Proven by a Playwright test and a server log.
 11. The app installs as a PWA and captures a source image from the webcam.
-12. The Android app builds from `PoRedoMedia.Mobile.slnx` and completes J1 against the local Api.
-    Mobile scope as built (2026-10-05): meme caption, restyle, bulk styles, rap roast, photo to
-    video and the gallery, each as a run. Not carried over: the on-device Qwen caption model (the
-    new API has no describe-only call for it to build on) and the "Describe" action. The app signs
-    in through `/dev-login`, so it works only against a Development or Test server until a phone
-    sign-in for Entra is added (an auth change: ask first).
-    Running J1 on a device is deferred (2026-10-05): no emulator exists for this Windows-on-ARM PC.
+12. Withdrawn 2026-10-05: the Android app was removed. A phone uses the installed web app, which
+    takes a photo or video shared to it from another app.
 13. CI builds and runs Unit tests on push; the deployed app answers `/health` as healthy on the F1
     plan.
 14. No secret is present in the repository (checked by `/security-review`).
@@ -315,14 +308,14 @@ Rules added by the Phase 5 review:
 - Public share pages hand out 15-minute read links.
 
 Found and not fixed (each needs a decision or is low value):
-- `/logout` is a GET, so another site can sign a user out. Fixing it changes the sign-out flow (auth: ask first).
-- `AzureAd:TenantId` is `common`, so any Microsoft account can sign in. Restrict with allowed tenants if unwanted.
+- Fixed 2026-10-05: sign-out is a POST with the antiforgery token. It ends this app's session only; the Microsoft session is left alone.
+- `AzureAd:TenantId` is `common`, so any Microsoft account can sign in until `Auth:AllowedEmails` is set (added 2026-10-05; empty by default).
 - Confirming a video upload still transcribes it without spending a credit (bounded by the upload rate limit).
 - Output blobs can be orphaned if the row write fails after the blob write; bulk draws continue briefly after a failed save.
-- Storage clients issue a "create if not exists" call per use (slow, not wrong).
+- Fixed 2026-10-05: storage clients are created once per table and container.
 - Blob CORS rules are replaced at each start: the storage account must not be shared with another app.
 - More than one app instance would make housekeeping fail runs another instance is executing.
-- Unused video trim parameters are left in place for the unbuilt trim feature.
+- Removed 2026-10-05: the unused video trim parameters.
 
 ## Azure resources (2026-10-05)
 
@@ -344,3 +337,42 @@ Found and not fixed (each needs a decision or is low value):
   the bundled ffmpeg and the host's fonts are unproven there. No GitHub repo or deploy workflow yet.
 - F1 limits met on the first deploy: a crash loop exhausts the worker restart quota (15 per window)
   and disables the site until the window resets.
+
+## Changes of 2026-10-05 (audit round)
+
+Behaviour added or changed, beyond the fixes noted above:
+- **Create is one pane**: preview, functions, options and a sticky run bar. A run's id is in the
+  address, so a refresh, the back button and the header's run tray all return to it.
+- **Runs survive navigation.** The header tray lists recent runs, follows unfinished ones, and can
+  start a finished run again with the same options. A failed run offers Retry.
+- **Gallery**: search covers titles, origin and text; sort; multi-select with bulk pin, download
+  and delete; the chain an item was made from; keyboard shortcuts (`/`, arrows, `Del`, `P`,
+  `Enter`, `Esc`). Filter, sort and the open item are in the address. "Add media" opens the same
+  picker Create uses. On a narrow screen the details open as a bottom sheet.
+- **Sounds**: one shared player; the list endpoint returns the whole visible library (its paging
+  and filter parameters were unused and are gone). An uploaded sound is checked by its first bytes.
+- **Video frames** are sampled on the server when the browser sent none, so clips this app made
+  and gallery uploads get real frame analysis. The browser skips frames that look like the last.
+- **Auto-captions is always offered.** Without a server speech model, a Whisper model in the
+  browser transcribes clips up to 5 minutes and 80 MB at upload.
+- **The director** tries the larger deployment once when the usual one returns no usable script.
+- **Installed app**: a service worker keeps the shell and seen thumbnails for offline opening and
+  receives files shared from other apps.
+- **Look and sound**: light and dark themes, a WebGL backdrop, synthesised interface sounds with a
+  mute and volume setting, a karaoke stage for roasts with a PNG card export. All motion respects
+  the reduced-motion setting.
+- **Hardening**: `Auth:AllowedEmails`, POST sign-out, `App:PublicBaseUrl` for share links,
+  forwarded headers and HSTS outside Development and Test, `nosniff` / frame / referrer headers.
+- **Build**: `AnalysisLevel` latest-recommended with code style enforced; five naming and logging
+  rules are switched off in `.editorconfig` with the reason beside them.
+
+Considered and not done:
+- Replacing `AiFoundryClient` with `IChatClient`: it carries per-deployment behaviour learned
+  against the live service, and there was no way to re-prove it without spending on providers.
+- Embedding-based sound matching: needs a new embedding deployment (ask first), and the existing
+  matcher is an idf-weighted cosine over tags and names, not the plain tag overlap first assumed.
+- Pinning `AllowedHosts`: the platform's own warm-up requests could be refused. Share links use
+  `App:PublicBaseUrl` instead.
+- A content security policy for the app pages: the on-device models load from two CDNs and need
+  testing against one before it can be enforced.
+- Moving `ConfigEndpoint` into a slice: it reads every slice, which only the composition root may.

@@ -1,6 +1,40 @@
+.run-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.run-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem 0.3rem 0.5rem;
+    border: 1px solid var(--po-line);
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    transition: transform 220ms var(--po-spring);
+}
+
+.run-step.done ::deep .rz-icon { color: var(--rz-success); }
+.run-step.failed ::deep .rz-icon { color: var(--rz-danger); }
+
+.run-step.now {
+    border-color: var(--rz-primary);
+    font-weight: 700;
+    transform: scale(1.04);
+}
+
+.run-step.now ::deep .rz-icon {
+    color: var(--rz-primary);
+    animation: run-spin 1.2s linear infinite;
+}
+
 .run-results {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1rem;
 }
 
@@ -8,16 +42,15 @@
     margin: 0;
 }
 
-.run-result img,
-.run-result video {
+.run-result ::deep .media-view {
     width: 100%;
     max-height: 420px;
     object-fit: contain;
-    border-radius: 4px;
+    border-radius: var(--po-radius-sm);
     background: var(--rz-base-200);
 }
 
-.run-result audio {
+.run-result ::deep audio {
     width: 100%;
 }
 
@@ -27,4 +60,15 @@
     overflow: auto;
     white-space: pre-wrap;
     font: inherit;
+}
+
+@keyframes run-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .run-step, .run-step.now ::deep .rz-icon {
+        transition: none;
+        animation: none;
+    }
 }

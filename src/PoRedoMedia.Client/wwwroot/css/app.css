@@ -25,6 +25,12 @@ html, body {
 
 body {
     overflow-wrap: anywhere;
+    /* The page colour sits on the body so the backdrop canvas can show between it and the layout. */
+    background-color: var(--rz-body-background-color);
+}
+
+.rz-layout {
+    background-color: transparent;
 }
 
 /* ── Type scale: one size per heading level, everywhere ─────────────────────────────── */
@@ -133,10 +139,6 @@ h2.rz-text-h6, h2.rz-text-subtitle1 {
     transform: scale(0.96);
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation-duration: 180ms;
-}
 
 @media (prefers-reduced-motion: reduce) {
     .po-skeleton, .po-pop, .rz-button {
@@ -144,10 +146,6 @@ h2.rz-text-h6, h2.rz-text-subtitle1 {
         transition: none;
     }
 
-    ::view-transition-old(root),
-    ::view-transition-new(root) {
-        animation: none;
-    }
 }
 
 /* ── Phones ─────────────────────────────────────────────────────────────────────────── */
@@ -159,5 +157,41 @@ h2.rz-text-h6, h2.rz-text-subtitle1 {
 
     .rz-dialog {
         max-width: calc(100vw - 1rem);
+    }
+}
+
+/* ── Header popups (runs, settings): a panel under its button, closed by a click anywhere else. */
+.pop-anchor, .tray {
+    position: relative;
+}
+
+.pop-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+}
+
+.shell-popup {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 1000;
+    text-align: left;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--po-line);
+    border-radius: var(--po-radius);
+    background: var(--rz-base-background-color);
+    color: var(--rz-text-color);
+    box-shadow: 0 12px 40px rgb(0 0 0 / 28%);
+}
+
+.tray-popup { width: min(26rem, calc(100vw - 1rem)); }
+.settings-popup { width: min(18rem, calc(100vw - 1rem)); }
+
+@media (max-width: 720px) {
+    .shell-popup {
+        position: fixed;
+        top: calc(3.25rem + var(--po-safe-top));
+        right: 0.5rem;
     }
 }

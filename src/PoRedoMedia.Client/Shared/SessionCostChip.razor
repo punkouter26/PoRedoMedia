@@ -1,17 +1,27 @@
 @implements IDisposable
 @inject SessionCostService Cost
+@inject IJSRuntime JS
 
 @if (Cost.Total > 0)
 {
     <span class="cost-chip" title="An estimate from list prices for the runs started in this tab. Not a bill.">
-        ≈ $@Cost.Total.ToString("0.00") this session
+        ≈ <span @ref="_amount">$@Cost.Total.ToString("0.00")</span> this session
     </span>
 }
 
 @code {
+    private ElementReference _amount;
+
     protected override void OnInitialized() => Cost.Changed += Refresh;
 
     private void Refresh() => InvokeAsync(StateHasChanged);
+
+    // The amount counts up to its new value rather than jumping.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Cost.Total > 0)
+            await JS.InvokeVoidAsync("poMedia.countUp", _amount, (double)Cost.Total, "$", 2);
+    }
 
     public void Dispose() => Cost.Changed -= Refresh;
 }

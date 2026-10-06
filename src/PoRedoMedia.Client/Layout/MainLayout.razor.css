@@ -1,3 +1,18 @@
+.shell-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.5rem;
+    padding: 0.4rem 1rem;
+    max-width: var(--po-shell-max);
+    margin: 0 auto;
+}
+
+.shell-bar ::deep .shell-brand {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
 .shell-nav {
     display: flex;
     gap: 1.25rem;
@@ -13,25 +28,44 @@
 }
 
 .shell-nav ::deep a.active {
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: underline;
     text-underline-offset: 6px;
 }
 
-.shell-user {
+.shell-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     margin-left: auto;
 }
 
+.shell-tools ::deep .rz-button {
+    color: inherit;
+}
+
+.shell-user {
+    margin: 0 0.5rem;
+}
+
 .shell-main {
-    max-width: 960px;
+    max-width: var(--po-shell-max);
     margin: 0 auto;
     padding: 1rem 1rem 2.5rem;
 }
 
-.shell-user ::deep .cost-chip {
-    margin-right: 1rem;
-    padding: 0.15rem 0.6rem;
-    border: 1px solid currentColor;
-    border-radius: 1rem;
-    font-size: 0.85rem;
+@media (max-width: 720px) {
+    .shell-bar {
+        padding: 0.25rem 0.5rem;
+        gap: 0 0.75rem;
+    }
+
+    /* The name is in the sign-in page and the settings; the bar keeps to what is tapped. */
+    .shell-user {
+        display: none;
+    }
+
+    .shell-main {
+        padding: 0.75rem 0.75rem 2rem;
+    }
 }

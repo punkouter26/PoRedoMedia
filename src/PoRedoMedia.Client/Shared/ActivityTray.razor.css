@@ -1,0 +1,63 @@
+.tray {
+    position: relative;
+    display: inline-flex;
+}
+
+.tray ::deep .tray-busy .rz-button-icon-left {
+    animation: tray-spin 1.4s linear infinite;
+}
+
+.tray-count {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 1rem;
+    background: var(--po-ink-on-brand);
+    color: var(--po-brand-a);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-align: center;
+    pointer-events: none;
+}
+
+
+.tray-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.tray-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.25rem 0;
+    border-top: 1px solid var(--po-line);
+}
+
+.tray-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.9rem;
+}
+
+.tray-list ::deep .tray-complete { color: var(--rz-success); }
+.tray-list ::deep .tray-failed { color: var(--rz-danger); }
+
+@keyframes tray-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tray ::deep .tray-busy .rz-button-icon-left {
+        animation: none;
+    }
+}

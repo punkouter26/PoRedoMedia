@@ -26,4 +26,19 @@ public sealed class AuthFlowApiTests(ApiFactory factory) : IClassFixture<ApiFact
 
         Assert.Equal("/", response.Headers.Location?.OriginalString);
     }
+
+    [Fact]
+    public async Task Sign_out_is_a_write_that_needs_the_antiforgery_token()
+    {
+        var client = factory.CreateNoRedirectClient();
+        await client.GetAsync("/dev-login?email=dev@example.com");
+
+        // Another site can make a browser send this request, but not with the token.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/logout", null)).StatusCode);
+
+        var token = await System.Net.Http.Json.HttpClientJsonExtensions.GetFromJsonAsync<System.Text.Json.JsonElement>(client, "/api/antiforgery/token");
+        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token.GetProperty("token").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/logout", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/quota")).StatusCode);
+    }
 }

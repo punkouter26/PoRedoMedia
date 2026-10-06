@@ -6,14 +6,20 @@
 <PageTitle>Sign in · PoRedoMedia</PageTitle>
 
 <RadzenStack AlignItems="AlignItems.Center" class="rz-mt-12">
-    <RadzenCard Style="max-width: 420px; width: 100%">
+    <RadzenCard class="po-narrow po-pop">
         <RadzenStack Gap="1rem">
             <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Sign in</RadzenText>
             <RadzenText class="rz-m-0">Turn a photo or a video into a meme, a roast or a clip.</RadzenText>
-            <RadzenButton Text="Sign in with Microsoft" Click="@(() => Go("challenge-microsoft"))" />
+            @if (Denied == true)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">
+                    The sign-in did not finish, or this account is not allowed to use this app.
+                </RadzenAlert>
+            }
+            <RadzenButton Text="Sign in with Microsoft" Disabled="_leaving" Click="@(() => Go("challenge-microsoft"))" />
             @if (_config?.DevLoginEnabled == true)
             {
-                <RadzenButton Text="Developer sign-in" Variant="Variant.Outlined"
+                <RadzenButton Text="Developer sign-in" Variant="Variant.Outlined" Disabled="_leaving"
                               Click="@(() => Go("dev-login?email=dev%40localhost"))" />
             }
         </RadzenStack>
@@ -23,13 +29,18 @@
 @code {
     [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
 
+    /// <summary>Set by the server when Microsoft sign-in was refused or abandoned.</summary>
+    [SupplyParameterFromQuery] public bool? Denied { get; set; }
+
     private AppConfigDto? _config;
+    private bool _leaving;
 
     protected override async Task OnInitializedAsync() => _config = await Config.GetAsync();
 
     // These are server routes, so the browser must leave the app to reach them.
     private void Go(string path)
     {
+        _leaving = true;
         var separator = path.Contains('?') ? '&' : '?';
         var target = string.IsNullOrEmpty(ReturnUrl) ? path : $"{path}{separator}returnUrl={Uri.EscapeDataString(ReturnUrl)}";
         Navigation.NavigateTo(target, forceLoad: true);

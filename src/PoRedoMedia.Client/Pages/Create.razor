@@ -1,124 +1,168 @@
 @page "/"
+@using PoRedoMedia.Client.LocalAi
+@implements IDisposable
 @inject MediaApi Media
 @inject RunApi Runs
-@using PoRedoMedia.Client.LocalAi
+@inject RunTracker Tracker
 @inject AppConfigService Config
 @inject SessionCostService Cost
 @inject LocalAiService LocalAi
 @inject HttpClient Http
+@inject UiStore Store
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Create · PoRedoMedia</PageTitle>
 
 <div class="create-page">
-<RadzenStack Gap="1rem">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Create</RadzenText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0 rz-mb-4">Create</RadzenText>
 
-    <RadzenSteps @bind-SelectedIndex="_step" ShowStepsButtons="false">
-        <Steps>
-            <RadzenStepsItem Text="Media">
-                <MediaPicker Value="_source" ValueChanged="PickAsync" />
-            </RadzenStepsItem>
-
-            <RadzenStepsItem Text="Functions" Disabled="@(_source is null)">
-                @if (_source is not null)
+    @if (_source is null && _run is null)
+    {
+        @if (_opening)
+        {
+            <div class="po-skeleton create-skeleton" role="status" aria-label="Loading"></div>
+        }
+        else
+        {
+            <MediaPicker ValueChanged="PickAsync" TakeShared="@(Shared is not null)" />
+        }
+    }
+    else
+    {
+        <div class="create-split">
+            @if (_source is not null)
+            {
+                <RadzenCard class="create-preview po-pop">
+                    <MediaView Media="_source" />
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_source.Title · @_source.Kind.ToString().ToLowerInvariant()</RadzenText>
+                    <RadzenButton Text="Change media" Variant="Variant.Outlined" Disabled="@(_starting || _run is { Finished: false })" Click="StartOver" />
+                </RadzenCard>
+            }
+            <RadzenCard class="create-functions">
+                @if (_run is null && _source is not null)
                 {
-                    <div class="create-split">
-                        <RadzenCard class="create-preview">
-                            @if (_source.Kind == MediaKind.Video)
+                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
+                    <FunctionPicker Kind="_source.Kind" Value="_functions" ValueChanged="OnFunctionsChanged" Available="_available" />
+                    <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Changed="StateHasChanged" />
+                    @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
+                    {
+                        <RadzenFieldset Text="AI model" class="rz-mt-2">
+                            <RadzenFormField Text="What looks at the picture" class="po-fill">
+                                <RadzenDropDown TValue="string" Data="_visionOptions" ValueProperty="Id" TextProperty="Name"
+                                                Value="@(_options.GetValueOrDefault(RunOptions.VisionModel, ""))"
+                                                Change="@(v => _options[RunOptions.VisionModel] = v?.ToString() ?? "")" />
+                            </RadzenFormField>
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">
+                                @(_visionOptions.FirstOrDefault(o => o.Id == _options.GetValueOrDefault(RunOptions.VisionModel, ""))?.Hint)
+                            </RadzenText>
+                        </RadzenFieldset>
+                    }
+
+                    <details class="create-recipes">
+                        <summary>Recipes</summary>
+                        <div class="create-recipe-row">
+                            <RadzenDropDown TValue="string" Data="RecipeNames" Value="_recipe" Placeholder="Use a saved recipe" AllowClear="true"
+                                            Disabled="@(RecipeNames.Count == 0)" aria-label="Use a saved recipe" Change="@(v => ApplyRecipe(v?.ToString()))" class="po-grow" />
+                            @if (_recipe is not null)
                             {
-                                <video src="@_source.Url" controls preload="metadata" aria-label="@_source.Title"></video>
+                                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" aria-label="@($"Delete the recipe {_recipe}")" Click="DeleteRecipeAsync" />
+                            }
+                        </div>
+                        <div class="create-recipe-row">
+                            <RadzenTextBox Value="@_recipeName" @oninput="@(e => _recipeName = e.Value?.ToString() ?? "")" MaxLength="40" Placeholder="Name what is ticked now" aria-label="Recipe name" class="po-grow" />
+                            <RadzenButton Text="Save" Variant="Variant.Outlined" Disabled="@(_functions.Count == 0 || string.IsNullOrWhiteSpace(_recipeName))" Click="SaveRecipeAsync" />
+                        </div>
+                    </details>
+
+                    @if (_localStatus is not null)
+                    {
+                        <RadzenText class="rz-mt-2 rz-mb-0" aria-live="polite">@_localStatus</RadzenText>
+                    }
+                    @if (_problem is not null)
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-mt-2 rz-mb-0">@_problem</RadzenAlert>
+                    }
+
+                    <div class="create-bar">
+                        <div class="create-summary">
+                            @if (_functions.Count == 0)
+                            {
+                                <RadzenText class="rz-m-0">Tick at least one function.</RadzenText>
                             }
                             else
                             {
-                                <img src="@_source.Url" alt="@_source.Title" />
-                            }
-                            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_source.Title · @_source.Kind.ToString().ToLowerInvariant()</RadzenText>
-                            <RadzenButton Text="Change media" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
-                        </RadzenCard>
-                        <RadzenCard class="create-functions">
-                            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
-                            <FunctionPicker Kind="_source.Kind" @bind-Value="_functions" Available="_available" />
-                            <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" />
-                            @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
-                            {
-                                <RadzenFieldset Text="AI model" class="rz-mt-2">
-                                    <RadzenFormField Text="What looks at the picture" Style="width: 100%">
-                                        <RadzenDropDown TValue="string" Data="_visionOptions" ValueProperty="Id" TextProperty="Name"
-                                                        Value="@(_options.GetValueOrDefault(RunOptions.VisionModel, ""))"
-                                                        Change="@(v => _options[RunOptions.VisionModel] = v?.ToString() ?? "")" />
-                                    </RadzenFormField>
-                                    <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">
-                                        @(_visionOptions.FirstOrDefault(o => o.Id == _options.GetValueOrDefault(RunOptions.VisionModel, ""))?.Hint)
-                                    </RadzenText>
-                                </RadzenFieldset>
-                            }
-                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" class="rz-mt-4">
-                                <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 0)" />
-                                <RadzenButton Text="Next" Disabled="@(_functions.Count == 0)" Click="@ToRunStep" />
-                            </RadzenStack>
-                        </RadzenCard>
-                    </div>
-                }
-            </RadzenStepsItem>
-
-            <RadzenStepsItem Text="Run" Disabled="@(_functions.Count == 0)">
-                @if (_source is not null)
-                {
-                    <RadzenCard>
-                        <RadzenStack Gap="0.75rem">
-                            <RadzenText class="rz-m-0">
-                                <strong>@_source.Title</strong> → @string.Join(", then ", _functions.Select(FunctionStack.Label))
-                            </RadzenText>
-                            @if (_quota is { Unlimited: false })
-                            {
+                                <RadzenText class="rz-m-0"><strong>@_source.Title</strong> → @string.Join(", then ", _functions.Select(FunctionStack.Label))</RadzenText>
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
-                                    @_quota.Remaining of @_quota.Limit runs left today. A run costs one.
+                                    Estimated cost: $@(AiCatalog.EstimateCost(_functions, _options, _pricing).ToString("0.00"))
                                 </RadzenText>
                             }
-                            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
-                                Estimated cost: $@(AiCatalog.EstimateCost(_functions, _options, _pricing).ToString("0.00"))
-                            </RadzenText>
-                            @if (_localStatus is not null)
-                            {
-                                <RadzenText class="rz-m-0" aria-live="polite">@_localStatus</RadzenText>
-                            }
+                            @QuotaLine
+                        </div>
+                        @if (_quota is { Unlimited: false })
+                        {
+                            @* Radzen's circular bar drops its accessible name, so the dial is drawn here.
+                               The custom property carries the value; how it looks is in the stylesheet. *@
+                            <span class="create-dial" role="img" aria-label="@($"{_quota.Remaining} of {_quota.Limit} runs left today")"
+                                  style="--left: @((100.0 * _quota.Remaining / _quota.Limit).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%">
+                                <span aria-hidden="true">@_quota.Remaining</span>
+                            </span>
+                        }
+                        <RadzenButton Text="Run" Icon="play_arrow" IsBusy="_starting" Click="RunAsync"
+                                      Disabled="@(_functions.Count == 0 || _quota is { Unlimited: false, Remaining: 0 })" />
+                    </div>
+                }
+                else if (_run is not null)
+                {
+                    <RadzenStack Gap="0.75rem">
+                        <RadzenText class="rz-m-0">
+                            <strong>@(_source?.Title ?? "A deleted item")</strong> → @string.Join(", then ", _run.Run.Functions.Select(FunctionStack.Label))
+                        </RadzenText>
+                        <RunProgress @key="_run.Run.Id" Run="_run" />
+                        @if (_run.Finished)
+                        {
+                            @QuotaLine
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap" AlignItems="AlignItems.Center">
+                                @if (_source is not null)
+                                {
+                                    @if (_run.Status == RunStatus.Failed)
+                                    {
+                                        <RadzenButton Text="Retry" Icon="refresh" IsBusy="_starting" Click="RunAsync" />
+                                    }
+                                    <RadzenButton Text="Change the functions" Variant="Variant.Outlined" Click="BackToFunctions" />
+                                }
+                                <RadzenButton Text="Start over" Variant="Variant.Outlined" Click="StartOver" />
+                                <RadzenLink Path="gallery" Text="Open the gallery" />
+                            </RadzenStack>
                             @if (_problem is not null)
                             {
                                 <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">@_problem</RadzenAlert>
                             }
-
-                            @if (_run is null)
-                            {
-                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween">
-                                    <RadzenButton Text="Back" Variant="Variant.Outlined" Click="@(() => _step = 1)" />
-                                    <RadzenButton Text="Run" Icon="play_arrow" IsBusy="_starting" Click="RunAsync" />
-                                </RadzenStack>
-                            }
-                            else
-                            {
-                                <RunProgress @key="_run.Id" Run="_run" Finished="OnFinishedAsync" />
-                                @if (_done)
-                                {
-                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
-                                        <RadzenButton Text="Start over" Variant="Variant.Outlined" Click="StartOver" />
-                                        <RadzenLink Path="gallery" Text="Open the gallery" />
-                                    </RadzenStack>
-                                }
-                            }
-                        </RadzenStack>
-                    </RadzenCard>
+                        }
+                    </RadzenStack>
                 }
-            </RadzenStepsItem>
-        </Steps>
-    </RadzenSteps>
-</RadzenStack>
+            </RadzenCard>
+        </div>
+    }
 </div>
 
 @code {
+    /// <summary>Options worth carrying from one run to the next. Text typed for one picture is not.</summary>
+    private static readonly string[] Remembered =
+    [
+        RunOptions.VisionModel, RunOptions.VideoAspect, RunOptions.VideoPersona, RunOptions.VideoRoastVoice,
+        RunOptions.RoastStyle, RunOptions.RoastIntensity, RunOptions.RoastExplicit, RunOptions.RestyleStyle, RunOptions.MemeMode,
+    ];
+
     /// <summary>A gallery item to start from, set by "Use as source".</summary>
     [SupplyParameterFromQuery] public Guid? Source { get; set; }
 
-    private int _step;
+    /// <summary>A run to show, set when one starts and by the header's run tray.</summary>
+    [SupplyParameterFromQuery] public Guid? Run { get; set; }
+
+    /// <summary>Present when another app shared a file to this one.</summary>
+    [SupplyParameterFromQuery] public string? Shared { get; set; }
+
     private MediaDto? _source;
     private IReadOnlyList<MediaFunction> _functions = [];
     private Dictionary<string, string> _options = [];
@@ -126,42 +170,121 @@
     private IReadOnlyList<string> _roastVoices = [];
     private IReadOnlyList<AiModelOption> _visionOptions = [];
     private AiPricingDto _pricing = new(0, 0, 0, 0, 0);
+    private Dictionary<string, RunRequest> _recipes = [];
+    private Dictionary<string, string> _lastOptions = [];
+    private string? _recipe;
+    private string _recipeName = "";
     private string? _localStatus;
     private QuotaStatusDto? _quota;
-    private RunDto? _run;
+    private TrackedRun? _run;
     private string? _problem;
     private bool _starting;
-    private bool _done;
+    private bool _opening;
+    private Guid? _openedSource;
+
+    private RenderFragment? QuotaLine => _quota is { Unlimited: false }
+        ? @<RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_quota.Remaining of @_quota.Limit runs left today. A run costs one.</RadzenText>
+        : null;
+
+    /// <summary>Saved recipes that fit the picked media.</summary>
+    private List<string> RecipeNames => _source is null
+        ? []
+        : [.. _recipes.Where(r => r.Value.Functions.All(f => FunctionStack.KindOf(f) == _source.Kind)).Select(r => r.Key).Order()];
 
     protected override async Task OnInitializedAsync()
     {
+        Tracker.Changed += OnRunChanged;
+        Tracker.Finished += OnRunFinished;
+
         var config = await Config.GetAsync();
         _available = config?.AvailableFunctions ?? [];
         _roastVoices = config?.RoastVoices ?? [];
         _visionOptions = AiCatalog.VisionOptions(config?.VisionModels ?? []);
         _pricing = config?.Pricing ?? _pricing;
         _quota = await Runs.GetQuotaAsync();
-        if (Source is { } id && (await Media.ListAsync()).FirstOrDefault(m => m.Id == id) is { } media)
-            await PickAsync(media);
+        _recipes = await Store.ReadAsync(UiStore.Recipes, WireJson.Default.DictionaryStringRunRequest) ?? [];
+        _lastOptions = await Store.ReadAsync(UiStore.LastOptions, WireJson.Default.DictionaryStringString) ?? [];
+    }
+
+    // The address decides what the page shows, so back, forward and refresh all land where they were.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Run is { } runId)
+        {
+            if (_run?.Run.Id == runId)
+                return;
+
+            _opening = true;
+            if (await Tracker.FindAsync(runId) is { } run)
+            {
+                _source = await Media.GetAsync(run.Run.SourceId);
+                (_run, _functions, _options, _problem) = (run, run.Run.Functions, new(run.Run.Options ?? []), null);
+            }
+
+            _opening = false;
+        }
+        else if (Source is { } id)
+        {
+            if (_openedSource == id)
+                return;
+
+            (_opening, _openedSource) = (true, id);
+            // Audio has no functions, so it is never a source, whatever the address says.
+            if (await Media.GetAsync(id) is { Kind: not MediaKind.Audio } media)
+                await PickAsync(media);
+            _opening = false;
+        }
+        else if (_run is not null || _openedSource is not null)
+        {
+            // The address went back to plain "/": the page goes back to choosing media.
+            (_source, _functions, _options, _run, _problem, _openedSource, _recipe) = (null, [], [], null, null, null, null);
+        }
     }
 
     private Task PickAsync(MediaDto media)
     {
-        (_source, _functions, _options, _run, _problem, _done) = (media, [], [], null, null, false);
-        _step = 1;
+        (_source, _functions, _run, _problem, _recipe) = (media, [], null, null, null);
+        _options = _lastOptions.Where(o => Remembered.Contains(o.Key)).ToDictionary(o => o.Key, o => o.Value);
         return Task.CompletedTask;
     }
 
-    /// <summary>Coming back to the last step after a finished run offers a new run on the same source.</summary>
-    private void ToRunStep()
+    private void OnFunctionsChanged(IReadOnlyList<MediaFunction> functions) => (_functions, _problem) = (functions, null);
+
+    private void ApplyRecipe(string? name)
     {
-        if (_done)
-            (_run, _problem, _done) = (null, null, false);
-        _step = 2;
+        _recipe = name;
+        if (name is null || !_recipes.TryGetValue(name, out var recipe))
+            return;
+
+        _functions = FunctionStack.InRunOrder(recipe.Functions.Where(_available.Contains));
+        _options = new(recipe.Options ?? []);
+        _problem = null;
+    }
+
+    private async Task SaveRecipeAsync()
+    {
+        // The words typed for this one picture, and the description of it, stay out of the recipe.
+        var kept = _options
+            .Where(o => o.Key != RunOptions.VisionDescription && !o.Key.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))
+            .ToDictionary(o => o.Key, o => o.Value);
+        _recipe = _recipeName.Trim();
+        _recipes[_recipe] = new RunRequest(Guid.Empty, [.. _functions], kept);
+        _recipeName = "";
+        await Store.WriteAsync(UiStore.Recipes, _recipes, WireJson.Default.DictionaryStringRunRequest);
+    }
+
+    private async Task DeleteRecipeAsync()
+    {
+        _recipes.Remove(_recipe!);
+        _recipe = null;
+        await Store.WriteAsync(UiStore.Recipes, _recipes, WireJson.Default.DictionaryStringRunRequest);
     }
 
     private async Task RunAsync()
     {
+        if (_starting)
+            return;
+
         _problem = FunctionOptions.Missing(_functions, _options);
         if (_problem is not null)
             return;
@@ -182,9 +305,20 @@
                 .Where(o => o.Key.StartsWith("Vision.", StringComparison.Ordinal) || o.Key.StartsWith("Video.", StringComparison.Ordinal)
                     || _functions.Any(f => o.Key.StartsWith(f + ".", StringComparison.Ordinal)))
                 .ToDictionary(o => o.Key, o => o.Value);
-            (_run, _problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], sent));
-            if (_run is not null)
-                Cost.Add(estimate);
+            var (started, problem) = await Runs.StartAsync(new RunRequest(_source!.Id, [.. _functions], sent));
+            _problem = problem;
+            if (started is null)
+                return;
+
+            Cost.Add(estimate);
+            await JS.InvokeVoidAsync("poSfx.play", "start");
+            foreach (var option in _options.Where(o => Remembered.Contains(o.Key)))
+                _lastOptions[option.Key] = option.Value;
+            await Store.WriteAsync(UiStore.LastOptions, _lastOptions, WireJson.Default.DictionaryStringString);
+
+            _run = Tracker.Track(started);
+            // The run is in the address from here on: a refresh, or the tray, comes back to it.
+            Navigation.NavigateTo($"?run={started.Id}", replace: true);
         }
         finally
         {
@@ -228,15 +362,30 @@
         }
     }
 
-    private async Task OnFinishedAsync(RunStatus status)
+    private void OnRunChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnRunFinished(TrackedRun run) => InvokeAsync(async () =>
     {
-        _done = true;
         _quota = await Runs.GetQuotaAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>The same source with its ticks and options as they were, ready to change and run again.</summary>
+    private void BackToFunctions()
+    {
+        (_run, _problem, _openedSource) = (null, null, _source!.Id);
+        Navigation.NavigateTo($"?source={_source.Id}", replace: true);
     }
 
     private void StartOver()
     {
-        (_source, _functions, _options, _run, _problem, _done) = (null, [], [], null, null, false);
-        _step = 0;
+        (_source, _functions, _options, _run, _problem, _openedSource, _recipe) = (null, [], [], null, null, null, null);
+        Navigation.NavigateTo("", replace: true);
+    }
+
+    public void Dispose()
+    {
+        Tracker.Changed -= OnRunChanged;
+        Tracker.Finished -= OnRunFinished;
     }
 }

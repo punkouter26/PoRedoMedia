@@ -1,0 +1,65 @@
+@* Look and sound, remembered in this browser. *@
+@inject IJSRuntime JS
+
+<span class="pop-anchor">
+<RadzenButton Icon="tune" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" aria-label="Settings" title="Settings"
+              aria-expanded="@(_open ? "true" : "false")" Click="@(() => _open = !_open)" />
+@if (_open)
+{
+<div class="pop-scrim" @onclick="@(() => _open = false)"></div>
+<div class="shell-popup settings-popup" role="dialog" aria-label="Settings">
+    <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0 rz-mb-2">Settings</RadzenText>
+    <div class="settings-row">
+        <RadzenSwitch Name="settings-dark" Value="_dark" Change="SetDarkAsync" />
+        <RadzenLabel Component="settings-dark" Text="Dark theme" />
+    </div>
+    <div class="settings-row">
+        <RadzenSwitch Name="settings-sounds" Value="_sounds" Change="SetSoundsAsync" />
+        <RadzenLabel Component="settings-sounds" Text="Interface sounds" />
+    </div>
+    <div class="settings-row">
+        <RadzenLabel Component="settings-volume" Text="Volume" />
+        <RadzenSlider Name="settings-volume" TValue="int" Min="0" Max="100" Step="5" Value="_volume" Disabled="@(!_sounds)"
+                      Change="SetVolumeAsync" aria-label="Volume" class="po-grow" />
+    </div>
+</div>
+}
+</span>
+
+@code {
+    private bool _open;
+    private bool _dark;
+    private bool _sounds = true;
+    private int _volume = 50;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _dark = await JS.InvokeAsync<string>("poMedia.theme") == "dark";
+        _sounds = !await JS.InvokeAsync<bool>("poSfx.muted");
+        _volume = (int)Math.Round(await JS.InvokeAsync<double>("poSfx.volume") * 100);
+        StateHasChanged();
+    }
+
+    private async Task SetDarkAsync(bool on)
+    {
+        _dark = on;
+        await JS.InvokeVoidAsync("poMedia.setTheme", on ? "dark" : "light");
+    }
+
+    private async Task SetSoundsAsync(bool on)
+    {
+        _sounds = on;
+        await JS.InvokeVoidAsync("poSfx.setMuted", !on);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    private async Task SetVolumeAsync(int value)
+    {
+        _volume = value;
+        await JS.InvokeVoidAsync("poSfx.setVolume", value / 100.0);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+}

@@ -1,5 +1,10 @@
 # PoRedoMedia — Tasks
 
+> The file lists below record what each task planned to create. Several were later merged or
+> renamed (for example `BulkBoard.razor`, `ShareDialog.razor`, `AiServicePicker.razor`,
+> `intake.js`, `video-frames.js`); the code is the record of what exists. M8 (Mobile) was
+> removed on 2026-10-05: see SPEC "Changes of 2026-10-05".
+
 Rules for every task: write the failing test first; make it pass; run the full suite; build with
 0 warnings; one commit. Manifests list source files; each task also touches at most one test file
 unless stated. A task may not edit files outside its manifest except `Program.cs` /
@@ -130,7 +135,7 @@ Standard verification, unless a task says otherwise:
   `SceneDescriber.cs`, `SceneSnapshot.cs`, `Api/Common/Ai/LyriaClient.cs`. Output is an Audio media
   item whose parent is the image, with lyrics. Tests: port `RapRoastTests`,
   `SceneSnapshotParsingTests`; music refusal is reported, not thrown. Deps: T24, T25.
-- [ ] **T31 Rap roast, UI.** Partly done: lyrics are stored with the track and shown beside the audio
+- [x] **T31 Rap roast, UI.** *(Finished 2026-10-05 as `RoastStage.razor`: line highlighting timed from line lengths, a loudness pulse, and a PNG card. No WebM export.)* Earlier note: lyrics are stored with the track and shown beside the audio
   player in results and in the gallery. Not ported yet: the karaoke stage (line highlighting), and the
   PNG card and WebM export from `Redo` `roastStage.js` and `RoastScript.cs`. Deps: T23, T30.
 - [x] **T32 Photo → video.** Files: `Api/Features/PhotoToVideo/PhotoToVideoStep.cs`,
@@ -238,7 +243,7 @@ Standard verification, unless a task says otherwise:
 - [x] **T55 Mobile API client.** Files: `Mobile/Services/MobileApiClient.cs`, `IMobileApiClient.cs`.
   SAS upload, create run, poll `GET /api/runs/{id}`, gallery. Test: `IntegrationTests/MobileClientTests.cs` (the old app had no client tests to port).
   Deps: T54.
-- [ ] **T56 Mobile view models.** *(Code done and building for `net10.0-android`; the client is proven against the real server by `MobileClientTests`. Still open: J1 on a device. **Deferred by the user on 2026-10-05**: this PC is Windows on ARM, which has no Android emulator package, and no phone was attached.)* Files: `Mobile/ViewModels/MainViewModel.cs`, `GalleryViewModel.cs`,
+- [x] **T56 Mobile view models.** *(Withdrawn: the Android app was removed 2026-10-05.)* *(Code done and building for `net10.0-android`; the client is proven against the real server by `MobileClientTests`. Still open: J1 on a device. **Deferred by the user on 2026-10-05**: this PC is Windows on ARM, which has no Android emulator package, and no phone was attached.)* Files: `Mobile/ViewModels/MainViewModel.cs`, `GalleryViewModel.cs`,
   `BulkItemViewModel.cs`. Accept: J1 on the emulator against the local Api (success criterion 12).
   Deps: T55. **Checkpoint.**
 

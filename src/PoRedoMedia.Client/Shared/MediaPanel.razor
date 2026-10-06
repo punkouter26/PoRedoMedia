@@ -1,94 +1,112 @@
+@* One gallery item in detail: what it is, where it came from, and what can be done with it. *@
 @inject MediaApi Api
 @inject DialogService Dialogs
 @inject NotificationService Notifications
 @inject IJSRuntime JS
 
-<RadzenCard class="media-panel">
+<aside class="media-panel" aria-label="Details">
+<RadzenCard class="po-pop">
     <RadzenStack Gap="0.75rem">
-        @switch (Media.Kind)
+        <div class="panel-head">
+            <RadzenFormField Text="Title" class="po-grow">
+                <RadzenTextBox @bind-Value="_title" MaxLength="120" aria-label="Title" Change="@(_ => SaveAsync(_title, null))" />
+            </RadzenFormField>
+            <RadzenButton Icon="close" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" aria-label="Close the details" title="Close (Esc)"
+                          Click="@(() => Closed.InvokeAsync())" />
+        </div>
+
+        @if (Media.Kind == MediaKind.Audio && Media.Text is not null)
         {
-            case MediaKind.Image:
-                <img class="media-preview" src="@Media.Url" alt="@Media.Title" />
-                break;
-            case MediaKind.Video:
-                <video class="media-preview" src="@Media.Url" controls preload="metadata" aria-label="@Media.Title"></video>
-                break;
-            default:
-                <audio src="@Media.Url" controls aria-label="@Media.Title"></audio>
-                break;
+            <RoastStage Media="Media" />
+        }
+        else
+        {
+            <MediaView Media="Media" Class="media-preview" />
+            @if (Media.Text is not null)
+            {
+                <pre class="media-text" tabindex="0">@Media.Text</pre>
+            }
         }
 
-        @if (Media.Text is not null)
-        {
-            <pre class="media-text">@Media.Text</pre>
-        }
-
-        <RadzenFormField Text="Title">
-            <RadzenTextBox @bind-Value="_title" MaxLength="120" aria-label="Title" Change="@(_ => SaveAsync(_title, null))" />
-        </RadzenFormField>
         <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
-            @Media.Origin · @Media.CreatedAt.LocalDateTime.ToString("d MMM yyyy")
+            @Media.Origin · @Media.CreatedAt.LocalDateTime.ToString("d MMM yyyy") · @Size(Media.SizeBytes)
+            @if (Media.Pinned)
+            {
+                <span> · pinned</span>
+            }
         </RadzenText>
 
-        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap">
+        @if (Lineage.Count > 0 || Children > 0)
+        {
+            <div class="panel-lineage">
+                @if (Lineage.Count > 0)
+                {
+                    <span>Made from</span>
+                    @foreach (var ancestor in Lineage)
+                    {
+                        var parent = ancestor;
+                        <RadzenButton Text="@parent.Title" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => Selected.InvokeAsync(parent))" />
+                    }
+                }
+                @if (Children > 0)
+                {
+                    <span>@(Children == 1 ? "1 item was made from this." : $"{Children} items were made from this.")</span>
+                }
+            </div>
+        }
+
+        <div class="panel-actions">
             @if (Media.Kind != MediaKind.Audio)
             {
                 <RadzenLink Path="@($"?source={Media.Id}")" Text="Use as source" class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default" />
             }
             <RadzenButton Text="Download" Icon="download" Variant="Variant.Outlined"
                           Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
-            <RadzenButton Text="@(Media.Pinned ? "Unpin" : "Pin")" Icon="push_pin" Variant="Variant.Outlined"
-                          Click="@(() => SaveAsync(null, !Media.Pinned))" />
-            <RadzenButton Text="Delete" Icon="delete" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Click="DeleteAsync" />
-            <RadzenButton Text="@(_shareUrl is null ? "Share" : "Stop sharing")" Icon="link" Variant="Variant.Outlined" Click="ToggleShareAsync" />
-        </RadzenStack>
-
-        @if (_shareUrl is not null)
-        {
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.End">
-                <RadzenFormField Text="Anyone with this link can view it" Style="flex-grow: 1">
-                    <RadzenTextBox Value="@_shareUrl" ReadOnly="true" aria-label="Share link" />
-                </RadzenFormField>
-                <RadzenButton Text="Copy" Variant="Variant.Outlined" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", _shareUrl))" />
-            </RadzenStack>
-        }
+            <span class="panel-more">
+                <RadzenButton Icon="push_pin" Variant="@(Media.Pinned ? Variant.Filled : Variant.Text)" Disabled="_busy"
+                              aria-label="@(Media.Pinned ? "Unpin" : "Pin")" title="@(Media.Pinned ? "Unpin: let it expire (P)" : "Pin: keep it past 30 days (P)")"
+                              aria-pressed="@(Media.Pinned ? "true" : "false")" Click="TogglePinAsync" />
+                <RadzenButton Icon="link" Variant="@(Media.Shared ? Variant.Filled : Variant.Text)" Disabled="_busy"
+                              aria-label="Share" title="Share by link" Click="ShareAsync" />
+                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Disabled="_busy"
+                              aria-label="Delete" title="Delete (Del)" Click="DeleteAsync" />
+            </span>
+        </div>
     </RadzenStack>
 </RadzenCard>
+</aside>
 
 @code {
     [Parameter, EditorRequired] public MediaDto Media { get; set; } = null!;
+
+    /// <summary>The items this one was made from, nearest first.</summary>
+    [Parameter] public IReadOnlyList<MediaDto> Lineage { get; set; } = [];
+
+    /// <summary>How many gallery items were made from this one.</summary>
+    [Parameter] public int Children { get; set; }
+
     [Parameter] public EventCallback<MediaDto> Changed { get; set; }
     [Parameter] public EventCallback<MediaDto> Deleted { get; set; }
+    [Parameter] public EventCallback<MediaDto> Selected { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
 
     private string _title = "";
+    private bool _busy;
 
-    private string? _shareUrl;
+    protected override void OnInitialized() => _title = Media.Title;
 
-    protected override async Task OnInitializedAsync()
-    {
-        _title = Media.Title;
-        // Asking for the link of an item that is already shared returns the existing one.
-        if (Media.Shared)
-            (_shareUrl, _) = await Api.ShareAsync(Media.Id);
-    }
+    private static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / (1024.0 * 1024):0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
 
-    private async Task ToggleShareAsync()
-    {
-        string? error;
-        if (_shareUrl is null)
-            (_shareUrl, error) = await Api.ShareAsync(Media.Id);
-        else if ((error = await Api.StopSharingAsync(Media.Id)) is null)
-            _shareUrl = null;
-
-        if (error is not null)
-            Notifications.Notify(NotificationSeverity.Error, "Could not change sharing", error, 8000);
-        else
-            await Changed.InvokeAsync(Media with { Shared = _shareUrl is not null });
-    }
+    public Task TogglePinAsync() => SaveAsync(null, !Media.Pinned);
 
     private async Task SaveAsync(string? title, bool? pinned)
     {
+        if (_busy)
+            return;
+
+        _busy = true;
         var (updated, error) = await Api.UpdateAsync(Media.Id, title, pinned);
+        _busy = false;
         if (updated is null)
         {
             Notifications.Notify(NotificationSeverity.Error, "Could not save", error ?? "", 8000);
@@ -99,7 +117,47 @@
         await Changed.InvokeAsync(updated);
     }
 
-    private async Task DeleteAsync()
+    /// <summary>Makes the link (asking again returns the same one) and shows it with the way to turn it off.</summary>
+    private async Task ShareAsync()
+    {
+        _busy = true;
+        var (url, error) = await Api.ShareAsync(Media.Id);
+        _busy = false;
+        if (url is null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not share", error ?? "", 8000);
+            return;
+        }
+
+        if (!Media.Shared)
+            await Changed.InvokeAsync(Media with { Shared = true });
+
+        await Dialogs.OpenAsync("Share by link", dialog =>
+            @<RadzenStack Gap="0.75rem">
+                <RadzenFormField Text="Anyone with this link can view it" class="po-fill">
+                    <RadzenTextBox Value="@url" ReadOnly="true" aria-label="Share link" />
+                </RadzenFormField>
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End">
+                    <RadzenButton Text="Stop sharing" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Click="@(() => StopSharingAsync(dialog))" />
+                    <RadzenButton Text="Copy" Icon="content_copy" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", url))" />
+                </RadzenStack>
+            </RadzenStack>,
+            new DialogOptions { Width = "min(34rem, calc(100vw - 1rem))" });
+    }
+
+    private async Task StopSharingAsync(DialogService dialog)
+    {
+        if (await Api.StopSharingAsync(Media.Id) is { } error)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not stop sharing", error, 8000);
+            return;
+        }
+
+        dialog.Close();
+        await Changed.InvokeAsync(Media with { Shared = false });
+    }
+
+    public async Task DeleteAsync()
     {
         var confirmed = await Dialogs.Confirm(
             $"Delete \"{Media.Title}\"? This cannot be undone.", "Delete",
@@ -107,9 +165,16 @@
         if (confirmed != true)
             return;
 
-        if (await Api.DeleteAsync(Media.Id) is { } error)
-            Notifications.Notify(NotificationSeverity.Error, "Could not delete", error ?? "", 8000);
-        else
-            await Deleted.InvokeAsync(Media);
+        _busy = true;
+        var error = await Api.DeleteAsync(Media.Id);
+        _busy = false;
+        if (error is not null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not delete", error, 8000);
+            return;
+        }
+
+        await JS.InvokeVoidAsync("poSfx.play", "remove");
+        await Deleted.InvokeAsync(Media);
     }
 }

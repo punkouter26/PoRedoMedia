@@ -1,0 +1,135 @@
+@* The header's run tray: what is running, what just finished, and a way back to each. *@
+@implements IDisposable
+@inject RunTracker Tracker
+@inject RunApi Runs
+@inject NotificationService Notifications
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<span class="tray">
+    <RadzenButton Icon="@(Tracker.Active > 0 ? "sync" : "history")" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                  class="@(Tracker.Active > 0 ? "tray-busy" : "")" aria-label="@Label" title="@Label" aria-expanded="@(_open ? "true" : "false")"
+                  Click="@(() => _open = !_open)" />
+    @if (Tracker.Active > 0)
+    {
+        <span class="tray-count" aria-hidden="true">@Tracker.Active</span>
+    }
+@if (_open)
+{
+<div class="pop-scrim" @onclick="@(() => _open = false)"></div>
+<div class="shell-popup tray-popup" role="dialog" aria-label="Recent runs">
+    <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0 rz-mb-2">Recent runs</RadzenText>
+    @if (Tracker.Runs.Count == 0)
+    {
+        <RadzenText class="rz-m-0">Nothing has been run yet.</RadzenText>
+    }
+    <ul class="tray-list">
+        @foreach (var item in Tracker.Runs)
+        {
+            var run = item;
+            <li>
+                <RadzenIcon Icon="@Icon(run)" class="@($"tray-{run.Status.ToString().ToLowerInvariant()}")" aria-hidden="true" />
+                <span class="tray-text">
+                    <strong>@string.Join(" + ", run.Run.Functions.Select(FunctionStack.Label))</strong>
+                    <span>@State(run) · @run.Run.CreatedAt.LocalDateTime.ToString("d MMM HH:mm")</span>
+                </span>
+                <RadzenButton Text="View" Size="ButtonSize.Small" Variant="Variant.Text" aria-label="@($"View the run from {run.Run.CreatedAt.LocalDateTime:HH:mm}")"
+                              Click="@(() => View(run))" />
+                @if (run.Finished)
+                {
+                    <RadzenButton Text="@(run.Status == RunStatus.Failed ? "Retry" : "Again")" Size="ButtonSize.Small" Variant="Variant.Outlined"
+                                  Disabled="_starting" aria-label="@($"Run it again: {string.Join(", ", run.Run.Functions.Select(FunctionStack.Label))}")"
+                                  Click="@(() => AgainAsync(run))" />
+                }
+            </li>
+        }
+    </ul>
+</div>
+}
+</span>
+
+@code {
+    private bool _open;
+    private bool _starting;
+
+    private string Label => Tracker.Active > 0 ? $"Runs: {Tracker.Active} in progress" : "Recent runs";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Tracker.Changed += OnChanged;
+        Tracker.Finished += OnFinished;
+        try
+        {
+            await Tracker.LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            // The tray is a convenience; a failed read leaves it empty.
+        }
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        StateHasChanged();
+        await JS.InvokeVoidAsync("poBackdrop.pulse", Tracker.Active > 0 ? 0.6 : 0);
+    });
+
+    private void OnFinished(TrackedRun run) => InvokeAsync(async () =>
+    {
+        var what = string.Join(" + ", run.Run.Functions.Select(FunctionStack.Label));
+        if (run.Status == RunStatus.Complete)
+            Notifications.Notify(NotificationSeverity.Success, "Run finished", $"{what} is in your gallery.", 6000);
+        else
+            Notifications.Notify(NotificationSeverity.Error, "Run failed", run.Message, 8000);
+        await JS.InvokeVoidAsync("poSfx.play", run.Status == RunStatus.Complete ? "success" : "fail");
+    });
+
+    private static string Icon(TrackedRun run) => run.Status switch
+    {
+        RunStatus.Complete => "check_circle",
+        RunStatus.Failed => "error",
+        _ => "progress_activity",
+    };
+
+    private static string State(TrackedRun run) => run.Status switch
+    {
+        RunStatus.Complete => "Done",
+        RunStatus.Failed => "Failed",
+        RunStatus.Queued => "Waiting",
+        _ => run.Message,
+    };
+
+    private void View(TrackedRun run)
+    {
+        _open = false;
+        Navigation.NavigateTo($"?run={run.Run.Id}");
+    }
+
+    /// <summary>Starts the same functions with the same options on the same source.</summary>
+    private async Task AgainAsync(TrackedRun run)
+    {
+        _starting = true;
+        try
+        {
+            var (started, problem) = await Runs.StartAsync(new RunRequest(run.Run.SourceId, run.Run.Functions, run.Run.Options));
+            if (started is null)
+            {
+                Notifications.Notify(NotificationSeverity.Error, "Could not start the run", problem ?? "", 8000);
+                return;
+            }
+
+            await JS.InvokeVoidAsync("poSfx.play", "start");
+            View(Tracker.Track(started));
+        }
+        finally
+        {
+            _starting = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        Tracker.Changed -= OnChanged;
+        Tracker.Finished -= OnFinished;
+    }
+}

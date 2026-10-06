@@ -1,0 +1,64 @@
+@* A roast performed: the track, with the line being delivered lit up and the stage pulsing to
+   the track's loudness. The picture and the words can be saved together as a card. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NotificationService Notifications
+
+<div class="roast-stage" @ref="_stage">
+    <audio @ref="_audio" src="@Media.Url" controls preload="metadata" aria-label="@Media.Title"></audio>
+    <ol class="roast-lines" aria-label="Lyrics" tabindex="0">
+        @foreach (var line in Lines)
+        {
+            <li data-line>@line</li>
+        }
+    </ol>
+    @if (Media.ParentId is not null)
+    {
+        <RadzenButton Text="Save as a card" Icon="image" Size="ButtonSize.Small" Variant="Variant.Outlined" IsBusy="_saving" Click="SaveCardAsync" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MediaDto Media { get; set; } = null!;
+
+    private ElementReference _stage;
+    private ElementReference _audio;
+    private bool _attached;
+    private bool _saving;
+
+    private IEnumerable<string> Lines =>
+        (Media.Text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _attached = true;
+        await JS.InvokeVoidAsync("poRoast.attach", _stage, _audio);
+    }
+
+    private async Task SaveCardAsync()
+    {
+        _saving = true;
+        var saved = await JS.InvokeAsync<bool>("poRoast.card", $"api/media/{Media.ParentId}/content", Media.Title, Media.Text ?? "");
+        _saving = false;
+        if (!saved)
+            Notifications.Notify(NotificationSeverity.Error, "Could not make the card", "The picture this roast was made from is no longer in your gallery.", 8000);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_attached)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("poRoast.detach", _stage);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away, and the stage with it.
+        }
+    }
+}

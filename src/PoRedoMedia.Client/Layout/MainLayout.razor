@@ -1,12 +1,13 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject HttpClient Http
 
 <RadzenComponents />
 
 <RadzenLayout>
     <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1.5rem" Wrap="FlexWrap.Wrap" class="rz-px-4 rz-py-2">
-            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span" class="rz-m-0" Style="color: inherit">PoRedoMedia</RadzenText>
+        <div class="shell-bar">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.Span" class="rz-m-0 po-inherit shell-brand">PoRedoMedia</RadzenText>
             <AuthorizeView>
                 <Authorized>
                     <nav class="shell-nav" aria-label="Main">
@@ -14,17 +15,59 @@
                         <NavLink href="gallery">Gallery</NavLink>
                         <NavLink href="sounds">Sounds</NavLink>
                     </nav>
-                    <span class="shell-user"><SessionCostChip /> @context.User.Identity?.Name</span>
-                    <RadzenButton Text="Sign out" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
-                                  Click="@(() => Navigation.NavigateTo("logout", forceLoad: true))" />
+                    <div class="shell-tools">
+                        <SessionCostChip />
+                        <ActivityTray />
+                        <SettingsMenu />
+                        <span class="shell-user">@context.User.Identity?.Name</span>
+                        <RadzenButton Text="Sign out" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" IsBusy="_leaving" Click="SignOutAsync" />
+                    </div>
                 </Authorized>
+                <NotAuthorized>
+                    <div class="shell-tools">
+                        <SettingsMenu />
+                    </div>
+                </NotAuthorized>
             </AuthorizeView>
-        </RadzenStack>
+        </div>
     </RadzenHeader>
     <RadzenBody>
         <MockDataBanner />
         <main class="shell-main">
-            @Body
+            <ErrorBoundary @ref="_boundary">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent>
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">
+                        Something went wrong on this page.
+                        <RadzenButton Text="Reload" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Light" class="rz-ml-2"
+                                      Click="@(() => Navigation.NavigateTo(Navigation.Uri, forceLoad: true))" />
+                    </RadzenAlert>
+                </ErrorContent>
+            </ErrorBoundary>
         </main>
     </RadzenBody>
 </RadzenLayout>
+
+@code {
+    private ErrorBoundary? _boundary;
+    private bool _leaving;
+
+    // A page that failed must not keep the next page from showing.
+    protected override void OnParametersSet() => _boundary?.Recover();
+
+    // Sign-out is a POST with the antiforgery token; the page then leaves for /login itself.
+    private async Task SignOutAsync()
+    {
+        _leaving = true;
+        try
+        {
+            using var response = await Http.PostAsync("logout", null);
+        }
+        catch (HttpRequestException)
+        {
+            // Offline: the cookie stays, and /login will send a signed-in user back in.
+        }
+
+        Navigation.NavigateTo("login", forceLoad: true);
+    }
+}

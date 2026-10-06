@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoRedoMedia UI changes, 2026-10-05</title>
+<style>
+    body { margin: 0; padding: 1.5rem; background: #14151a; color: #eceef3; font: 15px/1.5 system-ui, sans-serif; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1.15rem; margin: 2.5rem 0 0.5rem; border-top: 1px solid #333; padding-top: 1.25rem; }
+    p { margin: 0 0 1rem; color: #b9bdc9; max-width: 70rem; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+    .pair.phone { grid-template-columns: 300px 300px 1fr; }
+    figure { margin: 0; }
+    figcaption { font-weight: 700; margin-bottom: 0.35rem; }
+    figcaption.old { color: #ff9c8a; }
+    figcaption.new { color: #8be28f; }
+    .shot { position: relative; border: 1px solid #3a3d48; border-radius: 6px; overflow: hidden; }
+    .shot img { display: block; width: 100%; }
+    .mark { position: absolute; transform: translate(-50%, -50%); width: 1.7rem; height: 1.7rem; border-radius: 50%;
+            display: grid; place-items: center; font-weight: 800; font-size: 0.9rem; color: #14151a;
+            background: #ffd400; border: 2px solid #14151a; box-shadow: 0 0 0 2px #ffd400, 0 2px 8px rgb(0 0 0 / 60%); }
+    .mark.gone { background: #ff7a66; box-shadow: 0 0 0 2px #ff7a66, 0 2px 8px rgb(0 0 0 / 60%); }
+    .box { position: absolute; border: 3px solid #ffd400; border-radius: 6px; pointer-events: none; }
+    .box.gone { border-color: #ff7a66; border-style: dashed; }
+    ol { margin: 0.75rem 0 0; padding-left: 1.4rem; max-width: 70rem; }
+    li { margin-bottom: 0.3rem; }
+    li b { color: #ffd400; }
+    li.gone b { color: #ff7a66; }
+    @media (max-width: 1000px) { .pair, .pair.phone { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>PoRedoMedia UI changes</h1>
+<p>5 October 2026. Left is before, right is after. Yellow numbers mark what is new; red marks what was removed.
+   Both sets were captured from the app running in mock mode at 1440×900, and 390×844 for the phone shots.</p>
+
+<h2>Create: three steps became one pane</h2>
+<div class="pair">
+    <figure><figcaption class="old">Before</figcaption>
+        <div class="shot"><img src="before-create-source-desktop.png" alt="Create page before: a three-step wizard in a 960 pixel column">
+            <span class="box gone" style="left:17.5%;top:24%;width:65%;height:5.5%"></span><span class="mark gone" style="left:50%;top:26.5%">A</span>
+            <span class="box gone" style="left:44.5%;top:65.5%;width:37.5%;height:4.5%"></span><span class="mark gone" style="left:63%;top:68%">B</span>
+            <span class="mark gone" style="left:8%;top:60%">C</span>
+        </div></figure>
+    <figure><figcaption class="new">After</figcaption>
+        <div class="shot"><img src="after-create-source-desktop.png" alt="Create page after: preview and functions side by side with a run bar">
+            <span class="box" style="left:41.5%;top:64%;width:56%;height:7.5%"></span><span class="mark" style="left:70%;top:67.5%">1</span>
+            <span class="mark" style="left:88%;top:67.8%">2</span>
+            <span class="mark" style="left:44.5%;top:59.7%">3</span>
+            <span class="mark" style="left:77.6%;top:8.5%">4</span>
+            <span class="mark" style="left:80.4%;top:8.5%">5</span>
+            <span class="mark" style="left:20%;top:45%">6</span>
+        </div></figure>
+</div>
+<ol>
+    <li class="gone"><b>A</b> The Media / Functions / Run stepper is gone.</li>
+    <li class="gone"><b>B</b> Back and Next are gone: there is nothing to step through.</li>
+    <li class="gone"><b>C</b> The page no longer sits in a 960 px column with empty margins.</li>
+    <li><b>1</b> A run bar that stays in view: what will run, the estimated cost, and Run.</li>
+    <li><b>2</b> A dial of runs left today.</li>
+    <li><b>3</b> Recipes: save what is ticked under a name and reuse it. Last-used options are remembered.</li>
+    <li><b>4</b> Run tray: recent runs, with View and Again. Runs keep going when you leave the page.</li>
+    <li><b>5</b> Settings: dark theme, interface sounds, volume.</li>
+    <li><b>6</b> A larger preview that stays put while the options scroll.</li>
+</ol>
+
+<h2>Create: a finished run</h2>
+<div class="pair">
+    <figure><figcaption class="new">After: results</figcaption>
+        <div class="shot"><img src="after-run-done-desktop.png" alt="A finished run with step chips, results and the roast stage">
+            <span class="box" style="left:42%;top:24.5%;width:19%;height:5%"></span><span class="mark" style="left:63%;top:27%">1</span>
+            <span class="box" style="left:70%;top:55.5%;width:27%;height:36%"></span><span class="mark" style="left:69%;top:63%">2</span>
+            <span class="mark" style="left:76.5%;top:15%">3</span>
+            <span class="mark" style="left:64%;top:3%">4</span>
+        </div></figure>
+    <figure><figcaption class="new">After: the run tray</figcaption>
+        <div class="shot"><img src="after-tray-desktop.png" alt="The header's recent runs tray">
+            <span class="box" style="left:50%;top:6%;width:29%;height:19.5%"></span><span class="mark" style="left:49%;top:15%">5</span>
+        </div></figure>
+</div>
+<ol>
+    <li><b>1</b> Each function is a step chip: waiting, working, done or failed.</li>
+    <li><b>2</b> The roast stage: the line being performed lights up and the stage pulses with the track. "Save as a card" makes a PNG.</li>
+    <li><b>3</b> A toast (and a sound) when any run ends, on whichever page you are.</li>
+    <li><b>4</b> The session cost counts up to its new value.</li>
+    <li><b>5</b> Recent runs. View returns to a run; Again starts it once more with the same options.</li>
+</ol>
+
+<h2>Gallery</h2>
+<div class="pair">
+    <figure><figcaption class="old">Before</figcaption>
+        <div class="shot"><img src="before-gallery-desktop.png" alt="Gallery before"></div></figure>
+    <figure><figcaption class="new">After</figcaption>
+        <div class="shot"><img src="after-gallery-desktop.png" alt="Gallery after: full width grid with a details panel">
+            <span class="mark" style="left:50%;top:15%">1</span>
+            <span class="mark" style="left:73.5%;top:15%">2</span>
+            <span class="mark" style="left:83%;top:15%">3</span>
+            <span class="mark" style="left:92.5%;top:15%">4</span>
+            <span class="box" style="left:68.5%;top:22.3%;width:29.5%;height:56%"></span><span class="mark" style="left:67.5%;top:40%">5</span>
+            <span class="mark" style="left:92.5%;top:78%">6</span>
+        </div></figure>
+</div>
+<ol>
+    <li><b>1</b> Search covers titles, where an item came from, and its words. Press <kbd>/</kbd> to jump to it.</li>
+    <li><b>2</b> Sort: newest, oldest, name, largest.</li>
+    <li><b>3</b> Select mode: pin, unpin, download or delete several items at once.</li>
+    <li><b>4</b> Add media opens the same drop / paste / camera picker Create uses.</li>
+    <li><b>5</b> The details panel stays beside a full-width grid. Filter, sort and the open item are in the address, so back and refresh keep them.</li>
+    <li><b>6</b> One clear primary action; pin, share and delete are icon buttons. Arrow keys move, <kbd>P</kbd> pins, <kbd>Del</kbd> deletes, <kbd>Enter</kbd> uses as source.</li>
+</ol>
+<div class="pair" style="margin-top:1rem">
+    <figure><figcaption class="new">After: what an item was made from</figcaption>
+        <div class="shot"><img src="after-gallery-roast-desktop.png" alt="A roast in the gallery with its lineage"></div></figure>
+    <figure><figcaption class="new">After: select mode</figcaption>
+        <div class="shot"><img src="after-gallery-select-desktop.png" alt="Gallery select mode with the bulk action bar"></div></figure>
+</div>
+
+<h2>Sounds</h2>
+<div class="pair">
+    <figure><figcaption class="old">Before</figcaption>
+        <div class="shot"><img src="before-sounds-desktop.png" alt="Sounds before: a native audio player in every row">
+            <span class="mark gone" style="left:72%;top:45%">A</span>
+        </div></figure>
+    <figure><figcaption class="new">After</figcaption>
+        <div class="shot"><img src="after-sounds-desktop.png" alt="Sounds after: play buttons and tag chips">
+            <span class="mark" style="left:8.2%;top:32%">1</span>
+            <span class="mark" style="left:66%;top:32%">2</span>
+        </div></figure>
+</div>
+<ol>
+    <li class="gone"><b>A</b> The player in every row is gone, and with it a 300 px column.</li>
+    <li><b>1</b> A play button per row drives one shared player; starting a sound stops the last.</li>
+    <li><b>2</b> Tags are chips. Rows are denser: 20 to a page instead of 15.</li>
+</ol>
+
+<h2>Phone</h2>
+<div class="pair phone">
+    <figure><figcaption class="old">Before</figcaption>
+        <div class="shot"><img src="before-gallery-phone.png" alt="Gallery on a phone before"></div></figure>
+    <figure><figcaption class="new">After</figcaption>
+        <div class="shot"><img src="after-gallery-phone.png" alt="Gallery on a phone after: details as a bottom sheet">
+            <span class="box" style="left:3%;top:53.5%;width:94%;height:46.5%"></span><span class="mark" style="left:88%;top:56%">1</span>
+        </div></figure>
+    <ol>
+        <li><b>1</b> Details open as a sheet from the bottom, over the grid, instead of far below it.</li>
+        <li>Controls are at least 44 px tall, the header keeps to what is tapped, and the installed app respects the notch and home bar.</li>
+    </ol>
+</div>
+
+<h2>Dark theme</h2>
+<div class="pair">
+    <figure><figcaption class="new">After: Gallery</figcaption><div class="shot"><img src="after-gallery-dark.png" alt="Gallery in the dark theme"></div></figure>
+    <figure><figcaption class="new">After: Create</figcaption><div class="shot"><img src="after-create-source-dark.png" alt="Create in the dark theme"></div></figure>
+</div>
+<p style="margin-top:0.75rem">New. It follows the system setting on first visit and can be switched in Settings. The faint moving
+   colour behind the page is a WebGL shader; it brightens while a file is dragged in or a run is working, and stays still
+   when the system asks for reduced motion.</p>
+</body>
+</html>

@@ -56,7 +56,7 @@
                     {
                         var index = i;
                         <RadzenTextArea Value="@_bulk[index]" Rows="4" MaxLength="@BulkPrompts.MaxLength" aria-label="@($"Style prompt {index + 1}")"
-                                        Change="@(text => EditBulk(index, text))" Style="width: 100%" />
+                                        Change="@(text => EditBulk(index, text))" class="po-fill" />
                     }
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
                         <RadzenButton Text="Save as my styles" Variant="Variant.Outlined" Click="SaveBulkAsync" />
@@ -121,7 +121,7 @@
 @if (Functions.Contains(MediaFunction.PhotoToVideo))
 {
     <RadzenFieldset Text="Photo to video" class="rz-mt-2">
-        <RadzenFormField Text="What should happen in the clip?" Style="width: 100%">
+        <RadzenFormField Text="What should happen in the clip?" class="po-fill">
             <RadzenTextArea Value="@Get(RunOptions.VideoPrompt)" Rows="3" MaxLength="1200" aria-label="What should happen in the clip" Change="@(v => Set(RunOptions.VideoPrompt, v))" />
         </RadzenFormField>
         <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">Makes an 8-second clip with sound. It takes a few minutes.</RadzenText>
@@ -178,6 +178,9 @@
     /// <summary>Voices the server can perform the video roast in.</summary>
     [Parameter] public IReadOnlyList<string> RoastVoices { get; set; } = [];
 
+    /// <summary>Raised when an option changes, so the page can update what depends on it (the cost).</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
     private static readonly string[] Personas = ["standard", "brainrot", "mlg", "sitcom", "drama", "anime"];
 
     private List<MemeTemplateDto> _templates = [];
@@ -192,20 +195,27 @@
             _bulk = await Runs.GetBulkPromptsAsync();
             _bulkTicked = [.. _bulk.Select(_ => true)];
             WriteBulk();
+            await Changed.InvokeAsync();
         }
+
+        // A recipe can arrive already set to a template, without passing through Set.
+        if (Functions.Contains(MediaFunction.MemeCaption) && Mode == RunOptions.MemeModeTemplate && _templates.Count == 0)
+            _templates = await Runs.GetMemeTemplatesAsync();
     }
 
-    private void TickBulk(int index, bool on)
+    private Task TickBulk(int index, bool on)
     {
         _bulkTicked[index] = on;
         WriteBulk();
+        return Changed.InvokeAsync();
     }
 
-    private void EditBulk(int index, string text)
+    private Task EditBulk(int index, string text)
     {
         _bulk[index] = text;
         _bulkSaved = "";
         WriteBulk();
+        return Changed.InvokeAsync();
     }
 
     private async Task SaveBulkAsync() =>
@@ -231,6 +241,7 @@
         Options[key] = value;
         if (value == RunOptions.MemeModeTemplate && _templates.Count == 0)
             _templates = await Runs.GetMemeTemplatesAsync();
+        await Changed.InvokeAsync();
     }
 
     /// <summary>What still has to be filled in before these options can run, or null.</summary>

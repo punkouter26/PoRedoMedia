@@ -1,15 +1,17 @@
 @page "/gallery"
-@using Microsoft.AspNetCore.Components.Forms
+@implements IAsyncDisposable
 @inject MediaApi Api
-@inject BlobUploadService Uploader
 @inject NotificationService Notifications
+@inject DialogService Dialogs
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Gallery · PoRedoMedia</PageTitle>
 
-<RadzenStack Gap="1rem">
-    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+<RadzenStack Gap="0.75rem">
+    <div class="gallery-bar">
         <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Gallery</RadzenText>
-        <RadzenSelectBar @bind-Value="_kind" TValue="string" aria-label="Filter by kind">
+        <RadzenSelectBar Value="_kind" TValue="string" Change="@(v => SetAsync(kind: v))" aria-label="Filter by kind">
             <Items>
                 <RadzenSelectBarItem Text="All" Value="@("All")" />
                 <RadzenSelectBarItem Text="Images" Value="@("Image")" />
@@ -17,22 +19,33 @@
                 <RadzenSelectBarItem Text="Audio" Value="@("Audio")" />
             </Items>
         </RadzenSelectBar>
-        <RadzenTextBox Value="@_search" @oninput="@(e => _search = e.Value?.ToString() ?? "")"
-                       Placeholder="Search titles" aria-label="Search titles" Style="flex: 1 1 12rem" />
-        <label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default gallery-add">
-            Add media
-            <InputFile @ref="_input" OnChange="UploadAsync" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm" class="gallery-file" />
-        </label>
-    </RadzenStack>
+        <RadzenTextBox Value="@_search" @oninput="@(e => SetAsync(search: e.Value?.ToString() ?? ""))" data-po-search
+                       Placeholder="Search titles and words" aria-label="Search titles and words" title="Search (/)" class="po-grow" />
+        <RadzenDropDown TValue="string" Data="Sorts" Value="_sort" Change="@(v => SetAsync(sort: v?.ToString()))" aria-label="Sort by" class="gallery-sort" />
+        <RadzenToggleButton Text="Select" Icon="checklist" Variant="Variant.Outlined" Value="_selecting" Change="ToggleSelecting" />
+        <RadzenButton Text="Add media" Icon="add" Click="AddAsync" />
+    </div>
 
-    @if (_uploadPercent is { } percent)
+    @if (_selecting)
     {
-        <RadzenProgressBar Value="percent" aria-label="Upload progress" />
+        <div class="gallery-bulk" role="toolbar" aria-label="Actions for the selected items">
+            <RadzenText class="rz-m-0" aria-live="polite">@_picked.Count selected</RadzenText>
+            <RadzenButton Text="Pin" Icon="push_pin" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="@(_picked.Count == 0 || _working)" Click="@(() => PinPickedAsync(true))" />
+            <RadzenButton Text="Unpin" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="@(_picked.Count == 0 || _working)" Click="@(() => PinPickedAsync(false))" />
+            <RadzenButton Text="Download" Icon="download" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="@(_picked.Count == 0 || _working)" Click="DownloadPickedAsync" />
+            <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Disabled="@(_picked.Count == 0 || _working)" Click="DeletePickedAsync" />
+            <RadzenButton Text="Select all" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => _picked = [.. Visible.Select(m => m.Id)])" />
+        </div>
     }
 
     @if (_items is null)
     {
-        <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" ShowValue="false" aria-label="Loading" />
+        <div class="gallery-grid" role="status" aria-label="Loading">
+            @for (var i = 0; i < 12; i++)
+            {
+                <div class="po-skeleton gallery-skeleton"></div>
+            }
+        </div>
     }
     else if (_items.Count == 0)
     {
@@ -40,11 +53,14 @@
     }
     else
     {
-        <div class="gallery-split">
-            <RadzenDataList Data="@Filter(_items, _kind, _search)" TItem="MediaDto" WrapItems="true" AllowPaging="true" PageSize="24" class="gallery-list">
-                <Template Context="item">
-                    <button type="button" class="gallery-card @(item.Id == _selected?.Id ? "selected" : "")"
-                            aria-pressed="@(item.Id == _selected?.Id ? "true" : "false")" @onclick="@(() => _selected = item)">
+        <div class="gallery-split @(Selected is not null ? "has-panel" : "")">
+            <div class="gallery-grid">
+                @foreach (var media in Visible)
+                {
+                    var item = media;
+                    var on = _selecting ? _picked.Contains(item.Id) : item.Id == _selectedId;
+                    <button type="button" class="gallery-card @(on ? "selected" : "")" data-id="@item.Id" @key="item.Id"
+                            aria-pressed="@(on ? "true" : "false")" @onclick="@(() => ClickAsync(item))">
                         @if (item.Kind == MediaKind.Audio)
                         {
                             <span class="gallery-thumb gallery-audio" aria-hidden="true"><RadzenIcon Icon="music_note" /></span>
@@ -54,61 +70,256 @@
                             <img class="gallery-thumb" src="@item.ThumbUrl" alt="" loading="lazy" />
                         }
                         <span class="gallery-title">@item.Title</span>
-                        <RadzenBadge Text="@item.Kind.ToString()" BadgeStyle="BadgeStyle.Base" Shade="Shade.Darker" />
+                        <span class="gallery-meta">
+                            <RadzenBadge Text="@item.Kind.ToString()" BadgeStyle="BadgeStyle.Base" Shade="Shade.Darker" />
+                            @if (item.Pinned)
+                            {
+                                <RadzenIcon Icon="push_pin" title="Pinned" aria-label="Pinned" />
+                            }
+                            @if (item.Shared)
+                            {
+                                <RadzenIcon Icon="link" title="Shared by link" aria-label="Shared by link" />
+                            }
+                        </span>
                     </button>
-                </Template>
-            </RadzenDataList>
-            @if (_selected is not null)
+                }
+            </div>
+            @if (Selected is { } selected)
             {
-                <MediaPanel @key="_selected.Id" Media="_selected" Changed="OnChanged" Deleted="OnDeleted" />
+                <MediaPanel @ref="_panel" @key="selected.Id" Media="selected" Lineage="LineageOf(selected)" Children="@_items.Count(m => m.ParentId == selected.Id)"
+                            Changed="OnChanged" Deleted="OnDeleted" Selected="@(m => SetAsync(selected: m.Id))" Closed="@(() => SetAsync(clearSelected: true))" />
             }
         </div>
+        @if (!Visible.Any())
+        {
+            <RadzenText>Nothing matches. Clear the search or pick another kind.</RadzenText>
+        }
     }
 </RadzenStack>
 
 @code {
+    private static readonly string[] Sorts = ["Newest", "Oldest", "Name", "Largest"];
+
+    // What is filtered, sorted and open lives in the address, so back, forward and refresh keep it.
+    [SupplyParameterFromQuery] public string? Kind { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
+    [SupplyParameterFromQuery] public string? Sort { get; set; }
+    [SupplyParameterFromQuery] public Guid? Item { get; set; }
+
     private List<MediaDto>? _items;
-    private MediaDto? _selected;
     private string _kind = "All";
     private string _search = "";
-    private double? _uploadPercent;
-    private InputFile? _input;
+    private string _sort = "Newest";
+    private Guid? _selectedId;
+    private bool _selecting;
+    private bool _working;
+    private HashSet<Guid> _picked = [];
+    private MediaPanel? _panel;
+    private DotNetObjectReference<Gallery>? _self;
+
+    private MediaDto? Selected => _selecting ? null : _items?.FirstOrDefault(m => m.Id == _selectedId);
+
+    private IEnumerable<MediaDto> Visible => Order(Filter(_items ?? [], _kind, _search), _sort);
 
     protected override async Task OnInitializedAsync() => _items = await Api.ListAsync();
 
-    public static IEnumerable<MediaDto> Filter(IEnumerable<MediaDto> items, string kind, string search) =>
-        items.Where(m => kind == "All" || m.Kind.ToString() == kind)
-             .Where(m => m.Title.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase));
+    protected override void OnParametersSet() =>
+        (_kind, _search, _sort, _selectedId) = (Kind ?? "All", Q ?? "", Sorts.Contains(Sort) ? Sort! : "Newest", Item);
 
-    private async Task UploadAsync(InputFileChangeEventArgs e)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _uploadPercent = 0;
-        var (media, error) = await Uploader.UploadAsync(_input!.Element!.Value, e.File.Name, e.File.Size, percent =>
+        if (firstRender)
         {
-            _uploadPercent = percent;
-            InvokeAsync(StateHasChanged);
-        });
-        _uploadPercent = null;
+            _self = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("poMedia.shortcuts", _self);
+        }
+    }
 
-        if (media is null)
+    /// <summary>Matches the kind, and the search against the title, where it came from and its words.</summary>
+    public static IEnumerable<MediaDto> Filter(IEnumerable<MediaDto> items, string kind, string search)
+    {
+        var words = search.Trim();
+        return items.Where(m => kind == "All" || m.Kind.ToString() == kind)
+            .Where(m => m.Title.Contains(words, StringComparison.OrdinalIgnoreCase)
+                || m.Origin.Contains(words, StringComparison.OrdinalIgnoreCase)
+                || m.Text?.Contains(words, StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private static IEnumerable<MediaDto> Order(IEnumerable<MediaDto> items, string sort) => sort switch
+    {
+        "Oldest" => items.OrderBy(m => m.CreatedAt),
+        "Name" => items.OrderBy(m => m.Title, StringComparer.OrdinalIgnoreCase),
+        "Largest" => items.OrderByDescending(m => m.SizeBytes),
+        _ => items.OrderByDescending(m => m.CreatedAt),
+    };
+
+    /// <summary>The chain of items this one was made from, nearest first.</summary>
+    private List<MediaDto> LineageOf(MediaDto item)
+    {
+        var chain = new List<MediaDto>();
+        for (var parent = item.ParentId; parent is not null && chain.Count < 8;)
         {
-            Notifications.Notify(NotificationSeverity.Error, "Could not add that file", error ?? "", 8000);
-            return;
+            if (_items!.FirstOrDefault(m => m.Id == parent) is not { } found)
+                break;
+            chain.Add(found);
+            parent = found.ParentId;
         }
 
+        return chain;
+    }
+
+    /// <summary>Changes one part of the view and writes the whole of it to the address.</summary>
+    private Task SetAsync(string? kind = null, string? search = null, string? sort = null, Guid? selected = null, bool clearSelected = false)
+    {
+
+        (_kind, _search, _sort) = (kind ?? _kind, search ?? _search, sort ?? _sort);
+        _selectedId = clearSelected ? null : selected ?? _selectedId;
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["kind"] = _kind == "All" ? null : _kind,
+            ["q"] = _search.Length == 0 ? null : _search,
+            ["sort"] = _sort == "Newest" ? null : _sort,
+            ["item"] = _selectedId,
+        }), replace: true);
+        return Task.CompletedTask;
+    }
+
+    private Task ClickAsync(MediaDto item)
+    {
+        if (!_selecting)
+            return SetAsync(selected: item.Id);
+
+        if (!_picked.Remove(item.Id))
+            _picked.Add(item.Id);
+        return Task.CompletedTask;
+    }
+
+    private void ToggleSelecting(bool on) => (_selecting, _picked) = (on, []);
+
+    /// <summary>Opens the same picker Create uses, so the gallery takes drops, pastes and the camera too.</summary>
+    private async Task AddAsync()
+    {
+        var added = await Dialogs.OpenAsync<MediaPicker>("Add media", new Dictionary<string, object?>
+        {
+            [nameof(MediaPicker.ShowRecent)] = false,
+            [nameof(MediaPicker.ValueChanged)] = EventCallback.Factory.Create<MediaDto>(this, media => Dialogs.Close(media)),
+        }, new DialogOptions { Width = "min(42rem, calc(100vw - 1rem))" });
+        if (added is not MediaDto media)
+            return;
+
         _items!.Insert(0, media);
-        _selected = media;
+        await SetAsync(selected: media.Id);
     }
 
     private void OnChanged(MediaDto updated)
     {
-        _items![_items.FindIndex(m => m.Id == updated.Id)] = updated;
-        _selected = updated;
+        var index = _items!.FindIndex(m => m.Id == updated.Id);
+        if (index >= 0)
+            _items[index] = updated;
     }
 
-    private void OnDeleted(MediaDto deleted)
+    private Task OnDeleted(MediaDto deleted)
     {
         _items!.RemoveAll(m => m.Id == deleted.Id);
-        _selected = null;
+        return SetAsync(clearSelected: true);
+    }
+
+    private async Task PinPickedAsync(bool pinned)
+    {
+        _working = true;
+        foreach (var item in _items!.Where(m => _picked.Contains(m.Id) && m.Pinned != pinned).ToList())
+        {
+            if ((await Api.UpdateAsync(item.Id, null, pinned)).Media is { } updated)
+                OnChanged(updated);
+        }
+
+        _working = false;
+    }
+
+    private async Task DownloadPickedAsync() =>
+        await JS.InvokeVoidAsync("poMedia.downloadMany", _items!.Where(m => _picked.Contains(m.Id)).Select(m => m.Url + "?download=true").ToArray());
+
+    private async Task DeletePickedAsync()
+    {
+        var count = _picked.Count;
+        var confirmed = await Dialogs.Confirm(
+            $"Delete {(count == 1 ? "1 item" : $"{count} items")}? This cannot be undone.", "Delete",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Keep" });
+        if (confirmed != true)
+            return;
+
+        _working = true;
+        var failed = 0;
+        foreach (var id in _picked.ToList())
+        {
+            if (await Api.DeleteAsync(id) is null)
+            {
+                _items!.RemoveAll(m => m.Id == id);
+                _picked.Remove(id);
+            }
+            else
+            {
+                failed++;
+            }
+        }
+
+        _working = false;
+        await JS.InvokeVoidAsync("poSfx.play", "remove");
+        if (failed > 0)
+            Notifications.Notify(NotificationSeverity.Error, "Some items were kept", $"{failed} could not be deleted. An item with a run in progress cannot be.", 8000);
+    }
+
+    /// <summary>Keyboard shortcuts, sent by the page script when no field has the focus.</summary>
+    [JSInvokable]
+    public async Task OnShortcut(string key)
+    {
+        var visible = Visible.ToList();
+        var at = visible.FindIndex(m => m.Id == _selectedId);
+        switch (key)
+        {
+            case "ArrowRight" or "ArrowDown" when visible.Count > 0:
+                await MoveAsync(visible[Math.Min(visible.Count - 1, at + 1)]);
+                break;
+            case "ArrowLeft" or "ArrowUp" when visible.Count > 0:
+                await MoveAsync(visible[Math.Max(0, at - 1)]);
+                break;
+            case "Escape":
+                if (_selecting)
+                    ToggleSelecting(false);
+                else
+                    await SetAsync(clearSelected: true);
+                break;
+            case "Enter" when Selected is { Kind: not MediaKind.Audio } source:
+                Navigation.NavigateTo($"?source={source.Id}");
+                break;
+            case "Delete" when _panel is not null && Selected is not null:
+                await _panel.DeleteAsync();
+                break;
+            case "p" or "P" when _panel is not null && Selected is not null:
+                await _panel.TogglePinAsync();
+                break;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task MoveAsync(MediaDto item)
+    {
+        await SetAsync(selected: item.Id);
+        await JS.InvokeVoidAsync("poMedia.scrollIntoView", $".gallery-card[data-id='{item.Id}']");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("poMedia.releaseShortcuts");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away, and its listeners with it.
+        }
+
+        _self?.Dispose();
     }
 }

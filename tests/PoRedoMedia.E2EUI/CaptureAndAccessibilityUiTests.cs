@@ -88,9 +88,8 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
 
         await page.Locator(".rz-dropdown").Last.ClickAsync();
         await page.GetByRole(AriaRole.Option, new() { Name = "On this device (Florence-2)" }).ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Next" }).ClickAsync();
         await Assertions.Expect(page.GetByText("Estimated cost: $0.00")).ToBeVisibleAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Run" }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).ClickAsync();
 
         // Either the run finishes or the page shows why it could not; both end the wait.
         var outcome = page.Locator(".create-page .rz-alert").First;

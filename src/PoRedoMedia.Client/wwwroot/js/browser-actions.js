@@ -311,21 +311,6 @@ window.poMedia = {
         document.querySelector(selector)?.scrollIntoView({ block: 'nearest' });
     },
 
-    // Cross-fades the next render where the browser can. The render is whatever Blazor does
-    // between this call and endTransition, or the next 200 ms.
-    startTransition() {
-        if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-        document.startViewTransition(() => new Promise((resolve) => {
-            window.poMedia._endTransition = resolve;
-            setTimeout(resolve, 200);
-        }));
-    },
-
-    endTransition() {
-        window.poMedia._endTransition?.();
-        window.poMedia._endTransition = null;
-    },
-
     // Counts a number up to its new value instead of swapping it.
     countUp(element, value, prefix, digits) {
         if (!element) return;

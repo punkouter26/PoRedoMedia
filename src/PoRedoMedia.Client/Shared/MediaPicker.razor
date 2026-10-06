@@ -1,7 +1,10 @@
-@* Step 1 of Create: upload a file, or reuse something already in the gallery. *@
+@* Choosing the media for a run: drop, paste, pick a file, use the camera, take a file another
+   app shared, or reuse something already in the gallery. *@
 @using Microsoft.AspNetCore.Components.Forms
+@implements IAsyncDisposable
 @inject MediaApi Api
 @inject BlobUploadService Uploader
+@inject AppConfigService Config
 @inject IJSRuntime JS
 
 <RadzenStack Gap="1rem">
@@ -9,13 +12,10 @@
         <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-m-0">Choose a photo or a video</RadzenText>
         <RadzenText class="rz-m-0">Drop it here, paste it, pick a file, or use the camera.</RadzenText>
         <RadzenText class="rz-m-0">JPG, PNG, WEBP or GIF up to 10 MB. MP4, MOV or WEBM up to 200 MB and 10 minutes.</RadzenText>
-        <label class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default picker-choose">
-            Choose file
-            <InputFile @ref="_input" OnChange="UploadAsync" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.webm" class="picker-file" />
-        </label>
+        <FilePick @ref="_file" Text="Choose file" Disabled="Busy" OnChange="UploadAsync" />
         @if (_hasCamera && !_cameraOn)
         {
-            <RadzenButton Text="Use the camera" Icon="photo_camera" Variant="Variant.Outlined" Click="StartCameraAsync" />
+            <RadzenButton Text="Use the camera" Icon="photo_camera" Variant="Variant.Outlined" Disabled="Busy" Click="StartCameraAsync" />
         }
         <video @ref="_camera" class="picker-camera" hidden="@(!_cameraOn)" playsinline muted aria-label="Camera preview"></video>
         @if (_cameraOn)
@@ -27,11 +27,11 @@
         }
         @if (_percent is { } percent)
         {
-            <RadzenProgressBar Value="percent" aria-label="Upload progress" Style="width: 100%" />
+            <RadzenProgressBar Value="percent" aria-label="Upload progress" class="po-fill" />
         }
-        @if (_analysing)
+        @if (_status is not null)
         {
-            <RadzenText class="rz-m-0" aria-live="polite">Looking through the video…</RadzenText>
+            <RadzenText class="rz-m-0" aria-live="polite">@_status</RadzenText>
         }
         @if (_error is not null)
         {
@@ -39,14 +39,14 @@
         }
     </div>
 
-    @if (_recent.Count > 0)
+    @if (ShowRecent && _recent.Count > 0)
     {
         <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0">Or use something from your gallery</RadzenText>
         <div class="picker-recent">
             @foreach (var item in _recent)
             {
                 var media = item;
-                <button type="button" class="picker-card" @onclick="@(() => ValueChanged.InvokeAsync(media))">
+                <button type="button" class="picker-card" disabled="@Busy" @onclick="@(() => ValueChanged.InvokeAsync(media))">
                     <img src="@media.ThumbUrl" alt="" loading="lazy" />
                     <span>@media.Title</span>
                 </button>
@@ -56,31 +56,45 @@
 </RadzenStack>
 
 @code {
-    [Parameter] public MediaDto? Value { get; set; }
     [Parameter] public EventCallback<MediaDto> ValueChanged { get; set; }
+
+    /// <summary>Offer recent gallery items below the drop zone. Off where the gallery is already on screen.</summary>
+    [Parameter] public bool ShowRecent { get; set; } = true;
+
+    /// <summary>Another app shared a file to this one: pick it up as if it had been chosen here.</summary>
+    [Parameter] public bool TakeShared { get; set; }
 
     private List<MediaDto> _recent = [];
     private double? _percent;
     private string? _error;
-    private bool _analysing;
-    private InputFile? _input;
+    private string? _status;
+    private FilePick? _file;
 
     private ElementReference _zone;
     private ElementReference _camera;
     private bool _hasCamera;
     private bool _cameraOn;
+    private bool _rendered;
 
-    protected override async Task OnInitializedAsync() =>
-        _recent = [.. (await Api.ListAsync()).Where(m => m.Kind != MediaKind.Audio).Take(12)];
+    private bool Busy => _percent is not null || _status is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ShowRecent)
+            _recent = [.. (await Api.ListAsync()).Where(m => m.Kind != MediaKind.Audio).Take(12)];
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
             return;
 
-        await JS.InvokeVoidAsync("poMedia.acceptDropAndPaste", _zone, _input!.Element);
+        _rendered = true;
+        await JS.InvokeVoidAsync("poMedia.acceptDropAndPaste", _zone, _file!.Element);
         _hasCamera = await JS.InvokeAsync<bool>("poMedia.hasCamera");
         StateHasChanged();
+        if (TakeShared)
+            await JS.InvokeAsync<bool>("poMedia.takeShared", _file.Element);
     }
 
     private async Task StartCameraAsync()
@@ -92,7 +106,7 @@
     private async Task TakePhotoAsync()
     {
         // The photo arrives through the file input, exactly as a chosen file does.
-        await JS.InvokeAsync<bool>("poMedia.takePhoto", _camera, _input!.Element);
+        await JS.InvokeAsync<bool>("poMedia.takePhoto", _camera, _file!.Element);
         _cameraOn = false;
     }
 
@@ -104,25 +118,62 @@
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {
+        // A second file chosen while the first is still going is ignored.
+        if (Busy)
+            return;
+
         (_percent, _error) = (0, null);
-        var (media, error) = await Uploader.UploadAsync(_input!.Element!.Value, e.File.Name, e.File.Size, percent =>
+        var input = _file!.Element;
+        var (media, error) = await Uploader.UploadAsync(input, e.File.Name, e.File.Size, percent =>
         {
             _percent = percent;
             InvokeAsync(StateHasChanged);
         });
         (_percent, _error) = (null, error);
-        if (media is null)
-            return;
 
-        if (media.Kind == MediaKind.Video)
+        if (media is { Kind: MediaKind.Video })
         {
             // Analysed once, here, while the browser still has the file. Every later run reuses it.
-            _analysing = true;
+            _status = "Looking through the video…";
             StateHasChanged();
-            await JS.InvokeAsync<int>("poMedia.analyseVideo", _input.Element!.Value, media.Id);
-            _analysing = false;
+            await JS.InvokeAsync<int>("poMedia.analyseVideo", input, media.Id);
+
+            // No speech model on the server: the browser's own hears the video instead.
+            if ((await Config.GetAsync())?.ServerSpeech == false)
+            {
+                _status = "Listening to the video on your device…";
+                StateHasChanged();
+                using var progress = DotNetObjectReference.Create(new BlobUploadService.ProgressSink(percent =>
+                {
+                    _status = percent >= 0 ? $"Getting the on-device speech model ready: {percent}%" : "Listening to the video on your device…";
+                    InvokeAsync(StateHasChanged);
+                }));
+                await JS.InvokeAsync<int>("poMedia.transcribeVideo", input, media.Id, progress);
+            }
+
+            _status = null;
         }
 
-        await ValueChanged.InvokeAsync(media);
+        // Emptied, so choosing the same file again is a change the input reports.
+        await JS.InvokeVoidAsync("poMedia.clearFile", input);
+        if (media is not null)
+            await ValueChanged.InvokeAsync(media);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_rendered)
+            return;
+
+        try
+        {
+            // Leaving the page must turn the camera off and take the paste listener with it.
+            await JS.InvokeVoidAsync("poMedia.stopCamera", _camera);
+            await JS.InvokeVoidAsync("poMedia.releaseDropAndPaste", _zone);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away; so are the camera and the listeners.
+        }
     }
 }

@@ -14,13 +14,14 @@ public sealed class GalleryUiTests : UiTestBase
         var page = await SignedInPageAsync("/gallery");
         await Assertions.Expect(page.GetByText("Nothing here yet")).ToBeVisibleAsync(new() { Timeout = 30_000 });
 
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add media" }).ClickAsync();
         await page.SetInputFilesAsync("input[type=file]", new FilePayload { Name = "beach.png", MimeType = "image/png", Buffer = Png });
 
         var card = page.GetByRole(AriaRole.Button, new() { Name = "beach.png" });
         await Assertions.Expect(card).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByRole(AriaRole.Img, new() { Name = "beach.png" })).ToBeVisibleAsync();
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "Delete" }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
         await page.GetByRole(AriaRole.Alertdialog).GetByRole(AriaRole.Button, new() { Name = "Delete" }).ClickAsync();
 
         await Assertions.Expect(page.GetByText("Nothing here yet")).ToBeVisibleAsync();
@@ -32,6 +33,7 @@ public sealed class GalleryUiTests : UiTestBase
         var page = await SignedInPageAsync("/gallery");
         await Assertions.Expect(page.GetByText("Nothing here yet")).ToBeVisibleAsync(new() { Timeout = 30_000 });
 
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add media" }).ClickAsync();
         await page.SetInputFilesAsync("input[type=file]", new FilePayload { Name = "notes.txt", MimeType = "text/plain", Buffer = "hello"u8.ToArray() });
 
         await Assertions.Expect(page.GetByText("That file type is not supported")).ToBeVisibleAsync();
@@ -42,6 +44,7 @@ public sealed class GalleryUiTests : UiTestBase
     {
         var page = await SignedInPageAsync("/gallery");
         await Assertions.Expect(page.GetByText("Nothing here yet")).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await page.GetByRole(AriaRole.Button, new() { Name = "Add media" }).ClickAsync();
         await page.SetInputFilesAsync("input[type=file]", new FilePayload { Name = "beach.png", MimeType = "image/png", Buffer = Png });
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "beach.png" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
 

@@ -41,10 +41,9 @@ public sealed class CreateVideoUiTests : UiTestBase
         await page.Locator("[data-fn=Captions] input").CheckAsync();
         await Assertions.Expect(page.GetByText("Comic voice")).ToBeVisibleAsync();
         await page.GetByText("Square 1:1").ClickAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Next" }).ClickAsync();
 
         await Assertions.Expect(page.GetByText("party.mp4 → Insult roast, then Auto-captions")).ToBeVisibleAsync();
-        await page.GetByRole(AriaRole.Button, new() { Name = "Run" }).ClickAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).ClickAsync();
 
         await Assertions.Expect(page.GetByText("Done. The results are in your gallery.")).ToBeVisibleAsync(new() { Timeout = 90_000 });
         var result = page.Locator("figure[data-origin=VideoRoast]");

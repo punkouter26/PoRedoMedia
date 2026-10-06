@@ -1,58 +1,66 @@
-@* Live state of one run: the step it is on, each result as it arrives, and how it ended. *@
-@implements IAsyncDisposable
-@inject RunApi Runs
+@* Live state of one run: each function as a step, each result as it arrives, and how it ended.
+   The state itself is kept by RunTracker, so it survives leaving and returning to the page. *@
+@implements IDisposable
+@inject RunTracker Tracker
 
 <RadzenStack Gap="0.75rem">
-    @if (_status is RunStatus.Queued or RunStatus.Running)
+    <ol class="run-steps" aria-label="Steps">
+        @foreach (var function in Run.Run.Functions)
+        {
+            var state = StateOf(function);
+            <li class="run-step @state">
+                <RadzenIcon Icon="@IconOf(state)" aria-hidden="true" />
+                <span>@FunctionStack.Label(function)</span>
+            </li>
+        }
+    </ol>
+
+    @if (!Run.Finished)
     {
-        <RadzenProgressBar Value="_percent" Mode="@(_percent == 0 ? ProgressBarMode.Indeterminate : ProgressBarMode.Determinate)"
+        <RadzenProgressBar Value="Run.Percent" Mode="@(Run.Percent == 0 ? ProgressBarMode.Indeterminate : ProgressBarMode.Determinate)"
                            ShowValue="false" aria-label="Run progress" />
-        <RadzenText class="rz-m-0" aria-live="polite">@_message</RadzenText>
+        <RadzenText class="rz-m-0" aria-live="polite">@Run.Message</RadzenText>
     }
-    else if (_status == RunStatus.Complete)
+    else if (Run.Status == RunStatus.Complete)
     {
-        <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false" class="rz-m-0" Style="color: #16181D">Done. The results are in your gallery.</RadzenAlert>
+        <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false" class="rz-m-0 po-alert-ink">Done. The results are in your gallery.</RadzenAlert>
     }
     else
     {
         <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">
-            @_message
-            @if (_outputs.Count > 0)
+            @Run.Message
+            @if (Run.Outputs.Count > 0)
             {
                 <span> The results made before that were kept.</span>
             }
         </RadzenAlert>
     }
 
-    @foreach (var note in _notes)
+    @foreach (var note in Run.Notes)
     {
         <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-m-0">@note</RadzenAlert>
     }
 
     <div class="run-results">
-        @foreach (var output in _outputs)
+        @foreach (var output in Run.Outputs)
         {
-            <figure class="run-result" data-origin="@output.Origin">
-                @switch (output.Kind)
+            <figure class="run-result po-pop" data-origin="@output.Origin" @key="output.Id">
+                @if (output.Kind == MediaKind.Audio && output.Text is not null)
                 {
-                    case MediaKind.Image:
-                        <img src="@output.Url" alt="@output.Title" />
-                        break;
-                    case MediaKind.Video:
-                        <video src="@output.Url" controls preload="metadata" aria-label="@output.Title"></video>
-                        break;
-                    default:
-                        <audio src="@output.Url" controls aria-label="@output.Title"></audio>
-                        break;
+                    <RoastStage Media="output" />
+                }
+                else
+                {
+                    <MediaView Media="output" />
                 }
                 <figcaption>@output.Title</figcaption>
-                @if (output.Kind == MediaKind.Video && Run.Functions.Contains(MediaFunction.Captions))
+                @if (output.Kind == MediaKind.Video && Run.Run.Functions.Contains(MediaFunction.Captions))
                 {
                     <a href="@($"api/media/{output.Id}/captions.srt")" download="captions.srt">Download the captions (SRT)</a>
                 }
-                @if (output.Text is not null)
+                @if (output.Kind != MediaKind.Audio && output.Text is not null)
                 {
-                    <pre class="media-text">@output.Text</pre>
+                    <pre class="media-text" tabindex="0">@output.Text</pre>
                 }
             </figure>
         }
@@ -60,94 +68,35 @@
 </RadzenStack>
 
 @code {
-    [Parameter, EditorRequired] public RunDto Run { get; set; } = null!;
+    [Parameter, EditorRequired] public TrackedRun Run { get; set; } = null!;
 
-    /// <summary>Raised once, when the run ends either way.</summary>
-    [Parameter] public EventCallback<RunStatus> Finished { get; set; }
+    protected override void OnInitialized() => Tracker.Changed += Refresh;
 
-    [Inject] private MediaApi Media { get; set; } = null!;
+    private void Refresh() => InvokeAsync(StateHasChanged);
 
-    private readonly List<MediaDto> _outputs = [];
-    private IReadOnlyList<string> _notes = [];
-    private RunStatus _status = RunStatus.Queued;
-    private double _percent;
-    private string _message = "Waiting to start";
-    private IAsyncDisposable? _subscription;
-    private bool _finished;
-
-    protected override async Task OnInitializedAsync()
+    /// <summary>Where one function stands: done, now, failed or waiting.</summary>
+    private string StateOf(MediaFunction function)
     {
-        try
-        {
-            _subscription = await Runs.FollowAsync(Run.Id, OnProgressAsync, ResyncAsync);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
-        {
-            // No live updates. The run is already started and paid for, so fall back to asking.
-            _ = PollAsync();
-        }
+        if (Run.Status == RunStatus.Complete)
+            return "done";
 
-        // The run may have moved on, or finished, before the subscription was in place.
-        await ResyncAsync();
+        var functions = Run.Run.Functions;
+        var at = Run.Step is { } step ? Array.IndexOf(functions, step) : -1;
+        var index = Array.IndexOf(functions, function);
+        if (at < 0)
+            return "waiting";
+        if (index < at)
+            return "done";
+        return index > at ? "waiting" : Run.Status == RunStatus.Failed ? "failed" : "now";
     }
 
-    private Task ResyncAsync() => InvokeAsync(async () =>
+    private static string IconOf(string state) => state switch
     {
-        if (!_finished && await Runs.GetAsync(Run.Id) is { } current)
-        {
-            await ApplyAsync(current);
-            StateHasChanged();
-        }
-    });
+        "done" => "check_circle",
+        "now" => "progress_activity",
+        "failed" => "error",
+        _ => "radio_button_unchecked",
+    };
 
-    private async Task PollAsync()
-    {
-        while (!_finished && !_disposed)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(3));
-            await ResyncAsync();
-        }
-    }
-
-    private Task OnProgressAsync(RunProgressDto progress) => InvokeAsync(async () =>
-    {
-        if (_finished)
-            return;
-
-        (_status, _percent, _message) = (progress.Status, progress.Percent, progress.Message);
-        if (progress.Output is { } output && _outputs.All(o => o.Id != output.Id))
-            _outputs.Add(output);
-        if (progress.Status is RunStatus.Complete or RunStatus.Failed && await Runs.GetAsync(Run.Id) is { } final)
-            await ApplyAsync(final);
-        StateHasChanged();
-    });
-
-    private async Task ApplyAsync(RunDto run)
-    {
-        _status = run.Status;
-        _notes = run.Notes;
-        if (run.Error is not null)
-            _message = run.Error;
-
-        if (run.OutputIds.Any(id => _outputs.All(o => o.Id != id)))
-        {
-            var gallery = await Media.ListAsync();
-            _outputs.AddRange(run.OutputIds.Where(id => _outputs.All(o => o.Id != id)).Select(id => gallery.FirstOrDefault(m => m.Id == id)).OfType<MediaDto>());
-        }
-
-        if (run.Status is RunStatus.Complete or RunStatus.Failed && !_finished)
-        {
-            _finished = true;
-            await Finished.InvokeAsync(run.Status);
-        }
-    }
-
-    private bool _disposed;
-
-    public async ValueTask DisposeAsync()
-    {
-        _disposed = true;
-        if (_subscription is not null)
-            await _subscription.DisposeAsync();
-    }
+    public void Dispose() => Tracker.Changed -= Refresh;
 }

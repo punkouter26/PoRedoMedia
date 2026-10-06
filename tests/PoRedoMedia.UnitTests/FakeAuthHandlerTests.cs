@@ -19,4 +19,15 @@ public sealed class FakeAuthHandlerTests
         Assert.Throws<InvalidOperationException>(() => new FakeAuthHandler(
             Substitute.For<IOptionsMonitor<AuthenticationSchemeOptions>>(), NullLoggerFactory.Instance, UrlEncoder.Default, env));
     }
+
+    [Fact]
+    public void Only_listed_addresses_may_sign_in_once_a_list_is_set()
+    {
+        static bool Allowed(string[] list, string email) => AuthServiceExtensions.IsAllowed(
+            list, new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([new("preferred_username", email)])));
+
+        Assert.True(Allowed([], "anyone@example.com"));
+        Assert.True(Allowed(["owner@example.com", "friend@example.com"], "FRIEND@example.com"));
+        Assert.False(Allowed(["owner@example.com"], "stranger@example.com"));
+    }
 }

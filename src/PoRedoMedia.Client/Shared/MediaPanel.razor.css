@@ -1,20 +1,76 @@
-::deep .media-panel {
-    flex: 1 1 320px;
-    max-width: 420px;
+.media-panel {
+    position: sticky;
+    top: 0.75rem;
+    min-width: 0;
+    max-height: calc(100dvh - 6rem);
+    overflow: auto;
 }
 
-.media-preview {
+.panel-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.media-panel ::deep .media-preview {
     width: 100%;
-    max-height: 320px;
+    max-height: 46vh;
     object-fit: contain;
-    border-radius: 4px;
+    border-radius: var(--po-radius-sm);
     background: var(--rz-base-200);
+}
+
+.media-panel ::deep audio {
+    width: 100%;
 }
 
 .media-text {
     margin: 0;
-    max-height: 16rem;
+    max-height: 14rem;
     overflow: auto;
     white-space: pre-wrap;
     font: inherit;
+}
+
+.panel-lineage {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+.panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.panel-more {
+    display: inline-flex;
+    gap: 0.15rem;
+    margin-left: auto;
+}
+
+/* On a narrow screen the details rise from the bottom as a sheet, over the grid. */
+@media (max-width: 900px) {
+    .media-panel {
+        top: auto;
+        bottom: 0;
+        z-index: 20;
+        max-height: 70dvh;
+        margin: 0 -0.75rem;
+        box-shadow: 0 -8px 30px rgb(0 0 0 / 35%);
+        border-radius: var(--po-radius) var(--po-radius) 0 0;
+    }
+
+    .media-panel ::deep .rz-card {
+        border-radius: var(--po-radius) var(--po-radius) 0 0;
+        padding-bottom: calc(1rem + var(--po-safe-bottom));
+    }
+
+    .media-panel ::deep .media-preview {
+        max-height: 28vh;
+    }
 }

@@ -142,6 +142,10 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
         var created = await owner.PostAsync($"/api/sounds/upload?displayName={name}", form);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
+        // A file that is only named like a sound is refused.
+        using var fake = new MultipartFormDataContent { { new ByteArrayContent(new byte[2048]), "file", "fake.mp3" } };
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsync("/api/sounds/upload", fake)).StatusCode);
+
         Assert.Contains((await owner.GetFromJsonAsync("/api/sounds", WireJson.Default.ListSoundAssetDto))!, s => s.DisplayName == name);
         Assert.DoesNotContain((await other.GetFromJsonAsync("/api/sounds", WireJson.Default.ListSoundAssetDto))!, s => s.DisplayName == name);
         // The sound is served by a redirect to a short-lived storage link.
