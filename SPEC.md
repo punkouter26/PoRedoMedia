@@ -335,4 +335,12 @@ Found and not fixed (each needs a decision or is low value):
   api-version: the `/openai/v1` path the rest of the app uses answered DeploymentNotFound for it.
 - Vault: `PoRedoMedia--AzureAd--ClientId`, `--AzureAd--ClientSecret`, `--Storage--ConnectionString`.
   The app loads only `PoRedoMedia--*`; a Development run ignores the storage secret and uses Azurite.
-- Open: the web app's identity has no access to `kv-poshared` yet; nothing is deployed.
+- The web app's identity has get/list on `kv-poshared` secrets.
+- First deploy 2026-10-05 (tag `v0.1.0`), done from a developer machine: publish, bundle static
+  Linux ffmpeg, `scripts/package.py`, `az webapp deploy`. https://app-poredomedia.azurewebsites.net
+  answers `/health/live` 200, offers all eight functions, refuses unsigned API calls, has no
+  dev-login, and its sound library is seeded (30 sounds).
+- Open: no signed-in run has been made on the deployed app (Microsoft sign-in is interactive), so
+  the bundled ffmpeg and the host's fonts are unproven there. No GitHub repo or deploy workflow yet.
+- F1 limits met on the first deploy: a crash loop exhausts the worker restart quota (15 per window)
+  and disables the site until the window resets.

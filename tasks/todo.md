@@ -248,7 +248,7 @@ Standard verification, unless a task says otherwise:
   `.github/workflows/ci-full.yml` (integration, E2E API; manual). Port from `Meme`. Deps: T53.
 - [ ] **T58 Deploy workflow.** Files: `.github/workflows/deploy.yml` (publish, bundle and verify
   ffmpeg, font check, zip deploy, health gate). Port from `Meme`. Deps: T57.
-- [ ] **T59 Azure and first deploy.** Resource group, web app on `asp-PoShared-f1`, storage account,
+- [ ] **T59 Azure and first deploy.** *(2026-10-05: resources, Entra registration, secrets, vault access and a first deploy are done and healthy; see SPEC "Azure resources". Open: a signed-in run on the deployed app, GitHub repo and push, deploy workflow T58.)* Resource group, web app on `asp-PoShared-f1`, storage account,
   Entra registration, `PoRedoMedia--*` secrets in `kv-poshared`, managed identity policy, GitHub
   variables, first deploy, tag `v0.1.0`. **Not started without explicit approval; each resource is
   listed for you first.** Accept: `/health` healthy (success criterion 13). Deps: T58.
