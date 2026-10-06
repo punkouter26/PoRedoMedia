@@ -15,7 +15,8 @@ public static class AuthEndpoints
             app.MapGet("/dev-login", DevLoginAsync).AllowAnonymous();
 
         app.MapGet("/challenge-microsoft", ChallengeMicrosoftAsync).AllowAnonymous();
-        app.MapGet("/logout", SignOutAsync).AllowAnonymous();
+        // A POST with the antiforgery token: as a GET, any other site could sign a user out.
+        app.MapPost("/logout", SignOutAsync).AddEndpointFilter<AntiforgeryValidationFilter>();
     }
 
     private static async Task DevLoginAsync(HttpContext context, string? email, string? returnUrl)
@@ -57,23 +58,21 @@ public static class AuthEndpoints
             OpenIdConnectDefaults.AuthenticationScheme, new AuthenticationProperties { RedirectUri = destination });
     }
 
-    private static async Task SignOutAsync(HttpContext context, IConfiguration configuration)
+    /// <summary>Ends this app's session. The Microsoft session is left alone; the page goes to /login itself.</summary>
+    private static async Task<IResult> SignOutAsync(HttpContext context, IAuthenticationSchemeProvider schemes)
     {
-        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-        if (string.IsNullOrWhiteSpace(configuration[ConfigKeys.AzureAdClientId]))
-            context.Response.Redirect("/login");
-        else
-            await context.SignOutAsync(
-                OpenIdConnectDefaults.AuthenticationScheme, new AuthenticationProperties { RedirectUri = "/" });
+        // Header-driven fake auth (tests) has no cookie to clear.
+        if (await schemes.GetSchemeAsync(CookieAuthenticationDefaults.AuthenticationScheme) is not null)
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return Results.NoContent();
     }
 
     /// <summary>Open-redirect guard: only a site-relative path is honoured.</summary>
     private static string LocalOrHome(string? returnUrl) =>
         !string.IsNullOrWhiteSpace(returnUrl)
         && returnUrl.StartsWith('/')
-        && !returnUrl.StartsWith("//")
-        && !returnUrl.StartsWith("/\\")
+        && !returnUrl.StartsWith("//", StringComparison.Ordinal)
+        && !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
         // Browsers drop tabs and newlines from a URL, which would turn "/	/host" into "//host".
         && !returnUrl.Any(char.IsControl)
             ? returnUrl

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
 using SixLabors.ImageSharp;
@@ -16,7 +17,9 @@ public static class MediaEndpoints
         group.MapPost("/sas", StartUploadAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapPost("/{id}/confirm", ConfirmUploadAsync);
         group.MapPost("/{id}/frames", UploadFramesAsync).RequireRateLimiting(UploadRateLimit.Policy);
+        group.MapPost("/{id}/transcript", SaveTranscriptAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapGet("/", ListAsync);
+        group.MapGet("/{id}", GetAsync);
         group.MapGet("/{id}/content", ContentAsync);
         group.MapGet("/{id}/thumb", ThumbAsync);
         group.MapPut("/{id}", UpdateAsync);
@@ -132,7 +135,7 @@ public static class MediaEndpoints
     /// </summary>
     private static async Task<Results<Ok<FramesResult>, NotFound, ProblemHttpResult>> UploadFramesAsync(
         MediaId id, FrameUploadRequest request, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs,
-        IServiceProvider services, CancellationToken ct)
+        ISoundAssetRepository sounds, ILoggerFactory loggers, CancellationToken ct, [FromServices] IAiVisionService? vision = null)
     {
         var item = await media.GetAsync(UserId.From(user), id, ct);
         if (item is not { Kind: MediaKind.Video, Status: MediaStatus.Ready })
@@ -166,22 +169,58 @@ public static class MediaEndpoints
 
         await VisionStore.SaveFramesAsync(blobs, id, frames, ct);
         SceneLabel[] labels = [];
-        if (services.GetService<IAiVisionService>() is { } vision)
+        if (vision is not null)
         {
             try
             {
-                var sounds = (await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct)).VisibleTo(UserId.From(user));
-                labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(sounds), ct);
+                var library = (await sounds.LoadAllAsync(ct)).VisibleTo(UserId.From(user));
+                labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(library), ct);
                 await VisionStore.SaveLabelsAsync(blobs, id, labels, ct);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 // The run retries vision on the stored frames, then falls back to placing by time.
-                services.GetRequiredService<ILoggerFactory>().CreateLogger("Frames").LogWarning(ex, "Frame vision failed for {MediaId}", id);
+                loggers.CreateLogger("Frames").LogWarning(ex, "Frame vision failed for {MediaId}", id);
             }
         }
 
         return TypedResults.Ok(new FramesResult(frames.Count, labels.Length));
+    }
+
+    /// <summary>
+    /// Keeps what the browser's own speech model heard in a video, for a server that has no
+    /// speech model. It is stored where the server's transcript would be, so captions and the
+    /// director use it unchanged. Accepted once per video, and ignored when the server transcribes.
+    /// </summary>
+    private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> SaveTranscriptAsync(
+        MediaId id, List<TranscriptSegmentDto> segments, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs,
+        ITranscriptionService transcription, CancellationToken ct)
+    {
+        var item = await media.GetAsync(UserId.From(user), id, ct);
+        if (item is not { Kind: MediaKind.Video, Status: MediaStatus.Ready })
+            return TypedResults.NotFound();
+        if (segments is not { Count: > 0 and <= 2000 })
+            return Refused("Send between 1 and 2000 lines of speech.");
+
+        var path = MediaAnalysisPaths.SourceSpeech(id.Value);
+        if (transcription.IsEnabled || await blobs.ExistsAsync(path, ct))
+            return TypedResults.NoContent();
+
+        var length = item.DurationSeconds ?? UploadValidation.MaxVideoSeconds;
+        var lines = segments
+            .Where(s => s is not null && double.IsFinite(s.StartSeconds) && double.IsFinite(s.EndSeconds))
+            .Select(s => (Start: Math.Clamp(s.StartSeconds, 0, length), End: Math.Clamp(s.EndSeconds, 0, length), Text: UserText.Clean(s.Text, 300)))
+            .Where(s => s.Text is not null && s.End > s.Start)
+            .Select(s => new TranscriptSegmentDto(s.Start, s.End, s.Text!))
+            .OrderBy(s => s.StartSeconds)
+            .ToList();
+        if (lines.Count == 0)
+            return Refused("None of the lines had words and a time.");
+
+        await blobs.UploadAsync(
+            path, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(lines, System.Text.Json.JsonSerializerOptions.Web),
+            "application/json", ct);
+        return TypedResults.NoContent();
     }
 
     /// <summary>Most frames one video sends to vision.</summary>
@@ -206,15 +245,20 @@ public static class MediaEndpoints
             .Select(m => m.ToDto())
             .ToList());
 
+    private static async Task<Results<Ok<MediaDto>, NotFound>> GetAsync(MediaId id, ClaimsPrincipal user, IMediaRepository media, CancellationToken ct) =>
+        await media.GetAsync(UserId.From(user), id, ct) is { Status: MediaStatus.Ready } item
+            ? TypedResults.Ok(item.ToDto())
+            : TypedResults.NotFound();
+
     private static async Task<IResult> ContentAsync(
-        MediaId id, bool? download, HttpContext http, IMediaRepository media, CancellationToken ct) =>
+        MediaId id, bool? download, HttpContext http, IMediaRepository media, BlobDelivery delivery, CancellationToken ct) =>
         await media.GetAsync(UserId.From(http.User), id, ct) is { Status: MediaStatus.Ready } item
-            ? await BlobDelivery.ServeAsync(http, item.SourcePath, download == true ? DownloadName(item) : null, ct)
+            ? await delivery.ServeAsync(http, item.SourcePath, download == true ? DownloadName(item) : null, ct: ct)
             : Results.NotFound();
 
-    private static async Task<IResult> ThumbAsync(MediaId id, HttpContext http, IMediaRepository media, CancellationToken ct) =>
+    private static async Task<IResult> ThumbAsync(MediaId id, HttpContext http, IMediaRepository media, BlobDelivery delivery, CancellationToken ct) =>
         await media.GetAsync(UserId.From(http.User), id, ct) is { Status: MediaStatus.Ready }
-            ? await BlobDelivery.ServeAsync(http, MediaBlobPaths.Thumbnail(id), ct: ct)
+            ? await delivery.ServeAsync(http, MediaBlobPaths.Thumbnail(id), ct: ct)
             : Results.NotFound();
 
     private static async Task<Results<Ok<MediaDto>, NotFound, ProblemHttpResult>> UpdateAsync(

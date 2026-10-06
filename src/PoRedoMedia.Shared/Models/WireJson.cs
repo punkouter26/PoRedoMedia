@@ -13,6 +13,8 @@ namespace PoRedoMedia.Shared.Models;
 [JsonSerializable(typeof(MediaUpdateRequest))]
 [JsonSerializable(typeof(QuotaStatusDto))]
 [JsonSerializable(typeof(RunRequest))]
+[JsonSerializable(typeof(Dictionary<string, RunRequest>))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(RunDto))]
 [JsonSerializable(typeof(List<RunDto>))]
 [JsonSerializable(typeof(RunProgressDto))]
@@ -21,6 +23,6 @@ namespace PoRedoMedia.Shared.Models;
 [JsonSerializable(typeof(FrameUploadRequest))]
 [JsonSerializable(typeof(FramesResult))]
 [JsonSerializable(typeof(ShareLinkDto))]
-[JsonSerializable(typeof(SoundPageDto))]
+[JsonSerializable(typeof(List<SoundAssetDto>))]
 [JsonSerializable(typeof(SoundAssetDto))]
 public sealed partial class WireJson : JsonSerializerContext;

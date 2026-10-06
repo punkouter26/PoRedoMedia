@@ -1,0 +1,163 @@
+/* App-wide design tokens and the few rules every page shares. Component layout lives in the
+   component's own .razor.css. Colours come from the Radzen theme variables, so the light and
+   dark themes both work without a second set of rules. */
+
+:root {
+    --po-radius: 14px;
+    --po-radius-sm: 8px;
+    --po-shell-max: 1600px;
+    --po-brand-a: #4340d2;
+    --po-brand-b: #7c3aed;
+    --po-ink-on-brand: #ffffff;
+    --po-ink-on-bright: #16181d;
+    --po-glass: color-mix(in srgb, var(--rz-base-background-color) 82%, transparent);
+    --po-line: color-mix(in srgb, var(--rz-text-color) 14%, transparent);
+    --po-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --po-safe-top: env(safe-area-inset-top, 0px);
+    --po-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --po-safe-left: env(safe-area-inset-left, 0px);
+    --po-safe-right: env(safe-area-inset-right, 0px);
+}
+
+html, body {
+    min-height: 100%;
+}
+
+body {
+    overflow-wrap: anywhere;
+}
+
+/* ── Type scale: one size per heading level, everywhere ─────────────────────────────── */
+h1.rz-text-h4 {
+    font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.1rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+h2.rz-text-h6, h2.rz-text-subtitle1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+/* ── Shell ──────────────────────────────────────────────────────────────────────────── */
+.rz-layout .rz-header {
+    background: linear-gradient(100deg, var(--po-brand-a), var(--po-brand-b));
+    color: var(--po-ink-on-brand);
+    padding-top: var(--po-safe-top);
+    padding-left: var(--po-safe-left);
+    padding-right: var(--po-safe-right);
+}
+
+.rz-layout .rz-body {
+    background: transparent;
+    padding-bottom: var(--po-safe-bottom);
+}
+
+.rz-card {
+    border-radius: var(--po-radius);
+}
+
+/* The animated backdrop sits behind the page and never takes a click. */
+#po-backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+/* ── Utilities that replace one-off inline styles ───────────────────────────────────── */
+.po-grow { flex: 1 1 12rem; }
+.po-fill { width: 100%; }
+.po-inherit { color: inherit; }
+.po-narrow { max-width: 420px; width: 100%; }
+.po-muted { opacity: 0.8; }
+
+/* A file input kept for the keyboard and assistive technology, shown as its label's button. */
+.po-file {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.po-file-label {
+    cursor: pointer;
+}
+
+.po-file-label[aria-disabled="true"] {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+/* The warning and success alerts are bright in both themes; white text on them fails contrast. */
+.rz-alert.po-alert-ink {
+    color: var(--po-ink-on-bright);
+}
+
+/* ── Skeletons: the shape of what is loading ────────────────────────────────────────── */
+.po-skeleton {
+    border-radius: var(--po-radius-sm);
+    background: linear-gradient(100deg,
+        color-mix(in srgb, var(--rz-text-color) 8%, transparent) 30%,
+        color-mix(in srgb, var(--rz-text-color) 16%, transparent) 50%,
+        color-mix(in srgb, var(--rz-text-color) 8%, transparent) 70%);
+    background-size: 300% 100%;
+    animation: po-shimmer 1.4s linear infinite;
+}
+
+@keyframes po-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────────────────── */
+.po-pop {
+    animation: po-pop 420ms var(--po-spring) both;
+}
+
+@keyframes po-pop {
+    from { opacity: 0; transform: scale(0.92) translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+
+.rz-button {
+    transition: transform 140ms var(--po-spring);
+}
+
+.rz-button:active:not(.rz-state-disabled) {
+    transform: scale(0.96);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .po-skeleton, .po-pop, .rz-button {
+        animation: none;
+        transition: none;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation: none;
+    }
+}
+
+/* ── Phones ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+    /* Every control is at least a 44 px target. */
+    .rz-button.rz-button-md, .rz-selectbar .rz-button {
+        min-height: 44px;
+    }
+
+    .rz-dialog {
+        max-width: calc(100vw - 1rem);
+    }
+}

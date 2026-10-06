@@ -1,4 +1,3 @@
-// GoF: Strategy Pattern — timing algorithm encapsulated
 using PoRedoMedia.Shared.Enums;
 
 namespace PoRedoMedia.Api.Features.Memeify;

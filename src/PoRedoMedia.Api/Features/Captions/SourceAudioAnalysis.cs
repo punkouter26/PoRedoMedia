@@ -1,4 +1,3 @@
-// GoF: Proxy — a caching, de-duplicating stand-in for the expensive source audio analysis
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -18,49 +17,25 @@ public sealed record SourceAudio(
     double DurationSeconds = 0)
 {
     public static readonly SourceAudio None = new(false, [], null, null);
-
-    /// <summary>The same audio seen through a trim window: times shift so the window starts at 0.</summary>
-    public SourceAudio Trim(double startSeconds, double durationSeconds)
-    {
-        var end = startSeconds + durationSeconds;
-        var speech = Speech
-            .Where(s => s.EndSeconds > startSeconds && s.StartSeconds < end)
-            .Select(s => s with
-            {
-                StartSeconds = Math.Max(0, s.StartSeconds - startSeconds),
-                EndSeconds = Math.Min(durationSeconds, s.EndSeconds - startSeconds),
-            })
-            .ToList();
-
-        AudioEnvelope? envelope = null;
-        if (Envelope is { } env)
-        {
-            var from = Math.Clamp((int)(startSeconds * env.FramesPerSecond), 0, env.Rms.Length);
-            var to = Math.Clamp((int)Math.Ceiling(end * env.FramesPerSecond), from, env.Rms.Length);
-            envelope = env with { Rms = env.Rms[from..to] };
-        }
-
-        return this with { Speech = speech, Envelope = envelope };
-    }
 }
 
 /// <summary>
-/// Runs speech-to-text and loudness analysis once per session, starting as soon as the upload is
-/// confirmed, so both are usually finished before the user presses INITIATE.
+/// Runs speech-to-text and loudness analysis once per item, starting as soon as the upload is
+/// confirmed, so both are usually finished before the user starts a run.
 /// </summary>
 /// <remarks>
 /// Transcription used to run inside the engine, after vision and before the director — every
-/// second of it was added to the wait on the Engine page. The analysis covers the whole source
+/// second of it was added to the wait for the run. The analysis covers the whole source
 /// (the trim is not known yet at upload) and is shifted to the trim window when read. Results
-/// persist beside the session, so a retry or a host restart does not pay for them again; a run
+/// persist beside the item, so a retry or a host restart does not pay for them again; a run
 /// that failed persists nothing, so the next read retries it.
 /// </remarks>
 public sealed partial class SourceAudioAnalysis : ISourceAudioAnalysis
 {
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Session {MediaId}: source audio analysis failed")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Media {MediaId}: source audio analysis failed")]
     private partial void LogAnalysisFailed(Exception ex, MediaId mediaId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Session {MediaId}: transcription failed; continuing without speech")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Media {MediaId}: transcription failed; continuing without speech")]
     private partial void LogTranscriptionFailed(Exception ex, MediaId mediaId);
 
     /// <summary>Ceiling for one background analysis (download + decode + transcription).</summary>
@@ -135,11 +110,11 @@ public sealed partial class SourceAudioAnalysis : ISourceAudioAnalysis
 
     private async Task<SourceAudio?> LoadStoredAsync(MediaId mediaId, CancellationToken ct)
     {
-        var envelopePath = SessionBlobPaths.AudioEnvelope(mediaId.Value);
+        var envelopePath = MediaAnalysisPaths.AudioEnvelope(mediaId.Value);
         if (!await _blobs.ExistsAsync(envelopePath, ct))
             return null;
 
-        var speechPath = SessionBlobPaths.SourceSpeech(mediaId.Value);
+        var speechPath = MediaAnalysisPaths.SourceSpeech(mediaId.Value);
         var speechStored = await _blobs.ExistsAsync(speechPath, ct);
         // Stored before transcription was configured: analyse again so speech is not silently missing.
         if (_transcription.IsEnabled && !speechStored)
@@ -168,7 +143,7 @@ public sealed partial class SourceAudioAnalysis : ISourceAudioAnalysis
 
     private async Task<double> LoadDurationAsync(MediaId mediaId, CancellationToken ct)
     {
-        var path = SessionBlobPaths.SourceDuration(mediaId.Value);
+        var path = MediaAnalysisPaths.SourceDuration(mediaId.Value);
         if (!await _blobs.ExistsAsync(path, ct))
             return 0;
 
@@ -229,18 +204,18 @@ public sealed partial class SourceAudioAnalysis : ISourceAudioAnalysis
         if (durationSeconds > 0)
         {
             using var text = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(durationSeconds.ToString("R", CultureInfo.InvariantCulture)));
-            await _blobs.UploadAsync(SessionBlobPaths.SourceDuration(mediaId.Value), text, "text/plain", ct);
+            await _blobs.UploadAsync(MediaAnalysisPaths.SourceDuration(mediaId.Value), text, "text/plain", ct);
         }
 
         if (_transcription.IsEnabled)
         {
             using var json = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(speech, JsonOpts));
-            await _blobs.UploadAsync(SessionBlobPaths.SourceSpeech(mediaId.Value), json, "application/json", ct);
+            await _blobs.UploadAsync(MediaAnalysisPaths.SourceSpeech(mediaId.Value), json, "application/json", ct);
         }
 
         // Written last: its presence is what marks the analysis complete. Empty = no audio track.
         var bytes = envelope is null ? [] : MemoryMarshal.AsBytes(envelope.Rms.AsSpan()).ToArray();
         using var bin = new MemoryStream(bytes);
-        await _blobs.UploadAsync(SessionBlobPaths.AudioEnvelope(mediaId.Value), bin, "application/octet-stream", ct);
+        await _blobs.UploadAsync(MediaAnalysisPaths.AudioEnvelope(mediaId.Value), bin, "application/octet-stream", ct);
     }
 }

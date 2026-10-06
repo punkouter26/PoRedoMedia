@@ -11,7 +11,7 @@ namespace PoRedoMedia.Api.Features.VideoRoast;
 
 /// <summary>
 /// The roast voiceover: a stand-up comedian insulting what happens in the video, one joke per
-/// moment, at most <see cref="SessionRoast.MaxTotalMs"/> of speech in all.
+/// moment, at most <see cref="MediaRoast.MaxTotalMs"/> of speech in all.
 /// </summary>
 /// <remarks>
 /// Three steps: the chat deployment writes the jokes from the vision labels and the transcript the
@@ -21,11 +21,11 @@ namespace PoRedoMedia.Api.Features.VideoRoast;
 /// <para>
 /// The voices are plain HTTP calls, not <see cref="AiFoundryClient"/>'s SDK client: the SDK's API
 /// version answers 404 for a <c>gpt-4o-mini-tts</c> deployment, and Azure Speech and Lyria are not
-/// OpenAI endpoints at all. <see cref="SessionRoast.Voices"/> offers none while AI calls are
+/// OpenAI endpoints at all. <see cref="MediaRoast.Voices"/> offers none while AI calls are
 /// intercepted, so a test host never reaches them.
 /// </para>
 /// </remarks>
-public sealed partial class RoastService : IVideoRoast
+public sealed partial class RoastService : IVideoRoast, IDisposable
 {
     [LoggerMessage(Level = LogLevel.Information,
         Message = "AI usage: Stage=roast-voice Voice={Voice} Session={AiSessionId} Clips={Clips} Characters={Characters} ElapsedMs={ElapsedMs}")]
@@ -35,6 +35,8 @@ public sealed partial class RoastService : IVideoRoast
     private const string SpeechApiVersion = "2025-03-01-preview";
 
     private const string LyriaUrl = "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+    public void Dispose() => _http.Dispose();
 
     internal const int MaxJokes = 5;
 
@@ -85,7 +87,7 @@ public sealed partial class RoastService : IVideoRoast
     }
 
     /// <summary>
-    /// Writes, voices and stores the session's roast. Null when the clip gave nothing to roast or
+    /// Writes, voices and stores the item's roast. Null when the clip gave nothing to roast or
     /// no joke fitted. <paramref name="labels"/> and <paramref name="transcript"/> are in output time.
     /// </summary>
     public async Task<RoastTrack?> GenerateAsync(
@@ -107,11 +109,11 @@ public sealed partial class RoastService : IVideoRoast
         var id = mediaId.Value;
         var sw = Stopwatch.StartNew();
         RoastTrack track;
-        if (voice == SessionRoast.Rap)
+        if (voice == MediaRoast.Rap)
         {
             // Lyria performs lyrics as one song, so the rap is a single clip from the top.
             var (audio, extension) = await SingAsync(jokes.Select(j => j.Text), ct);
-            var path = SessionBlobPaths.RoastClip(id, 0, extension);
+            var path = MediaAnalysisPaths.RoastClip(id, 0, extension);
             await UploadAsync(path, audio, extension, ct);
             var text = string.Join(" / ", jokes.Select(j => j.Text));
             track = new RoastTrack(voice, path, [new RoastLine(0, AudioDuration.EstimateMs(audio, path), text, path)]);
@@ -123,7 +125,7 @@ public sealed partial class RoastService : IVideoRoast
             var videoMs = (long)(durationSeconds * 1000);
             var clips = new List<byte[]>();
             long spokenMs = 0;
-            foreach (var joke in jokes.TakeWhile(_ => spokenMs < Math.Min(SessionRoast.MaxTotalMs, videoMs)))
+            foreach (var joke in jokes.TakeWhile(_ => spokenMs < Math.Min(MediaRoast.MaxTotalMs, videoMs)))
             {
                 clips.Add(await SpeakAsync(voice, joke.Text, ct));
                 spokenMs += AudioDuration.EstimateMs(clips[^1], ".mp3");
@@ -139,7 +141,7 @@ public sealed partial class RoastService : IVideoRoast
             using var whole = new MemoryStream();
             foreach (var (index, startMs) in placed)
             {
-                var path = SessionBlobPaths.RoastClip(id, lines.Count, "mp3");
+                var path = MediaAnalysisPaths.RoastClip(id, lines.Count, "mp3");
                 await UploadAsync(path, clips[index], "mp3", ct);
                 lines.Add(new RoastLine(startMs, AudioDuration.EstimateMs(clips[index], ".mp3"), jokes[index].Text, path));
                 whole.Write(clips[index]);
@@ -148,13 +150,13 @@ public sealed partial class RoastService : IVideoRoast
             // ponytail: the sound file is the clips' bytes back to back. MP3 frames stand alone and
             // every clip comes from one engine at one bitrate, so players read it as one file; an
             // ffmpeg concat (through IMediaToolkit) is the upgrade if a player ever disagrees.
-            var audioPath = SessionBlobPaths.RoastAudio(id);
+            var audioPath = MediaAnalysisPaths.RoastAudio(id);
             await UploadAsync(audioPath, whole.ToArray(), "mp3", ct);
             track = new RoastTrack(voice, audioPath, lines);
         }
 
         LogUsage(voice, mediaId, track.Lines.Count, jokes.Sum(j => j.Text.Length), sw.ElapsedMilliseconds);
-        await SessionRoast.SaveAsync(_blobs, mediaId, track, ct);
+        await MediaRoast.SaveAsync(_blobs, mediaId, track, ct);
         return track;
     }
 
@@ -222,7 +224,7 @@ public sealed partial class RoastService : IVideoRoast
     /// <summary>
     /// Where each clip plays: at its moment, pushed later while the previous joke is still being
     /// said, pulled earlier when it would run past the end. A clip that fits neither way, or would
-    /// take the roast past <see cref="SessionRoast.MaxTotalMs"/>, is left out.
+    /// take the roast past <see cref="MediaRoast.MaxTotalMs"/>, is left out.
     /// </summary>
     /// <param name="clips">In time order.</param>
     internal static List<(int Index, long StartMs)> Schedule(IReadOnlyList<(long AtMs, int DurationMs)> clips, long videoMs)
@@ -234,7 +236,7 @@ public sealed partial class RoastService : IVideoRoast
         {
             var (at, duration) = clips[i];
             var start = Math.Min(Math.Max(at, cursor), videoMs - duration);
-            if (duration <= 0 || start < cursor || total + duration > SessionRoast.MaxTotalMs)
+            if (duration <= 0 || start < cursor || total + duration > MediaRoast.MaxTotalMs)
                 continue;
 
             placed.Add((i, start));
@@ -250,7 +252,7 @@ public sealed partial class RoastService : IVideoRoast
         var endpoint = AiFoundryClient.Setting(_config, "AiFoundry:Endpoint")!.TrimEnd('/');
         var key = AiFoundryClient.Setting(_config, "AiFoundry:Key");
         HttpRequestMessage request;
-        if (voice == SessionRoast.Comic)
+        if (voice == MediaRoast.Comic)
         {
             var deployment = AiFoundryClient.Setting(_config, "AiFoundry:TtsDeployment");
             request = new(HttpMethod.Post, $"{endpoint}/openai/deployments/{deployment}/audio/speech?api-version={SpeechApiVersion}")
@@ -294,7 +296,7 @@ public sealed partial class RoastService : IVideoRoast
         request.Headers.Add("x-goog-api-key", AiFoundryClient.Setting(_config, "Google:ApiKey"));
 
         // A song takes Lyria 30–90 seconds.
-        var body = await SendAsync(request, SessionRoast.Rap, TimeSpan.FromSeconds(150), ct);
+        var body = await SendAsync(request, MediaRoast.Rap, TimeSpan.FromSeconds(150), ct);
         using var doc = JsonDocument.Parse(body);
         return FindAudio(doc.RootElement)
             ?? throw new InvalidOperationException("Lyria returned no audio (its safety filter declines some lyrics).");

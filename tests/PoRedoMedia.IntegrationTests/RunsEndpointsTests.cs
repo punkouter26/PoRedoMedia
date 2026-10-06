@@ -28,7 +28,7 @@ public sealed class RunsEndpointsTests(AzuriteFixture azurite) : IDisposable
                 services.RemoveAll<IRunStep>();
                 services.AddSingleton(step);
             },
-            dailyLimit is null ? null : new() { ["RenderQuota:DailyLimit"] = dailyLimit.Value.ToString() });
+            dailyLimit is null ? null : new() { ["RenderQuota:DailyLimit"] = dailyLimit.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) });
         _factories.Add(factory);
         return factory;
     }

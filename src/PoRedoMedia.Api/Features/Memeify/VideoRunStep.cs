@@ -14,24 +14,33 @@ namespace PoRedoMedia.Api.Features.Memeify;
 /// What is learned about a video (frame labels, loudness, speech) is stored with the source and
 /// reused, so a second run on the same video does not pay for vision or transcription again.
 /// </remarks>
+/// <param name="director">Absent when no director model is configured: Meme-ify is then not offered.</param>
+/// <param name="roast">Absent when no roast voice can be made here.</param>
+/// <param name="vision">Absent when nothing here can look at video frames.</param>
 public sealed class VideoRunStep(
-    IServiceProvider services, SourceAudioAnalysis audio, ITranscriptionService transcription, FFmpegRenderService render,
-    BlobStorageService blobs, IMediaRepository media, StorageClients storage, IConfiguration configuration,
-    IHostEnvironment environment, ILogger<VideoRunStep> logger) : IRunStep
+    SourceAudioAnalysis audio, ITranscriptionService transcription, FFmpegRenderService render, FFmpegProcess ffmpeg,
+    BlobStorageService blobs, IMediaRepository media, StorageClients storage, ISoundAssetRepository sounds,
+    ISoundFavoritesRepository favoriteSounds, ISemanticMatchingService matching, IConfiguration configuration,
+    IHostEnvironment environment, ILogger<VideoRunStep> logger,
+    IDirectorService? director = null, IVideoRoast? roast = null, IAiVisionService? vision = null) : IRunStep
 {
-    public IReadOnlySet<MediaFunction> Handles { get; } = Available(services, transcription, configuration, environment);
+    /// <summary>Most frames sampled here from a video that arrived without any.</summary>
+    private const int MaxSampledFrames = 40;
 
-    /// <summary>Only what this server can actually do: no director, no Meme-ify; no speech model, no captions.</summary>
+    public IReadOnlySet<MediaFunction> Handles { get; } = Available(director, roast, transcription, configuration, environment);
+
+    /// <summary>
+    /// Only what this server can actually do: no director, no Meme-ify. Captions are always
+    /// offered, because the words can also come from the on-device speech model.
+    /// </summary>
     private static HashSet<MediaFunction> Available(
-        IServiceProvider services, ITranscriptionService transcription, IConfiguration configuration, IHostEnvironment environment)
+        IDirectorService? director, IVideoRoast? roast, ITranscriptionService transcription, IConfiguration configuration, IHostEnvironment environment)
     {
-        var available = new HashSet<MediaFunction>();
-        if (services.GetService<IDirectorService>() is not null)
+        var available = new HashSet<MediaFunction> { MediaFunction.Captions };
+        if (director is not null)
             available.Add(MediaFunction.Memeify);
-        if (services.GetService<IVideoRoast>() is not null && SessionRoast.Voices(configuration, environment).Count > 0)
+        if (roast is not null && MediaRoast.Voices(configuration, environment).Count > 0)
             available.Add(MediaFunction.VideoRoast);
-        if (transcription.IsEnabled)
-            available.Add(MediaFunction.Captions);
         return available;
     }
 
@@ -56,9 +65,9 @@ public sealed class VideoRunStep(
         if (memeify)
             (cues, title) = await DirectAsync(context, labels, transcript, sourceAudio, duration, persona, ct);
 
-        var roast = context.Has(MediaFunction.VideoRoast) ? await RoastAsync(context, labels, transcript, duration, ct) : null;
-        if (roast is not null)
-            cues.AddRange(roast.Lines.Select(l => new RenderVisualEntry(l.TimestampMs, l.BlobPath, null, null, null, Voice: true)));
+        var track = context.Has(MediaFunction.VideoRoast) ? await RoastAsync(context, labels, transcript, duration, ct) : null;
+        if (track is not null)
+            cues.AddRange(track.Lines.Select(l => new RenderVisualEntry(l.TimestampMs, l.BlobPath, null, null, null, Voice: true)));
 
         await context.ReportAsync("Rendering");
         var output = new MediaItem
@@ -72,7 +81,7 @@ public sealed class VideoRunStep(
             Title = $"{title ?? string.Join(" + ", context.Run.Functions.Select(FunctionStack.Label))} · {Path.GetFileNameWithoutExtension(source.Title)}",
             ContentType = "video/mp4",
             Extension = ".mp4",
-            Text = roast is null ? null : string.Join('\n', roast.Lines.Select(l => l.Text)),
+            Text = track is null ? null : string.Join('\n', track.Lines.Select(l => l.Text)),
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -88,7 +97,7 @@ public sealed class VideoRunStep(
             Subtitles: captions && transcript.Count > 0 ? transcript : null), ct);
 
         if (captions && transcript.Count > 0)
-            await SessionTranscript.SaveAsync(blobs, output.Id, transcript, ct);
+            await MediaTranscript.SaveAsync(blobs, output.Id, transcript, ct);
 
         var size = (await storage.Blob(output.SourcePath).GetPropertiesAsync(cancellationToken: ct)).Value.ContentLength;
         output = output with { SizeBytes = size, DurationSeconds = seconds > 0 ? seconds : duration };
@@ -99,11 +108,11 @@ public sealed class VideoRunStep(
     /// <summary>What was said, when speech is available; otherwise nothing, with the reason noted if captions were asked for.</summary>
     private IReadOnlyList<TranscriptSegmentDto> Transcript(RunContext context, SourceAudio sourceAudio, bool captionsWanted)
     {
-        var problem = !transcription.IsEnabled ? "no speech model is configured"
+        var problem = sourceAudio.Speech.Count > 0 ? null
             : !sourceAudio.HasAudio ? "the video has no sound"
+            : !transcription.IsEnabled ? "no speech model is configured here and none ran on your device"
             : sourceAudio.SpeechError is not null ? "the speech model failed"
-            : sourceAudio.Speech.Count == 0 ? "no speech was heard"
-            : null;
+            : "no speech was heard";
         if (problem is null)
             return sourceAudio.Speech;
 
@@ -112,15 +121,18 @@ public sealed class VideoRunStep(
         return [];
     }
 
-    /// <summary>Frame labels stored at upload; else vision on the stored frames; else none, and placement goes by time.</summary>
+    /// <summary>
+    /// Frame labels stored at upload; else vision on the stored frames, which are sampled here
+    /// when the browser sent none (a clip this app made, or an upload from another client); else
+    /// none, and placement goes by time.
+    /// </summary>
     private async Task<SceneLabel[]> LabelsAsync(RunContext context, CancellationToken ct)
     {
         var stored = await VisionStore.LoadLabelsAsync(blobs, context.Source.Id, ct);
         if (stored.Length > 0)
             return stored;
 
-        var frames = await VisionStore.LoadFramesAsync(blobs, context.Source.Id, ct);
-        if (frames.Count == 0 || services.GetService<IAiVisionService>() is not { } vision)
+        if (vision is null)
         {
             context.AddNote("The video's frames were not analysed, so moments were chosen by time rather than by what happens.");
             return [];
@@ -128,9 +140,23 @@ public sealed class VideoRunStep(
 
         try
         {
+            var frames = await VisionStore.LoadFramesAsync(blobs, context.Source.Id, ct);
+            if (frames.Count == 0)
+            {
+                await context.ReportAsync("Sampling the video");
+                frames = await SampleFramesAsync(context.Source, ct);
+                if (frames.Count == 0)
+                {
+                    context.AddNote("The video's frames could not be read, so moments were chosen by time rather than by what happens.");
+                    return [];
+                }
+
+                await VisionStore.SaveFramesAsync(blobs, context.Source.Id, frames, ct);
+            }
+
             await context.ReportAsync("Watching the video");
-            var sounds = (await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
-            var labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(sounds), ct);
+            var library = (await sounds.LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
+            var labels = await vision.AnalyseAsync(frames, SoundVocabulary.Tags(library), ct);
             await VisionStore.SaveLabelsAsync(blobs, context.Source.Id, labels, ct);
             return labels;
         }
@@ -142,22 +168,45 @@ public sealed class VideoRunStep(
         }
     }
 
+    /// <summary>One small JPEG every few seconds, read by ffmpeg straight from storage.</summary>
+    private async Task<IReadOnlyList<KeyFrame>> SampleFramesAsync(MediaItem source, CancellationToken ct)
+    {
+        var directory = Directory.CreateTempSubdirectory("poredomedia-frames-").FullName;
+        try
+        {
+            var every = Math.Max(3, (source.DurationSeconds ?? 0) / MaxSampledFrames);
+            var link = storage.CreateReadLink(source.SourcePath, TimeSpan.FromMinutes(10));
+            var rate = (1 / every).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture);
+            await ffmpeg.RunAsync(
+                $"-v error -i \"{link}\" -vf \"fps={rate},scale=512:-2\" -q:v 6 -frames:v {MaxSampledFrames} \"{Path.Combine(directory, "f%04d.jpg")}\"",
+                source.Id, ct);
+
+            var frames = new List<KeyFrame>();
+            foreach (var file in Directory.GetFiles(directory, "*.jpg").Order(StringComparer.Ordinal))
+                frames.Add(new KeyFrame(every / 2 + frames.Count * every, await File.ReadAllBytesAsync(file, ct), "image/jpeg"));
+            return frames;
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
+
     /// <summary>Picks the moments, asks the director for a cue at each, and resolves every cue's sound.</summary>
     private async Task<(List<RenderVisualEntry> Cues, string? Title)> DirectAsync(
         RunContext context, SceneLabel[] labels, IReadOnlyList<TranscriptSegmentDto> transcript, SourceAudio sourceAudio,
         double duration, string? persona, CancellationToken ct)
     {
-        var library = (await services.GetRequiredService<ISoundAssetRepository>().LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
+        var library = (await sounds.LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
         if (library.Count == 0)
         {
             context.AddNote("The sound library is empty, so no meme sounds were added. Seed it with the seed-sounds command.");
             return ([], null);
         }
 
-        var favorites = await services.GetRequiredService<ISoundFavoritesRepository>().GetAsync(context.Run.Owner, ct);
+        var favorites = await favoriteSounds.GetAsync(context.Run.Owner, ct);
         var sceneLabels = PlacementPlanner.SceneLabels(labels, transcript, duration);
-        var ranked = services.GetRequiredService<ISemanticMatchingService>()
-            .GetTopCandidatesBatch(library, [.. sceneLabels.Select(PlacementPlanner.MatchQuery)], topN: 5);
+        var ranked = matching.GetTopCandidatesBatch(library, [.. sceneLabels.Select(PlacementPlanner.MatchQuery)], topN: 5);
         var plan = PlacementPlanner.Plan(sceneLabels, ranked, library, favorites, duration);
 
         await context.ReportAsync("Directing");
@@ -165,7 +214,7 @@ public sealed class VideoRunStep(
         string? title = null;
         try
         {
-            var directed = await services.GetRequiredService<IDirectorService>().DirectAsync(
+            var directed = await director!.DirectAsync(
                 plan.ApprovedLabels, plan.DirectorMenu, context.Source.Id, labels.Length > 0 || transcript.Count > 0,
                 new DirectorContext(persona, transcript, favorites), ct);
             (entries, title) = (directed.Entries, directed.Title);
@@ -211,12 +260,12 @@ public sealed class VideoRunStep(
     private async Task<RoastTrack?> RoastAsync(
         RunContext context, SceneLabel[] labels, IReadOnlyList<TranscriptSegmentDto> transcript, double duration, CancellationToken ct)
     {
-        var voices = SessionRoast.Voices(configuration, environment);
+        var voices = MediaRoast.Voices(configuration, environment);
         var voice = voices.FirstOrDefault(v => v == context.Option(RunOptions.VideoRoastVoice)) ?? voices[0];
         try
         {
             await context.ReportAsync("Writing the roast");
-            var track = await services.GetRequiredService<IVideoRoast>().GenerateAsync(context.Source.Id, voice, labels, transcript, duration, ct);
+            var track = await roast!.GenerateAsync(context.Source.Id, voice, labels, transcript, duration, ct);
             if (track is null)
                 context.AddNote("Nothing in this video gave the roast anything to work with, so it was left out.");
             return track;

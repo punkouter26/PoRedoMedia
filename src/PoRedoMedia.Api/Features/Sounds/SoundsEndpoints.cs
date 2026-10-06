@@ -1,15 +1,11 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http.HttpResults;
 using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Api.Features.Sounds;
 
 public static class SoundsEndpoints
 {
-    /// <summary>
-    /// Large enough for the studio's sound picker to take the whole library in one request; the
-    /// Sound Library page still asks for small pages as it scrolls.
-    /// </summary>
-    private const int MaxPageSize = 1000;
-
     /// <summary>Upload limits. The size matches what the client checks before it sends the file.</summary>
     internal const long MaxUploadBytes = 15 * 1024 * 1024;
     internal const int MaxUploadsPerUser = 25;
@@ -20,178 +16,128 @@ public static class SoundsEndpoints
     public static IEndpointRouteBuilder MapSounds(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/sounds").RequireAntiforgeryValidation();
-
-        group.MapGet("/", async (
-            ISoundAssetRepository repository,
-            ISoundFavoritesRepository favoritesRepository,
-            HttpContext httpContext,
-            string? tags,
-            string? query,
-            bool favoritesOnly = false,
-            int limit = 20,
-            int offset = 0,
-            CancellationToken cancellationToken = default) =>
-        {
-            var allSounds = (await repository.LoadAllAsync(cancellationToken)).VisibleTo(UserId.From(httpContext.User));
-            var favorites = await favoritesRepository.GetAsync(UserId.From(httpContext.User), cancellationToken);
-
-            var filtered = allSounds.AsEnumerable();
-
-            if (favoritesOnly)
-                filtered = filtered.Where(s => favorites.Contains(s.SoundId));
-
-            if (!string.IsNullOrWhiteSpace(tags))
-            {
-                var requestedTags = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                filtered = filtered.Where(s => requestedTags.Any(t => s.ActionVectorTags.Contains(t, StringComparer.OrdinalIgnoreCase)));
-            }
-
-            if (!string.IsNullOrWhiteSpace(query))
-            {
-                var q = query.Trim();
-                filtered = filtered.Where(s =>
-                    s.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                    s.ActionVectorTags.Any(t => t.Contains(q, StringComparison.OrdinalIgnoreCase)));
-            }
-
-            // Starred sounds first, then alphabetical — stable paging, and a user's picks are
-            // always on page one of the studio's sound picker.
-            var list = filtered
-                .OrderByDescending(s => favorites.Contains(s.SoundId))
-                .ThenBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var totalCount = list.Count;
-            var page = list.Skip(Math.Max(0, offset)).Take(Math.Clamp(limit, 1, MaxPageSize)).Select(s => new SoundAssetDto
-            {
-                SoundId = s.SoundId.Value,
-                DisplayName = s.DisplayName,
-                DurationMs = s.DurationMs,
-                ActionVectorTags = s.ActionVectorTags,
-                Attribution = s.Attribution,
-                IsFavorite = favorites.Contains(s.SoundId),
-            }).ToArray();
-
-            return Results.Ok(new SoundPageDto(totalCount, page));
-        });
-
-        // PUT / DELETE /api/sounds/favorites/{soundId} — star or unstar a sound.
-        group.MapPut("/favorites/{soundId:guid}", (SoundId soundId, ISoundFavoritesRepository favorites, HttpContext httpContext, CancellationToken ct)
-                => SetFavoriteAsync(soundId, true, favorites, httpContext, ct))
-            .WithName("StarSound")
-            .WithTags("MemeLibrary");
-
-        group.MapDelete("/favorites/{soundId:guid}", (SoundId soundId, ISoundFavoritesRepository favorites, HttpContext httpContext, CancellationToken ct)
-                => SetFavoriteAsync(soundId, false, favorites, httpContext, ct))
-            .WithName("UnstarSound")
-            .WithTags("MemeLibrary");
-
-        // POST /api/sounds/upload — upload custom meme sound
-        group.MapPost("/upload", async (
-            IFormFile file,
-            string? displayName,
-            string? tags,
-            ISoundAssetRepository repository,
-            BlobStorageService blobService,
-            SoundTagger tagger,
-            HttpContext httpContext,
-            CancellationToken cancellationToken) =>
-        {
-            var owner = UserId.From(httpContext.User);
-            var library = await repository.LoadAllAsync(cancellationToken);
-            if (library.Count(s => s.Owner == owner.Key) >= MaxUploadsPerUser)
-                return Results.BadRequest(new { error = $"You can keep up to {MaxUploadsPerUser} uploaded sounds." });
-
-            if (file is null || file.Length == 0)
-                return Results.BadRequest(new { error = "No audio file provided." });
-
-            if (file.Length > MaxUploadBytes)
-                return Results.BadRequest(new { error = $"Sounds can be at most {MaxUploadBytes / (1024 * 1024)} MB." });
-
-            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (ext != ".mp3" && ext != ".wav" && ext != ".ogg")
-                return Results.BadRequest(new { error = "Only .mp3, .wav, and .ogg files are supported." });
-
-            var soundId = SoundId.New();
-            var blobPath = $"{StorageNames.Containers.Sounds}/{soundId}{ext}";
-
-            // Buffered (uploads are small clips) so the real length can be measured before storing.
-            using var buffer = new MemoryStream();
-            await using (var stream = file.OpenReadStream())
-                await stream.CopyToAsync(buffer, cancellationToken);
-            var durationMs = AudioDuration.EstimateMs(buffer.GetBuffer().AsSpan(0, (int)buffer.Length), file.FileName);
-
-            buffer.Position = 0;
-            await blobService.UploadAsync(blobPath, buffer, file.ContentType ?? "audio/mpeg", cancellationToken);
-
-            var asset = new SoundAsset
-            {
-                SoundId = soundId,
-                DisplayName = CleanDisplayName(displayName, file.FileName),
-                DurationMs = durationMs,
-                ActionVectorTags = CleanTags(tags),
-                BlobUrl = blobPath,
-                Priority = false,
-                UseCase = "custom-upload",
-                Owner = owner.Key,
-            };
-
-            await tagger.TagAsync(asset, SoundVocabulary.Tags(library.VisibleTo(owner)), cancellationToken);
-            await repository.AddSoundAsync(asset, cancellationToken);
-
-            return Results.Created($"/api/sounds/{soundId}/stream", ToDto(asset));
-        })
-        // The built-in form check is off because the group's filter already validates the
-        // token; running both rejects even a correct one.
-        .DisableAntiforgery()
-        .RequireRateLimiting(UploadRateLimit.Policy);
-
-        // GET /api/sounds/{soundId}/stream — proxy sound file from blob storage to browser.
-        group.MapGet("/{soundId:guid}/stream", async (
-            SoundId soundId,
-            ISoundAssetRepository repository,
-            BlobStorageService blobService,
-            HttpContext httpContext,
-            CancellationToken cancellationToken) =>
-        {
-            var allSounds = (await repository.LoadAllAsync(cancellationToken)).VisibleTo(UserId.From(httpContext.User));
-            var sound = allSounds.FirstOrDefault(s => s.SoundId == soundId);
-            if (sound is null || !await blobService.ExistsAsync(sound.BlobPath, cancellationToken))
-                return Results.NotFound();
-
-            var stream = await blobService.OpenReadAsync(sound.BlobPath, cancellationToken);
-            return Results.File(stream, contentType: "audio/mpeg", enableRangeProcessing: true);
-        })
-        .WithName("StreamSound")
-        .WithTags("MemeLibrary")
-        .Produces(200)
-        .Produces(404);
-
+        group.MapGet("/", ListAsync);
+        group.MapPut("/favorites/{soundId:guid}", (SoundId soundId, ClaimsPrincipal user, ISoundFavoritesRepository favorites, CancellationToken ct) =>
+            SetFavoriteAsync(soundId, true, user, favorites, ct));
+        group.MapDelete("/favorites/{soundId:guid}", (SoundId soundId, ClaimsPrincipal user, ISoundFavoritesRepository favorites, CancellationToken ct) =>
+            SetFavoriteAsync(soundId, false, user, favorites, ct));
+        group.MapPost("/upload", UploadAsync)
+            // The built-in form check is off because the group's filter already validates the
+            // token; running both rejects even a correct one.
+            .DisableAntiforgery()
+            .RequireRateLimiting(UploadRateLimit.Policy);
+        group.MapGet("/{soundId:guid}/stream", StreamAsync);
         return routes;
     }
 
-    private static async Task<IResult> SetFavoriteAsync(
-        SoundId soundId,
-        bool favorite,
-        ISoundFavoritesRepository favorites,
-        HttpContext httpContext,
-        CancellationToken ct)
+    /// <summary>
+    /// The shared library plus the caller's uploads: starred first, then by name. It is a few
+    /// hundred small rows, so the page takes all of it and filters locally.
+    /// </summary>
+    private static async Task<Ok<List<SoundAssetDto>>> ListAsync(
+        ClaimsPrincipal user, ISoundAssetRepository repository, ISoundFavoritesRepository favoritesRepository, CancellationToken ct)
     {
-        await favorites.SetAsync(UserId.From(httpContext.User), soundId, favorite, ct);
-        return Results.Ok(new { soundId, isFavorite = favorite });
+        var owner = UserId.From(user);
+        var favorites = await favoritesRepository.GetAsync(owner, ct);
+        return TypedResults.Ok((await repository.LoadAllAsync(ct)).VisibleTo(owner)
+            .OrderByDescending(s => favorites.Contains(s.SoundId))
+            .ThenBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(s => ToDto(s, favorites.Contains(s.SoundId)))
+            .ToList());
     }
 
-    private static SoundAssetDto ToDto(SoundAsset s) => new()
+    private static async Task<NoContent> SetFavoriteAsync(
+        SoundId soundId, bool favorite, ClaimsPrincipal user, ISoundFavoritesRepository favorites, CancellationToken ct)
+    {
+        await favorites.SetAsync(UserId.From(user), soundId, favorite, ct);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<Results<Created<SoundAssetDto>, ProblemHttpResult>> UploadAsync(
+        IFormFile file, string? displayName, string? tags, ClaimsPrincipal user, ISoundAssetRepository repository,
+        BlobStorageService blobs, SoundTagger tagger, CancellationToken ct)
+    {
+        var owner = UserId.From(user);
+        var library = await repository.LoadAllAsync(ct);
+        if (library.Count(s => s.Owner == owner.Key) >= MaxUploadsPerUser)
+            return Refused($"You can keep up to {MaxUploadsPerUser} uploaded sounds.");
+        if (file is null || file.Length == 0)
+            return Refused("No audio file provided.");
+        if (file.Length > MaxUploadBytes)
+            return Refused($"Sounds can be at most {MaxUploadBytes / (1024 * 1024)} MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ContentTypeFor(ext) is not { } contentType)
+            return Refused("Only .mp3, .wav, and .ogg files are supported.");
+
+        // Buffered (uploads are small clips) so the bytes can be checked and measured before storing.
+        using var buffer = new MemoryStream();
+        await using (var stream = file.OpenReadStream())
+            await stream.CopyToAsync(buffer, ct);
+        var bytes = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
+        if (!LooksLikeAudio(bytes))
+            return Refused("That file is not readable audio.");
+
+        var soundId = SoundId.New();
+        var blobPath = $"{StorageNames.Containers.Sounds}/{soundId}{ext}";
+        var durationMs = AudioDuration.EstimateMs(bytes, file.FileName);
+
+        buffer.Position = 0;
+        // The type this app chose for the extension, never the one the browser sent.
+        await blobs.UploadAsync(blobPath, buffer, contentType, ct);
+
+        var asset = new SoundAsset
+        {
+            SoundId = soundId,
+            DisplayName = CleanDisplayName(displayName, file.FileName),
+            DurationMs = durationMs,
+            ActionVectorTags = CleanTags(tags),
+            BlobUrl = blobPath,
+            Priority = false,
+            UseCase = "custom-upload",
+            Owner = owner.Key,
+        };
+
+        await tagger.TagAsync(asset, SoundVocabulary.Tags(library.VisibleTo(owner)), ct);
+        await repository.AddSoundAsync(asset, ct);
+        return TypedResults.Created($"/api/sounds/{soundId}/stream", ToDto(asset, false));
+    }
+
+    private static async Task<IResult> StreamAsync(
+        SoundId soundId, HttpContext http, ISoundAssetRepository repository, BlobDelivery delivery, CancellationToken ct) =>
+        (await repository.LoadAllAsync(ct)).VisibleTo(UserId.From(http.User)).FirstOrDefault(s => s.SoundId == soundId) is { } sound
+            ? await delivery.ServeAsync(http, sound.BlobPath, ct: ct)
+            : Results.NotFound();
+
+    private static string? ContentTypeFor(string extension) => extension switch
+    {
+        ".mp3" => "audio/mpeg",
+        ".wav" => "audio/wav",
+        ".ogg" => "audio/ogg",
+        _ => null,
+    };
+
+    /// <summary>The first bytes of an MP3 (ID3 tag or frame sync), a WAV or an OGG. The extension alone proves nothing.</summary>
+    internal static bool LooksLikeAudio(ReadOnlySpan<byte> d) =>
+        d.Length >= 12
+        && (d[..3].SequenceEqual("ID3"u8)
+            || (d[0] == 0xFF && (d[1] & 0xE0) == 0xE0)
+            || (d[..4].SequenceEqual("RIFF"u8) && d.Slice(8, 4).SequenceEqual("WAVE"u8))
+            || d[..4].SequenceEqual("OggS"u8));
+
+    private static SoundAssetDto ToDto(SoundAsset s, bool favorite) => new()
     {
         SoundId = s.SoundId.Value,
         DisplayName = s.DisplayName,
         DurationMs = s.DurationMs,
         ActionVectorTags = s.ActionVectorTags,
         Attribution = s.Attribution,
+        IsFavorite = favorite,
     };
 
     /// <summary>
-    /// The name a sound is listed under. It is shown to every user and quoted in the director's
-    /// prompt, so it is one bounded line whatever the upload called itself.
+    /// The name a sound is listed under. It is quoted in the director's prompt, so it is one
+    /// bounded line whatever the upload called itself.
     /// </summary>
     internal static string CleanDisplayName(string? displayName, string fileName)
         => UserText.Clean(displayName, MaxDisplayNameLength)
@@ -212,4 +158,7 @@ public static class SoundsEndpoints
             ? ["custom", "user-upload"]
             : [.. cleaned.Append("custom").Distinct(StringComparer.OrdinalIgnoreCase)];
     }
+
+    private static ProblemHttpResult Refused(string reason) =>
+        TypedResults.Problem(detail: reason, statusCode: StatusCodes.Status400BadRequest);
 }

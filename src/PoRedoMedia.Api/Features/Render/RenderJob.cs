@@ -9,8 +9,6 @@ public sealed record RenderJob(
     string OutputBlobPath,
     bool AggressiveVisuals,
     IReadOnlyList<RenderVisualEntry> Cues,
-    double? TrimStartSeconds = null,
-    double? TrimDurationSeconds = null,
     string? AspectRatio = null,
     IReadOnlyList<TranscriptSegmentDto>? Subtitles = null);
 

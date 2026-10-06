@@ -88,7 +88,7 @@ public sealed class SemanticMatchingService : ISemanticMatchingService
     };
 
     /// <summary>Splits free text into lowercase word tokens and expands with concept synonyms.</summary>
-    private static IEnumerable<string> Tokenize(string? text)
+    private static HashSet<string> Tokenize(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return [];

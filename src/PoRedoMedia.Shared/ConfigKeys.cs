@@ -10,6 +10,12 @@ public static class ConfigKeys
     public const string AzureAdSignedOutCallbackPath = "AzureAd:SignedOutCallbackPath";
     public const string AzureAdAllowedTenantIds = "AzureAd:AllowedTenantIds";
     public const string AuthEnableFakeAuth = "Auth:EnableFakeAuth";
+
+    /// <summary>Comma-separated email addresses that may sign in. Empty = any Microsoft account.</summary>
+    public const string AuthAllowedEmails = "Auth:AllowedEmails";
+
+    /// <summary>The address share links are built on, such as https://example.com. Empty = the request's own host.</summary>
+    public const string AppPublicBaseUrl = "App:PublicBaseUrl";
     public const string KeyVaultUri = "KeyVault:Uri";
     public const string MocksUseMockAi = "Mocks:UseMockAi";
     public const string StorageConnectionString = "Storage:ConnectionString";

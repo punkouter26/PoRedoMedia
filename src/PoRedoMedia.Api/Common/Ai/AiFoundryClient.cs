@@ -1,4 +1,3 @@
-// GoF: Facade — one entry point to the Azure AI Foundry resource for every slice that uses AI.
 using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Collections.Concurrent;

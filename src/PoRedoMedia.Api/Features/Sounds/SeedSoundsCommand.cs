@@ -1,4 +1,3 @@
-// SOLID: Single Responsibility — sound library seeding isolated from web host startup
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -295,8 +294,10 @@ public static class SeedSoundsCommand
         var namespaceBytes = new byte[] { 0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8 };
         var nameBytes = System.Text.Encoding.UTF8.GetBytes(slug);
         var combined = namespaceBytes.Concat(nameBytes).ToArray();
-        using var sha1 = System.Security.Cryptography.SHA1.Create();
-        var hash = sha1.ComputeHash(combined);
+        // SHA-1 is what a version 5 UUID is defined on. It names a sound here; it protects nothing.
+#pragma warning disable CA5350
+        var hash = System.Security.Cryptography.SHA1.HashData(combined);
+#pragma warning restore CA5350
         hash[6] = (byte)((hash[6] & 0x0f) | 0x50); // version 5
         hash[8] = (byte)((hash[8] & 0x3f) | 0x80); // variant RFC 4122
         return new Guid(hash[..16]);

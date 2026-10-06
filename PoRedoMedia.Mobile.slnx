@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/PoRedoMedia.Shared/PoRedoMedia.Shared.csproj" />
-    <Project Path="src/PoRedoMedia.Mobile/PoRedoMedia.Mobile.csproj" />
-  </Folder>
-</Solution>

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
@@ -12,7 +13,6 @@ using PoRedoMedia.Api.Features.Quota;
 using PoRedoMedia.Api.Features.Runs;
 using PoRedoMedia.Api.Features.Sharing;
 using PoRedoMedia.Api.Features.Sounds;
-using PoRedoMedia.Api.Hubs;
 using Radzen;
 
 // CLI verb: dotnet run --project src/PoRedoMedia.Api -- seed-sounds [--seeds-dir <path>]
@@ -43,6 +43,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddRadzenComponents();
 builder.Services.AddSingleton<StorageClients>();
 builder.Services.AddSingleton<BlobStorageService>();
+builder.Services.AddSingleton<BlobDelivery>();
 builder.Services.AddSingleton<FFmpegProcess>();
 builder.Services.AddSingleton<IMediaRepository, MediaTableRepository>();
 builder.Services.AddSingleton<Thumbnails>();
@@ -65,7 +66,31 @@ builder.Services.AddUploadRateLimit();
 builder.Services.AddPoAntiforgery(builder.Environment);
 builder.Services.AddPoRedoMediaAuth(builder.Configuration, builder.Environment);
 
+// Deployed, the app sits behind the platform's proxy. Without its forwarded scheme the sign-in
+// redirect and the share links would say http.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+if (!app.Environment.IsDevOrTest())
+{
+    app.UseForwardedHeaders();
+    app.UseHsts();
+}
+
+app.Use((context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    return next();
+});
 
 app.UseAuthentication();
 

@@ -1,4 +1,3 @@
-// SOLID: Single Responsibility — sound asset persistence isolated
 using Azure.Data.Tables;
 using Microsoft.Extensions.Caching.Hybrid;
 
@@ -77,6 +76,6 @@ public sealed class SoundAssetTableRepository : ISoundAssetRepository
         InvalidateCache();
     }
 
-    /// <remarks>Fire-and-forget: the contract is synchronous and eviction is not ordered work.</remarks>
-    public void InvalidateCache() => _ = _cache.RemoveAsync(CacheKey).AsTask();
+    /// <remarks>Fire-and-forget: eviction is not ordered work.</remarks>
+    private void InvalidateCache() => _ = _cache.RemoveAsync(CacheKey).AsTask();
 }

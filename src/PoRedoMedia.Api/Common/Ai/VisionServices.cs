@@ -14,26 +14,29 @@ namespace PoRedoMedia.Api.Common.Ai;
 public sealed class ChatVisionService(IChatClient chat) : IVisionService
 {
     private const string SystemPrompt =
-        "You are an image analyst. Look at the image and reply with MINIFIED JSON only, no prose and "
-        + "no markdown fences. Schema: {\"description\":\"one vivid, specific sentence describing "
-        + "what is happening\",\"tags\":[\"8-14 lowercase single-word or two-word labels for the "
-        + "objects, setting and activity present\"]}. "
+        "You are an image analyst. Look at the image. description: one vivid, specific sentence "
+        + "describing what is happening. tags: 8-14 lowercase single-word or two-word labels for the "
+        + "objects, setting and activity present. "
         + "Report only what is visible; do not invent. Do not describe or infer race, ethnicity, "
         + "skin tone, body size or weight, age, disability, or attractiveness.";
 
     public async Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default)
     {
-        var response = await chat.GetResponseAsync(
+        // The answer's shape is sent as a JSON schema, so there is nothing to parse by hand.
+        var response = await chat.GetResponseAsync<Answer>(
         [
             new ChatMessage(ChatRole.System, SystemPrompt),
             new ChatMessage(ChatRole.User, [new DataContent(image, "image/jpeg"), new TextContent("Analyze this image now.")]),
-        ], new ChatOptions { ResponseFormat = ChatResponseFormat.Json }, ct);
+        ], cancellationToken: ct);
 
-        var result = VisionJson.Parse(response.Text);
-        return string.IsNullOrWhiteSpace(result.Description)
-            ? throw new RunStepException("The vision model returned nothing usable for this picture.")
-            : result;
+        return response.TryGetResult(out var answer) && !string.IsNullOrWhiteSpace(answer.Description)
+            ? new VisionResult(
+                answer.Description.Trim(),
+                [.. (answer.Tags ?? []).Select(t => t.Trim().ToLowerInvariant()).Where(t => t.Length > 0).Distinct().Take(16)], 1.0)
+            : throw new RunStepException("The vision model returned nothing usable for this picture.");
     }
+
+    private sealed record Answer(string Description, string[]? Tags);
 }
 
 /// <summary>Google Gemini vision over its REST API.</summary>

@@ -7,8 +7,11 @@ using Radzen;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 var baseAddress = new Uri(builder.HostEnvironment.BaseAddress);
-builder.Services.AddScoped(_ => new HttpClient(
-    new AntiforgeryTokenHandler(() => new HttpClient { BaseAddress = baseAddress }) { InnerHandler = new HttpClientHandler() })
+builder.Services.AddScoped(services => new HttpClient(
+    new SessionExpiredHandler(services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>())
+    {
+        InnerHandler = new AntiforgeryTokenHandler(() => new HttpClient { BaseAddress = baseAddress }) { InnerHandler = new HttpClientHandler() },
+    })
 {
     BaseAddress = baseAddress,
     // Long enough for a chained image run; video runs report progress over SignalR instead.
@@ -21,6 +24,8 @@ builder.Services.AddScoped<BlobUploadService>();
 builder.Services.AddScoped<RunApi>();
 builder.Services.AddScoped<SoundsApi>();
 builder.Services.AddScoped<SessionCostService>();
+builder.Services.AddScoped<RunTracker>();
+builder.Services.AddScoped<UiStore>();
 builder.Services.AddScoped<LocalAiService>();
 builder.Services.AddRadzenComponents();
 

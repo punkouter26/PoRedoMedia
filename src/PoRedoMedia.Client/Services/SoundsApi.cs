@@ -12,7 +12,7 @@ public sealed class SoundsApi(HttpClient http)
 
     /// <summary>The whole library. It is a few dozen to a few hundred small rows, so the page filters it locally.</summary>
     public async Task<List<SoundAssetDto>> ListAsync() =>
-        [.. (await http.GetFromJsonAsync("api/sounds/?limit=1000", WireJson.Default.SoundPageDto))?.Sounds ?? []];
+        await http.GetFromJsonAsync("api/sounds", WireJson.Default.ListSoundAssetDto) ?? [];
 
     public async Task<string?> SetFavoriteAsync(Guid soundId, bool favorite)
     {

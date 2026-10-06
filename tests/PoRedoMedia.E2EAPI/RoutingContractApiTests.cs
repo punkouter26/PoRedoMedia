@@ -16,7 +16,6 @@ public sealed class RoutingContractApiTests(ApiFactory factory) : IClassFixture<
         "/challenge-microsoft",
         "/dev-login",
         "/health/live",
-        "/logout",
         "/v/{token}",
         "/v/{token}/content",
         "/v/{token}/thumb",

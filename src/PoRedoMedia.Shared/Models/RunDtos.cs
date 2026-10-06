@@ -24,7 +24,8 @@ public sealed record RunDto(
     string? Error,
     Guid[] OutputIds,
     string[] Notes,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Dictionary<string, string>? Options = null);
 
 /// <summary>One progress event for a run, pushed over the hub.</summary>
 public sealed record RunProgressDto(

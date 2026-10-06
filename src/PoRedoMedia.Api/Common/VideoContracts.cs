@@ -110,7 +110,7 @@ public sealed record AudioEnvelope(float[] Rms, int FramesPerSecond);
 /// </summary>
 public interface ISourceAudioAnalysis
 {
-    /// <summary>Starts analysing the session's source audio in the background. Idempotent.</summary>
+    /// <summary>Starts analysing the item's source audio in the background. Idempotent.</summary>
     void Prefetch(MediaId mediaId, string sourceBlobPath);
 }
 

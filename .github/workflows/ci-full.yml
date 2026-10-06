@@ -1,7 +1,7 @@
 name: CI (full suite)
 
-# On demand only, never on push. Run it (Actions -> CI (full suite) -> Run workflow) before a
-# release, or after touching storage, auth or the render pipeline.
+# Weekly and on demand, never on push. Run it by hand (Actions -> CI (full suite) -> Run workflow)
+# before a release, or after touching storage, auth or the render pipeline.
 #
 # The integration tests start their own Azurite through Testcontainers (Docker is on the runner)
 # and run real ffmpeg. Without Docker they report as skipped, never as passed, so check the
@@ -11,6 +11,8 @@ name: CI (full suite)
 # one. Run it locally with scripts/run-e2e.ps1.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
 permissions:
   contents: read

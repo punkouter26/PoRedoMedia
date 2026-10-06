@@ -1,10 +1,12 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!-- Diagnostics only: trim-unsafe patterns break the build, but no assembly is trimmed. -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <!-- A vulnerable package must break the build, not pass silently. -->

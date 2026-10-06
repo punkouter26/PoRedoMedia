@@ -16,13 +16,13 @@ namespace PoRedoMedia.Api.Features.MemeCaption;
 public sealed class MemeTemplateService
 {
     private readonly ILogger<MemeTemplateService> _logger;
-    private readonly IReadOnlyList<MemeTemplate> _templates;
+    private readonly MemeTemplate[] _templates;
 
     public MemeTemplateService(ILogger<MemeTemplateService> logger)
     {
         _logger = logger;
         _templates = BuildCatalog();
-        _logger.LogInformation("Meme template library loaded. Templates={Count}", _templates.Count);
+        _logger.LogInformation("Meme template library loaded. Templates={Count}", _templates.Length);
     }
 
     public IReadOnlyList<MemeTemplate> GetTemplates() => _templates;
@@ -107,7 +107,7 @@ public sealed class MemeTemplateService
     /// Curated catalog of 20 meme templates. Coordinates are normalized 0..1 so any photo
     /// (portrait, landscape, square) maps to the same template without distortion.
     /// </summary>
-    private static IReadOnlyList<MemeTemplate> BuildCatalog() => new MemeTemplate[]
+    private static MemeTemplate[] BuildCatalog() => new MemeTemplate[]
     {
         // ── Classic ────────────────────────────────────────────────
         new("impact-top-bottom", "Classic Top/Bottom", "The original. Top caption + bottom caption.", "classic", 2, new[]

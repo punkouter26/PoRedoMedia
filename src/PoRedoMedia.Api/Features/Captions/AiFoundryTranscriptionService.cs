@@ -1,4 +1,3 @@
-// GoF: Adapter — wraps the Foundry audio-transcription endpoint
 using System.Text.Json;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Shared.Models;

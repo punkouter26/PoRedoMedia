@@ -13,12 +13,12 @@ public static class CaptionsEndpoints
             MediaId id, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs, CancellationToken ct) =>
         {
             if (await media.GetAsync(UserId.From(user), id, ct) is null
-                || !await blobs.ExistsAsync(SessionBlobPaths.Transcript(id.Value), ct))
+                || !await blobs.ExistsAsync(MediaAnalysisPaths.Transcript(id.Value), ct))
             {
                 return Results.NotFound();
             }
 
-            var srt = SrtWriter.Write(await SessionTranscript.LoadAsync(blobs, id, ct));
+            var srt = SrtWriter.Write(await MediaTranscript.LoadAsync(blobs, id, ct));
             return Results.File(Encoding.UTF8.GetBytes(srt), "application/x-subrip", "captions.srt");
         });
         return app;

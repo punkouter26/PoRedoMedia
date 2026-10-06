@@ -32,13 +32,13 @@ public sealed class MockDirector : IDirectorService
         [.. Enum.GetValues<VisualEffectType>().Where(e => e is not (VisualEffectType.None or VisualEffectType.SnapZoom))];
 
     public Task<DirectedScript> DirectAsync(
-        SceneLabel[] visionLabels, IReadOnlyList<SoundAsset> topCandidates, MediaId mediaId, bool hasRealVisionData = false,
+        SceneLabel[] labels, IReadOnlyList<SoundAsset> topCandidates, MediaId mediaId, bool hasRealVisionData = false,
         DirectorContext? context = null, CancellationToken cancellationToken = default)
     {
         if (topCandidates.Count == 0)
             return Task.FromResult(new DirectedScript([], "Mock title"));
 
-        var entries = visionLabels.Select((label, i) =>
+        var entries = labels.Select((label, i) =>
         {
             var sound = topCandidates[i % topCandidates.Count];
             var effect = Effects[i % Effects.Length];
@@ -89,7 +89,7 @@ public sealed class MockVideoRoast(FFmpegProcess ffmpeg, BlobStorageService blob
             if (await ffmpeg.RunAsync($"-y -f lavfi -i sine=frequency=330:duration=0.4 -c:a libmp3lame \"{clip}\"", mediaId, ct) != 0)
                 throw new InvalidOperationException("The mock roast voice could not be made. Is ffmpeg installed?");
 
-            var path = SessionBlobPaths.RoastClip(mediaId.Value, 0, "mp3");
+            var path = MediaAnalysisPaths.RoastClip(mediaId.Value, 0, "mp3");
             await blobs.UploadFileAsync(path, clip, "audio/mpeg", ct);
             long second = (long)(Math.Max(0.6, durationSeconds / 2) * 1000);
             return new RoastTrack(voice, path,

@@ -33,7 +33,7 @@ public sealed class RestyleStep(
             context.AddNote("The detailed read of your picture failed, so the new image was drawn from a short description instead.");
         }
 
-        var style = context.Option(RunOptions.RestylePrompt)
+        var style = UserText.Clean(context.Option(RunOptions.RestylePrompt), 400)
             ?? StyleRecipeCatalog.All.FirstOrDefault(r => r.Id == context.Option(RunOptions.RestyleStyle))?.PromptSnippet;
         if (style is not null)
             prompt = $"{prompt}\n\nRender the whole scene in this style: {style}";

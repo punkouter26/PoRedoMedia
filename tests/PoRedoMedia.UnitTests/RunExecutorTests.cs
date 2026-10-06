@@ -21,7 +21,7 @@ public sealed class RunExecutorTests
         Title = origin, ContentType = "x/y", Extension = ".x", CreatedAt = DateTimeOffset.UtcNow,
     });
 
-    private Run NewRun(MediaItem source, params MediaFunction[] functions) =>
+    private static Run NewRun(MediaItem source, params MediaFunction[] functions) =>
         new() { Owner = Owner, Id = RunId.New(), SourceId = source.Id, Functions = functions, CreatedAt = DateTimeOffset.UtcNow };
 
     private RunExecutor Executor(params IRunStep[] steps) =>

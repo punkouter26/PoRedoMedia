@@ -1,4 +1,3 @@
-// GoF: Adapter — adapts the Azure AI Foundry chat endpoint to IDirectorService
 using OpenAI.Chat;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,13 +7,16 @@ namespace PoRedoMedia.Api.Features.Memeify;
 public sealed partial class AiFoundryDirectorService : IDirectorService
 {
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Session {MediaId}: AI Foundry director start. Deployment={Deployment}, Labels={LabelCount}, Candidates={CandidateCount}, HasRealVision={HasRealVision}")]
+        Message = "Media {MediaId}: AI Foundry director start. Deployment={Deployment}, Labels={LabelCount}, Candidates={CandidateCount}, HasRealVision={HasRealVision}")]
     private partial void LogStart(MediaId mediaId, string deployment, int labelCount, int candidateCount, bool hasRealVision);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Session {MediaId}: AI Foundry director timed out after {TimeoutSeconds}s.")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "Media {MediaId}: AI Foundry director timed out after {TimeoutSeconds}s.")]
     private partial void LogTimeout(MediaId mediaId, int timeoutSeconds);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Session {MediaId}: AI Foundry director returned unparseable JSON. Raw: {Raw}")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Media {MediaId}: the director gave no usable script; trying {Deployment}.")]
+    private partial void LogEscalating(MediaId mediaId, string deployment);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Media {MediaId}: AI Foundry director returned unparseable JSON. Raw: {Raw}")]
     private partial void LogParseFailed(Exception ex, MediaId mediaId, string raw);
 
     internal static readonly JsonSerializerOptions JsonOpts = new()
@@ -42,6 +44,9 @@ public sealed partial class AiFoundryDirectorService : IDirectorService
     private readonly ILogger<AiFoundryDirectorService> _logger;
     private readonly int _timeoutSeconds;
 
+    /// <summary>The model tried when the usual one gives no usable script. The vision deployment is the larger of the two.</summary>
+    private readonly string? _escalationDeployment;
+
     public AiFoundryDirectorService(
         AiFoundryClient ai,
         IConfiguration config,
@@ -51,8 +56,9 @@ public sealed partial class AiFoundryDirectorService : IDirectorService
         _logger = logger;
         // Production used to default to 0 — no ceiling at all beyond the SDK's 100 s per attempt
         // times its retries. The engine degrades to a fallback script on timeout, so a bounded
-        // wait is strictly better than an Engine page stuck on "directing".
+        // wait is strictly better than a run stuck on "Directing".
         _timeoutSeconds = config.GetValue<int?>("AiFoundry:DirectorTimeoutSeconds") ?? DefaultTimeoutSeconds;
+        _escalationDeployment = AiFoundryClient.Setting(config, "AiFoundry:EscalationDeployment") ?? AiFoundryClient.Setting(config, "AiFoundry:VisionDeployment");
     }
 
     public async Task<DirectedScript> DirectAsync(
@@ -64,7 +70,20 @@ public sealed partial class AiFoundryDirectorService : IDirectorService
         CancellationToken cancellationToken = default)
     {
         context ??= DirectorContext.Empty;
-        var deployment = _ai.Deployment;
+        var script = await DirectWithAsync(_ai.Deployment, labels, topCandidates, mediaId, hasRealVisionData, context, cancellationToken);
+        if (script.Entries.Length > 0 || labels.Length == 0 || _escalationDeployment is null || _escalationDeployment == _ai.Deployment)
+            return script;
+
+        // The small model answered with nothing usable. One try on the larger one costs a few
+        // cents; the alternative is a video with no captions or effects.
+        LogEscalating(mediaId, _escalationDeployment);
+        return await DirectWithAsync(_escalationDeployment, labels, topCandidates, mediaId, hasRealVisionData, context, cancellationToken);
+    }
+
+    private async Task<DirectedScript> DirectWithAsync(
+        string deployment, SceneLabel[] labels, IReadOnlyList<SoundAsset> topCandidates, MediaId mediaId, bool hasRealVisionData,
+        DirectorContext context, CancellationToken cancellationToken)
+    {
         LogStart(mediaId, deployment, labels.Length, topCandidates.Count, hasRealVisionData);
 
         var sounds = DirectorPrompt.SerializeSoundsCompact(topCandidates, context.Favorites);
@@ -88,7 +107,7 @@ public sealed partial class AiFoundryDirectorService : IDirectorService
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             LogTimeout(mediaId, _timeoutSeconds);
-            throw new TimeoutException($"AI Foundry director timed out after {_timeoutSeconds}s for session {mediaId}.");
+            throw new TimeoutException($"AI Foundry director timed out after {_timeoutSeconds}s for media {mediaId}.");
         }
 
         try

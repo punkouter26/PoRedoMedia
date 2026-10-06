@@ -6,11 +6,6 @@
     <PackageReference Include="Testcontainers.Azurite" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The MAUI head only targets Android, so its API client is compiled in here to be tested. -->
-    <Compile Include="..\..\src\PoRedoMedia.Mobile\Services\MobileApiClient.cs" Link="Mobile\MobileApiClient.cs" />
-    <Compile Include="..\..\src\PoRedoMedia.Mobile\Models\ImageCaptureResult.cs" Link="Mobile\ImageCaptureResult.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\src\PoRedoMedia.Api\PoRedoMedia.Api.csproj" />
   </ItemGroup>
 </Project>

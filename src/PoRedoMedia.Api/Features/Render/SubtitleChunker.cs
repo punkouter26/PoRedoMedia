@@ -1,4 +1,3 @@
-// SOLID: Single Responsibility — pure subtitle line-fitting, unit-tested in isolation
 using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Api.Features.Render;

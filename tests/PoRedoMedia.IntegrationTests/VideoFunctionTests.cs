@@ -74,7 +74,6 @@ public sealed class VideoFunctionTests(AzuriteFixture azurite) : IDisposable
         await Factory.Services.GetRequiredService<BlobStorageService>().UploadAsync(
             sound.BlobPath, await MakeAsync("-f lavfi -i sine=frequency=220:duration=0.3 -c:a libmp3lame", ".mp3"), "audio/mpeg");
         await repository.AddSoundAsync(sound);
-        repository.InvalidateCache();
     }
 
     private static async Task<RunDto> RunAsync(HttpClient client, MediaItem source, MediaFunction[] functions, Dictionary<string, string>? options = null)

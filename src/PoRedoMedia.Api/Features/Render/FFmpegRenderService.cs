@@ -7,12 +7,12 @@ namespace PoRedoMedia.Api.Features.Render;
 /// </summary>
 /// <remarks>
 /// Renders used to go through a bounded channel with a single consumer of its own. Its only
-/// caller is the engine dispatcher, which already runs one session at a time, so the second queue
+/// caller is the engine dispatcher, which already runs one media item at a time, so the second queue
 /// ordered nothing — it only moved the render onto a token the caller could not cancel.
 /// </remarks>
-public sealed partial class FFmpegRenderService : IMediaToolkit
+public sealed partial class FFmpegRenderService : IMediaToolkit, IDisposable
 {
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Thumbnail extraction failed for session {MediaId}; the share page will fall back to a keyframe")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Thumbnail extraction failed for media {MediaId}; the share page will fall back to a keyframe")]
     private partial void LogThumbnailFailed(Exception ex, MediaId mediaId);
 
     /// <summary>
@@ -21,13 +21,15 @@ public sealed partial class FFmpegRenderService : IMediaToolkit
     /// </summary>
     private readonly SemaphoreSlim _adhocGate = new(1, 1);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "FFmpeg render complete for session {MediaId}")]
+    public void Dispose() => _adhocGate.Dispose();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "FFmpeg render complete for media {MediaId}")]
     private partial void LogRenderComplete(MediaId mediaId);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "ffprobe: session {MediaId} actual output duration = {Duration:F2}s")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "ffprobe: media {MediaId} actual output duration = {Duration:F2}s")]
     private partial void LogProbeDuration(MediaId mediaId, double duration);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "ffprobe duration unavailable for session {MediaId}")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "ffprobe duration unavailable for media {MediaId}")]
     private partial void LogProbeUnavailable(MediaId mediaId);
 
     private readonly BlobStorageService _blobService;
@@ -48,7 +50,7 @@ public sealed partial class FFmpegRenderService : IMediaToolkit
     public async Task<double> RenderAsync(RenderJob job, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "Starting FFmpeg render for session {MediaId} with {SoundCount} sound(s)",
+            "Starting FFmpeg render for media {MediaId} with {SoundCount} sound(s)",
             job.MediaId, job.Cues.Count);
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"{"poredomedia"}-{job.MediaId}");
@@ -96,10 +98,6 @@ public sealed partial class FFmpegRenderService : IMediaToolkit
                 }
             }
 
-            // Effective output duration respects trimming if specified
-            var effectiveDuration = job.TrimDurationSeconds.HasValue && job.TrimDurationSeconds.Value > 0
-                ? job.TrimDurationSeconds.Value
-                : sourceDurationSeconds;
 
             // ── 3. Build FFmpeg command ───────────────────────────────────────
             var outputPath = Path.Combine(tempDir, "output.mp4");
@@ -108,9 +106,8 @@ public sealed partial class FFmpegRenderService : IMediaToolkit
                 renderEntries,
                 outputPath,
                 job.AggressiveVisuals,
-                effectiveDuration,
+                sourceDurationSeconds,
                 sourceHasAudio,
-                job.TrimStartSeconds,
                 job.AspectRatio,
                 job.Subtitles);
 
@@ -119,7 +116,7 @@ public sealed partial class FFmpegRenderService : IMediaToolkit
             // ── 4. Run FFmpeg ─────────────────────────────────────────────────
             var exitCode = await _ffmpeg.RunAsync(args, job.MediaId, cancellationToken);
             if (exitCode != 0)
-                throw new InvalidOperationException($"FFmpeg exited with code {exitCode} for session {job.MediaId}.");
+                throw new InvalidOperationException($"FFmpeg exited with code {exitCode} for media {job.MediaId}.");
 
             LogRenderComplete(job.MediaId);
             // ── 4b. Probe actual output duration via ffprobe ─────────────────────────────
@@ -159,7 +156,7 @@ public sealed partial class FFmpegRenderService : IMediaToolkit
                 mediaId,
                 ct);
             if (exit == 0 && File.Exists(thumbPath))
-                await _blobService.UploadFileAsync(SessionBlobPaths.Thumbnail(mediaId.Value), thumbPath, "image/jpeg", ct);
+                await _blobService.UploadFileAsync(MediaAnalysisPaths.Thumbnail(mediaId.Value), thumbPath, "image/jpeg", ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -1,4 +1,3 @@
-// GoF: Repository Pattern — per-user starred sounds
 using Azure.Data.Tables;
 
 namespace PoRedoMedia.Api.Features.Sounds;

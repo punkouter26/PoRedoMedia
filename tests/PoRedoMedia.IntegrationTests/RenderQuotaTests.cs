@@ -12,7 +12,7 @@ public sealed class RenderQuotaTests(AzuriteFixture azurite)
     {
         var settings = new Dictionary<string, string?> { ["Storage:ConnectionString"] = azurite.ConnectionString };
         if (limit is not null)
-            settings["RenderQuota:DailyLimit"] = limit.ToString();
+            settings["RenderQuota:DailyLimit"] = limit.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         return new RenderQuotaService(new StorageClients(configuration), configuration, TimeProvider.System, NullLogger<RenderQuotaService>.Instance);
     }

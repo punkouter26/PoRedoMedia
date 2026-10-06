@@ -104,7 +104,7 @@ public sealed partial class RenderQuotaService(
     private (string Day, DateTimeOffset ResetsAt) CurrentWindow()
     {
         var midnight = new DateTimeOffset(time.GetUtcNow().UtcDateTime.Date, TimeSpan.Zero);
-        return (midnight.ToString("yyyyMMdd"), midnight.AddDays(1));
+        return (midnight.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture), midnight.AddDays(1));
     }
 
     private async Task<QuotaEntity?> GetAsync(string day, UserId userId, CancellationToken ct)

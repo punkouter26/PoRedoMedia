@@ -19,6 +19,9 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
 
     public Task<RunDto?> GetAsync(Guid id) => http.GetFromJsonAsync($"api/runs/{id}", WireJson.Default.RunDto);
 
+    /// <summary>The user's runs, newest first.</summary>
+    public async Task<List<RunDto>> ListAsync() => await http.GetFromJsonAsync("api/runs", WireJson.Default.ListRunDto) ?? [];
+
     public Task<QuotaStatusDto?> GetQuotaAsync() => http.GetFromJsonAsync("api/quota", WireJson.Default.QuotaStatusDto);
 
     public async Task<List<MemeTemplateDto>> GetMemeTemplatesAsync() =>

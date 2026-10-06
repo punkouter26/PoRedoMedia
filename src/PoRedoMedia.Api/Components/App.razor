@@ -1,25 +1,43 @@
 @using Microsoft.AspNetCore.Components.Web
 @using PoRedoMedia.Client
-@using Radzen.Blazor
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <base href="/" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <meta name="theme-color" content="#4340d2" />
-    <RadzenTheme Theme="material" />
+    @* The theme is a plain stylesheet link, swapped by the script below and by the settings
+       menu. It is chosen before first paint, so a dark-theme user never sees a light flash. *@
+    <link id="po-theme" rel="stylesheet" href="_content/Radzen.Blazor/css/material-base.css" />
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem('po.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = theme;
+                if (theme === 'dark') document.getElementById('po-theme').href = '_content/Radzen.Blazor/css/material-dark-base.css';
+            } catch (e) { document.documentElement.dataset.theme = 'light'; }
+        })();
+    </script>
+    <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="PoRedoMedia.Api.styles.css" />
     <HeadOutlet @rendermode="NoPrerender" />
 </head>
 <body>
+    <canvas id="po-backdrop" aria-hidden="true"></canvas>
     <Routes @rendermode="NoPrerender" />
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script src="js/browser-actions.js"></script>
+    <script src="js/sfx.js"></script>
+    <script src="js/backdrop.js"></script>
+    <script src="js/roast-stage.js"></script>
     <script src="js/local-ai/local-ai-interop.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { });
+    </script>
 </body>
 </html>
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using PoRedoMedia.Shared.Models;
 
@@ -23,8 +24,8 @@ internal static class FFmpegArgs
     {
         var sb = new StringBuilder($"-i \"{sourcePath}\"");
         if (!string.IsNullOrWhiteSpace(speechDestinationPath))
-            sb.Append($" -map 0:a:0 -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 48k -y \"{speechDestinationPath}\"");
-        sb.Append($" -map 0:a:0 -vn -ac 1 -ar {EnvelopeSampleRate} -f s16le -y \"{pcmPath}\"");
+            sb.Append(CultureInfo.InvariantCulture, $" -map 0:a:0 -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 48k -y \"{speechDestinationPath}\"");
+        sb.Append(CultureInfo.InvariantCulture, $" -map 0:a:0 -vn -ac 1 -ar {EnvelopeSampleRate} -f s16le -y \"{pcmPath}\"");
         return sb.ToString();
     }
 
@@ -56,22 +57,17 @@ internal static class FFmpegArgs
         bool aggressiveVisuals,
         double sourceDurationSeconds,
         bool sourceHasAudio,
-        double? trimStartSeconds = null,
         string? aspectRatio = null,
         IReadOnlyList<TranscriptSegmentDto>? subtitles = null)
     {
         var sb = new StringBuilder();
 
-        // Input 0: source video (with optional input seeking for trimming)
-        if (trimStartSeconds.HasValue && trimStartSeconds.Value > 0)
-        {
-            sb.Append($"-ss {trimStartSeconds.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} ");
-        }
-        sb.Append($"-i \"{sourcePath}\"");
+        // Input 0: source video
+        sb.Append(CultureInfo.InvariantCulture, $"-i \"{sourcePath}\"");
 
         // Inputs 1..N: sound files
         foreach (var entry in entries)
-            sb.Append($" -i \"{entry.SoundPath}\"");
+            sb.Append(CultureInfo.InvariantCulture, $" -i \"{entry.SoundPath}\"");
 
         // Overlay inputs (distinct file paths to avoid duplicate inputs)
         var overlayEntries = entries.Where(e => !string.IsNullOrEmpty(e.OverlayPath)).ToList();
@@ -81,7 +77,7 @@ internal static class FFmpegArgs
         {
             var inputIndex = entries.Count + 1 + i;
             overlayInputMap[distinctOverlays[i]] = inputIndex;
-            sb.Append($" -i \"{distinctOverlays[i]}\"");
+            sb.Append(CultureInfo.InvariantCulture, $" -i \"{distinctOverlays[i]}\"");
         }
 
         var videoChain = BuildVideoFilterChain(entries, aggressiveVisuals, aspectRatio, subtitles);
@@ -105,9 +101,9 @@ internal static class FFmpegArgs
                 {
                     var currentLabel = "v0";
                     if (hasBaseVideoFilters)
-                        fc.Append($"[0:v]{videoChain}[{currentLabel}]");
+                        fc.Append(CultureInfo.InvariantCulture, $"[0:v]{videoChain}[{currentLabel}]");
                     else
-                        fc.Append($"[0:v]null[{currentLabel}]");
+                        fc.Append(CultureInfo.InvariantCulture, $"[0:v]null[{currentLabel}]");
 
                     var step = 0;
                     foreach (var cue in effectCues)
@@ -119,7 +115,7 @@ internal static class FFmpegArgs
 
                         // Both branches stay full-size, so the effect frame lays straight over the
                         // base at 0,0 and only while the window is open.
-                        fc.Append($";[{currentLabel}]split[vb{step}][vz{step}];[vz{step}]{effectFilter}[vzs{step}];[vb{step}][vzs{step}]overlay=enable='between(t\\,{startSec}\\,{endSec})'[{nextLabel}]");
+                        fc.Append(CultureInfo.InvariantCulture, $";[{currentLabel}]split[vb{step}][vz{step}];[vz{step}]{effectFilter}[vzs{step}];[vb{step}][vzs{step}]overlay=enable='between(t\\,{startSec}\\,{endSec})'[{nextLabel}]");
                         currentLabel = nextLabel;
                         step++;
                     }
@@ -136,21 +132,21 @@ internal static class FFmpegArgs
                         if (ovl.OverlayScale.HasValue && Math.Abs(ovl.OverlayScale.Value - 1.0) > 0.05)
                         {
                             var scaleStr = ovl.OverlayScale.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-                            fc.Append($";[{inputIdx}:v]scale=iw*{scaleStr}:-1[ovs{step}];[{currentLabel}][ovs{step}]overlay=x='min(max(0,W*{ox}-w/2),W-w)':y='min(max(0,H*{oy}-h/2),H-h)':enable='between(t\\,{startSec}\\,{endSec})'[{nextLabel}]");
+                            fc.Append(CultureInfo.InvariantCulture, $";[{inputIdx}:v]scale=iw*{scaleStr}:-1[ovs{step}];[{currentLabel}][ovs{step}]overlay=x='min(max(0,W*{ox}-w/2),W-w)':y='min(max(0,H*{oy}-h/2),H-h)':enable='between(t\\,{startSec}\\,{endSec})'[{nextLabel}]");
                         }
                         else
                         {
-                            fc.Append($";[{currentLabel}][{inputIdx}:v]overlay=x='min(max(0,W*{ox}-w/2),W-w)':y='min(max(0,H*{oy}-h/2),H-h)':enable='between(t\\,{startSec}\\,{endSec})'[{nextLabel}]");
+                            fc.Append(CultureInfo.InvariantCulture, $";[{currentLabel}][{inputIdx}:v]overlay=x='min(max(0,W*{ox}-w/2),W-w)':y='min(max(0,H*{oy}-h/2),H-h)':enable='between(t\\,{startSec}\\,{endSec})'[{nextLabel}]");
                         }
                         currentLabel = nextLabel;
                         step++;
                     }
 
-                    fc.Append($";[{currentLabel}]null[vout]");
+                    fc.Append(CultureInfo.InvariantCulture, $";[{currentLabel}]null[vout]");
                 }
                 else
                 {
-                    fc.Append($"[0:v]{videoChain}[vout]");
+                    fc.Append(CultureInfo.InvariantCulture, $"[0:v]{videoChain}[vout]");
                 }
             }
 
@@ -175,7 +171,7 @@ internal static class FFmpegArgs
                     var gain = entries[i].Voice ? ",volume=2" : voices.Count > 0 ? ",volume=0.3" : string.Empty;
                     if (fc.Length > 0)
                         fc.Append(';');
-                    fc.Append($"[{i + 1}:a]adelay={delayMs}|{delayMs}{gain}[a{i}]");
+                    fc.Append(CultureInfo.InvariantCulture, $"[{i + 1}:a]adelay={delayMs}|{delayMs}{gain}[a{i}]");
                 }
 
                 var labels = new List<string>();
@@ -188,8 +184,8 @@ internal static class FFmpegArgs
                     // The voices become one bus: one copy is heard, the other keys the compressor
                     // on the bed. apad keeps the key running to the end — sidechaincompress stops
                     // at its shorter input, which cut the bed off after the last joke.
-                    fc.Append($";{string.Concat(voices.Select(i => $"[a{i}]"))}amix=inputs={voices.Count}:normalize=0:duration=longest,asplit[vox][voxdry]");
-                    fc.Append($";[voxdry]apad[voxkey];{string.Concat(labels)}amix=inputs={labels.Count}:normalize=0:duration=longest[bed]");
+                    fc.Append(CultureInfo.InvariantCulture, $";{string.Concat(voices.Select(i => $"[a{i}]"))}amix=inputs={voices.Count}:normalize=0:duration=longest,asplit[vox][voxdry]");
+                    fc.Append(CultureInfo.InvariantCulture, $";[voxdry]apad[voxkey];{string.Concat(labels)}amix=inputs={labels.Count}:normalize=0:duration=longest[bed]");
                     fc.Append(";[bed][voxkey]sidechaincompress=threshold=0.015:ratio=12:attack=15:release=400[ducked]");
                     labels = ["[ducked]", "[vox]"];
                 }
@@ -201,10 +197,10 @@ internal static class FFmpegArgs
                 var mixInputs = string.Concat(labels);
                 // normalize=0 keeps each source at full level; alimiter tames the clipping that
                 // summing the original track with overlapping sounds would otherwise cause.
-                fc.Append($";{mixInputs}amix=inputs={labels.Count}:normalize=0:duration=longest,alimiter=limit=0.95[aout]");
+                fc.Append(CultureInfo.InvariantCulture, $";{mixInputs}amix=inputs={labels.Count}:normalize=0:duration=longest,alimiter=limit=0.95[aout]");
             }
 
-            sb.Append($" -filter_complex \"{fc}\"");
+            sb.Append(CultureInfo.InvariantCulture, $" -filter_complex \"{fc}\"");
         }
 
         // Map outputs
@@ -226,16 +222,16 @@ internal static class FFmpegArgs
             sb.Append(" -c:a aac -b:a 192k -ac 2");
         // Cap the output to the source video's duration.
         if (sourceDurationSeconds > 0)
-            sb.Append($" -t {sourceDurationSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}");
+            sb.Append(CultureInfo.InvariantCulture, $" -t {sourceDurationSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}");
         sb.Append(" -movflags +faststart");
-        sb.Append($" -y \"{outputPath}\"");
+        sb.Append(CultureInfo.InvariantCulture, $" -y \"{outputPath}\"");
 
         return sb.ToString();
     }
 
     /// <summary>
     /// Builds the base video filter chain. Always downscales to ≤720p so heavy 1080p/4K phone clips
-    /// encode in reasonable time on constrained hosts. Aggressive visuals (a session-wide opt-in)
+    /// encode in reasonable time on constrained hosts. Aggressive visuals (a run-wide opt-in)
     /// enable deep-fry EQ + unsharp. Aspect ratio 9:16 adds vertical framing. Captions are overlaid
     /// using drawtext.
     /// </summary>

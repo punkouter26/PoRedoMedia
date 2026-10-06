@@ -15,3 +15,12 @@ indent_size = 2
 
 [*.{md,txt}]
 trim_trailing_whitespace = false
+[*.cs]
+# Naming rules that argue with names this project chose on purpose: test names read as sentences,
+# the Shared project is named for what it is, and FunctionStack is the spec's own term.
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1711.severity = none
+# Logging micro-optimisations. Nothing here logs on a hot path; the calls that do use [LoggerMessage].
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none

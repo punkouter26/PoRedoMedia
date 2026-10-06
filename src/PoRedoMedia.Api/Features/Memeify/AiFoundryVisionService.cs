@@ -1,4 +1,3 @@
-// GoF: Adapter Pattern — adapts the Azure AI Foundry chat endpoint to IAiVisionService
 using System.ClientModel;
 using System.Globalization;
 using System.Text.Json;

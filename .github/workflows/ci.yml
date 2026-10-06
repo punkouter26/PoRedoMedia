@@ -3,9 +3,7 @@ name: CI
 # The push/PR gate, and nothing else.
 #
 # One runner, no containers, no ffmpeg: a red build here always means the code is wrong. The
-# integration and API E2E suites run on demand from ci-full.yml. The Android app is not built
-# here (it needs the maui-android workload); its API client is compiled into the integration
-# tests instead.
+# integration and API E2E suites run weekly and on demand from ci-full.yml.
 on:
   push:
     branches: [master]

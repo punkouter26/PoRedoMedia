@@ -10,6 +10,13 @@ public sealed class MediaApi(HttpClient http)
     public async Task<List<MediaDto>> ListAsync() =>
         await http.GetFromJsonAsync("api/media", WireJson.Default.ListMediaDto) ?? [];
 
+    /// <summary>One item, or null when it is gone or not the user's.</summary>
+    public async Task<MediaDto?> GetAsync(Guid id)
+    {
+        using var response = await http.GetAsync($"api/media/{id}");
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync(WireJson.Default.MediaDto) : null;
+    }
+
     public async Task<(UploadTicket? Ticket, string? Error)> StartUploadAsync(string fileName, long sizeBytes)
     {
         using var response = await http.PostAsJsonAsync("api/media/sas", new UploadRequest(fileName, sizeBytes), WireJson.Default.UploadRequest);
@@ -55,15 +62,14 @@ public sealed class MediaApi(HttpClient http)
         return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
     }
 
-    /// <summary>The <c>detail</c> (or <c>error</c>) of a failed response, or a plain fallback.</summary>
+    /// <summary>The <c>detail</c> of a failed response, or a plain fallback.</summary>
     public static async Task<string> ReasonAsync(HttpResponseMessage response)
     {
         try
         {
             using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            foreach (var name in (string[])["detail", "error"])
-                if (problem.RootElement.TryGetProperty(name, out var reason) && reason.ValueKind == JsonValueKind.String && reason.GetString() is { Length: > 0 } text)
-                    return text;
+            if (problem.RootElement.TryGetProperty("detail", out var reason) && reason.ValueKind == JsonValueKind.String && reason.GetString() is { Length: > 0 } text)
+                return text;
         }
         catch (JsonException)
         {

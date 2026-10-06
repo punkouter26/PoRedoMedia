@@ -41,8 +41,6 @@ public interface ISoundAssetRepository
 
     Task AddSoundAsync(SoundAsset asset, CancellationToken cancellationToken = default);
 
-    /// <summary>Evicts the in-memory cache so the next LoadAllAsync re-reads from storage.</summary>
-    void InvalidateCache();
 }
 
 public interface ISoundFavoritesRepository

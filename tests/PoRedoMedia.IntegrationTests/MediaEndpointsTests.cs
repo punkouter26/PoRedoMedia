@@ -134,14 +134,18 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
         var owner = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
         var other = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
         var name = $"honk-{Guid.NewGuid():N}";
-        using var form = new MultipartFormDataContent { { new ByteArrayContent(new byte[2048]), "file", "honk.mp3" } };
+                // Starts like an MP3: the upload is checked by its first bytes, not by its name.
+        var mp3 = new byte[2048];
+        "ID3"u8.CopyTo(mp3);
+        using var form = new MultipartFormDataContent { { new ByteArrayContent(mp3), "file", "honk.mp3" } };
 
         var created = await owner.PostAsync($"/api/sounds/upload?displayName={name}", form);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
-        Assert.Equal(1, (await owner.GetFromJsonAsync($"/api/sounds?query={name}", WireJson.Default.SoundPageDto))!.TotalCount);
-        Assert.Equal(0, (await other.GetFromJsonAsync($"/api/sounds?query={name}", WireJson.Default.SoundPageDto))!.TotalCount);
-        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(created.Headers.Location)).StatusCode);
+        Assert.Contains((await owner.GetFromJsonAsync("/api/sounds", WireJson.Default.ListSoundAssetDto))!, s => s.DisplayName == name);
+        Assert.DoesNotContain((await other.GetFromJsonAsync("/api/sounds", WireJson.Default.ListSoundAssetDto))!, s => s.DisplayName == name);
+        // The sound is served by a redirect to a short-lived storage link.
+        Assert.Equal(HttpStatusCode.Redirect, (await owner.GetAsync(created.Headers.Location)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(created.Headers.Location)).StatusCode);
     }
 

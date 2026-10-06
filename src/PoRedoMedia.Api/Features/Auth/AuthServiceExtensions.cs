@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -83,6 +84,22 @@ public static class AuthServiceExtensions
             options.GetClaimsFromUserInfoEndpoint = true;
             options.TokenValidationParameters.NameClaimType = "name";
 
+            // Without a list, any Microsoft account can sign in and spend the daily AI allowance.
+            var allowedEmails = AllowedEmails(configuration);
+            options.Events.OnTicketReceived = context =>
+            {
+                if (!IsAllowed(allowedEmails, context.Principal))
+                    context.Fail("This account is not on the allowed list.");
+                return Task.CompletedTask;
+            };
+            // A refused or abandoned sign-in lands on the login page with a reason, not an error page.
+            options.Events.OnRemoteFailure = context =>
+            {
+                context.Response.Redirect("/login?denied=true");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            };
+
             // Restrict to listed tenants when configured; otherwise accept any well-formed Entra
             // v2 issuer (multi-tenant and personal accounts) and nothing else.
             var allowedTenants = configuration[ConfigKeys.AzureAdAllowedTenantIds]?
@@ -105,4 +122,14 @@ public static class AuthServiceExtensions
 
         return services;
     }
+
+    internal static string[] AllowedEmails(IConfiguration configuration) =>
+        configuration[ConfigKeys.AuthAllowedEmails]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
+
+    /// <summary>True when no list is configured, or one of the account's addresses is on it.</summary>
+    internal static bool IsAllowed(IReadOnlyCollection<string> allowedEmails, ClaimsPrincipal? user) =>
+        allowedEmails.Count == 0
+        || (user?.Claims ?? [])
+            .Where(c => c.Type is ClaimTypes.Email or "email" or "preferred_username")
+            .Any(c => allowedEmails.Contains(c.Value, StringComparer.OrdinalIgnoreCase));
 }

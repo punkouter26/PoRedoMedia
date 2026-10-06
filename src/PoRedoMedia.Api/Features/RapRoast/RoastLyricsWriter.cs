@@ -292,8 +292,8 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
     /// </summary>
     private static string Heuristic(string imageDescription, IReadOnlyList<string> tags, RoastIntensity intensity)
     {
-        var subject = tags.FirstOrDefault() ?? "you";
-        var second = tags.Skip(1).FirstOrDefault() ?? "that look";
+        var subject = tags.Count > 0 ? tags[0] : "you";
+        var second = tags.Count > 1 ? tags[1] : "that look";
 
         // The dial has to move something even with no chat provider, or the control reads as broken
         // in the exact environment (local dev, no Key Vault) where it is most often first tried.
