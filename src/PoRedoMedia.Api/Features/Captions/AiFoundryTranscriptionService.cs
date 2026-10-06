@@ -1,5 +1,6 @@
 // GoF: Adapter — wraps the Foundry audio-transcription endpoint
-using OpenAI.Audio;
+using System.Text.Json;
+using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Api.Features.Captions;
@@ -24,42 +25,68 @@ public sealed partial class AiFoundryTranscriptionService : ITranscriptionServic
         Message = "AI usage: Stage=transcription Deployment={AiDeployment} AudioSeconds={AudioSeconds:F1} Segments={SegmentCount} ElapsedMs={ElapsedMs}")]
     private partial void LogUsage(string aiDeployment, double audioSeconds, int segmentCount, long elapsedMs);
 
-    private readonly AudioClient? _client;
+    // Whisper is reached on the deployment path with an api-version. Every other call in this app
+    // uses the resource's /openai/v1 path, but that path answered DeploymentNotFound for a whisper
+    // deployment the deployment path served at once (checked 2026-10-05, po-aiservices-shared).
+    private const string ApiVersion = "2024-06-01";
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(5) };
+
+    private readonly Uri? _url;
+    private readonly string? _key;
     private readonly string _deployment;
     private readonly ILogger<AiFoundryTranscriptionService> _logger;
 
-    public AiFoundryTranscriptionService(AiFoundryClient ai, IConfiguration config, ILogger<AiFoundryTranscriptionService> logger)
+    public AiFoundryTranscriptionService(IConfiguration config, ILogger<AiFoundryTranscriptionService> logger)
     {
         _logger = logger;
         _deployment = config["AiFoundry:TranscriptionDeployment"] ?? string.Empty;
-        _client = ai.Audio(_deployment);
+        _key = AiFoundryClient.Setting(config, "AiFoundry:Key");
+        if (AiFoundryClient.Setting(config, "AiFoundry:Endpoint") is { } endpoint && _key is not null && !string.IsNullOrWhiteSpace(_deployment))
+            _url = new Uri($"{endpoint.TrimEnd('/')}/openai/deployments/{Uri.EscapeDataString(_deployment)}/audio/transcriptions?api-version={ApiVersion}");
     }
 
-    public bool IsEnabled => _client is not null;
+    public bool IsEnabled => _url is not null;
 
     public async Task<IReadOnlyList<TranscriptSegmentDto>> TranscribeAsync(string audioFilePath, CancellationToken cancellationToken = default)
     {
-        if (_client is null)
+        if (_url is null)
             return [];
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         await using var audio = File.OpenRead(audioFilePath);
-        var result = await _client.TranscribeAudioAsync(
-            audio,
-            Path.GetFileName(audioFilePath),
-            new AudioTranscriptionOptions
-            {
-                ResponseFormat = AudioTranscriptionFormat.Verbose,
-                TimestampGranularities = AudioTimestampGranularities.Segment,
-            },
-            cancellationToken);
+        using var form = new MultipartFormDataContent
+        {
+            { new StreamContent(audio), "file", Path.GetFileName(audioFilePath) },
+            { new StringContent("verbose_json"), "response_format" },
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, _url) { Content = form };
+        request.Headers.Add("api-key", _key);
+        using var response = await Http.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Transcription failed ({(int)response.StatusCode}): {body[..Math.Min(body.Length, 300)]}", null, response.StatusCode);
 
-        var segments = result.Value.Segments
-            .Where(s => s.NoSpeechProbability <= MaxNoSpeechProbability && !string.IsNullOrWhiteSpace(s.Text))
-            .Select(s => new TranscriptSegmentDto(s.StartTime.TotalSeconds, s.EndTime.TotalSeconds, s.Text.Trim()))
-            .ToList();
-
-        LogUsage(_deployment, result.Value.Duration?.TotalSeconds ?? 0, segments.Count, sw.ElapsedMilliseconds);
+        using var json = JsonDocument.Parse(body);
+        var (segments, seconds) = Read(json.RootElement);
+        LogUsage(_deployment, seconds, segments.Count, sw.ElapsedMilliseconds);
         return segments;
+    }
+
+    /// <summary>The timed lines of a <c>verbose_json</c> reply, without the ones Whisper itself marks as not speech.</summary>
+    internal static (List<TranscriptSegmentDto> Segments, double Seconds) Read(JsonElement reply)
+    {
+        var segments = new List<TranscriptSegmentDto>();
+        if (reply.TryGetProperty("segments", out var list) && list.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var s in list.EnumerateArray())
+            {
+                var text = s.TryGetProperty("text", out var t) ? t.GetString()?.Trim() : null;
+                var noSpeech = s.TryGetProperty("no_speech_prob", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetDouble() : 0;
+                if (!string.IsNullOrWhiteSpace(text) && noSpeech <= MaxNoSpeechProbability)
+                    segments.Add(new TranscriptSegmentDto(s.GetProperty("start").GetDouble(), s.GetProperty("end").GetDouble(), text));
+            }
+        }
+
+        return (segments, reply.TryGetProperty("duration", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetDouble() : 0);
     }
 }

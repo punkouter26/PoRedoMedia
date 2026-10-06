@@ -323,3 +323,16 @@ Found and not fixed (each needs a decision or is low value):
 - Blob CORS rules are replaced at each start: the storage account must not be shared with another app.
 - More than one app instance would make housekeeping fail runs another instance is executing.
 - Unused video trim parameters are left in place for the unbuilt trim feature.
+
+## Azure resources (2026-10-05)
+
+- Resource group `PoRedoMedia` (westus3): plan `asp-PoRedoMedia-f1` (Linux F1), web app
+  `app-poredomedia` (system managed identity), storage account `stporedomedia`.
+- Entra app registration `PoRedoMedia` (any Microsoft account); redirect URLs for localhost:4100
+  and app-poredomedia.azurewebsites.net.
+- Whisper deployment `whisper` on `po-aiservices-shared`; `AiFoundry:TranscriptionDeployment` is
+  set. Auto-captions is proven against it. Whisper is called on the deployment path with an
+  api-version: the `/openai/v1` path the rest of the app uses answered DeploymentNotFound for it.
+- Vault: `PoRedoMedia--AzureAd--ClientId`, `--AzureAd--ClientSecret`, `--Storage--ConnectionString`.
+  The app loads only `PoRedoMedia--*`; a Development run ignores the storage secret and uses Azurite.
+- Open: the web app's identity has no access to `kv-poshared` yet; nothing is deployed.

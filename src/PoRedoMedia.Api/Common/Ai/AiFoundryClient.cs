@@ -88,9 +88,6 @@ public sealed partial class AiFoundryClient
         => (failFast ? _failFast : _standard)?.GetChatClient(deployment)
            ?? throw new InvalidOperationException("AiFoundry:Endpoint is not configured.");
 
-    public AudioClient? Audio(string? deployment)
-        => IsConfigured && !string.IsNullOrWhiteSpace(deployment) ? _standard!.GetAudioClient(deployment) : null;
-
     /// <summary>
     /// A completion constrained to the call's schema (strict Structured Outputs). A deployment
     /// that rejects <c>json_schema</c> — some non-OpenAI models on Foundry do — is remembered and

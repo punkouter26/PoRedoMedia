@@ -46,4 +46,21 @@ public sealed class SubtitleAndSrtTests
         // Apostrophes would close drawtext's single-quoted text early — they must be stripped.
         Assert.Contains("text='dont do it'", chain, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void A_whisper_reply_becomes_timed_lines_without_the_segments_it_marks_as_not_speech()
+    {
+        using var reply = System.Text.Json.JsonDocument.Parse("""
+            {"duration":8.28,"segments":[
+              {"start":0.0,"end":4.32,"text":" Hello and welcome.","no_speech_prob":0.01},
+              {"start":4.32,"end":6.0,"text":" [music]","no_speech_prob":0.93},
+              {"start":6.0,"end":8.2,"text":"  ","no_speech_prob":0.0}]}
+            """);
+
+        var (segments, seconds) = PoRedoMedia.Api.Features.Captions.AiFoundryTranscriptionService.Read(reply.RootElement);
+
+        var only = Assert.Single(segments);
+        Assert.Equal((0.0, 4.32, "Hello and welcome."), (only.StartSeconds, only.EndSeconds, only.Text));
+        Assert.Equal(8.28, seconds);
+    }
 }
