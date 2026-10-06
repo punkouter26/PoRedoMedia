@@ -16,6 +16,7 @@ public static class RunsEndpoints
         group.MapPost("/", StartAsync);
         group.MapGet("/", ListAsync);
         group.MapGet("/{id}", GetAsync);
+        group.MapDelete("/{id}", CancelAsync);
         return app;
     }
 
@@ -98,6 +99,18 @@ public static class RunsEndpoints
 
     private static async Task<Results<Ok<RunDto>, NotFound>> GetAsync(RunId id, ClaimsPrincipal user, IRunRepository runs, CancellationToken ct) =>
         await runs.GetAsync(UserId.From(user), id, ct) is { } run ? TypedResults.Ok(run.ToDto()) : TypedResults.NotFound();
+
+    /// <summary>Stops the caller's queued or running run. Results it has already made are kept.</summary>
+    private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> CancelAsync(
+        RunId id, ClaimsPrincipal user, IRunRepository runs, RunDispatcher dispatcher, CancellationToken ct)
+    {
+        if (await runs.GetAsync(UserId.From(user), id, ct) is null)
+            return TypedResults.NotFound();
+
+        return dispatcher.Cancel(id)
+            ? TypedResults.NoContent()
+            : Problem("This run has already ended.", StatusCodes.Status409Conflict);
+    }
 
     private static ProblemHttpResult Problem(string detail, int status) => TypedResults.Problem(detail: detail, statusCode: status);
 }

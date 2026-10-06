@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using PoRedoMedia.Api.Features.Captions;
 using PoRedoMedia.Api.Features.Render;
 using PoRedoMedia.Shared.Enums;
@@ -20,12 +22,18 @@ namespace PoRedoMedia.Api.Features.Memeify;
 public sealed class VideoRunStep(
     SourceAudioAnalysis audio, ITranscriptionService transcription, FFmpegRenderService render, FFmpegProcess ffmpeg,
     BlobStorageService blobs, IMediaRepository media, StorageClients storage, ISoundAssetRepository sounds,
-    ISoundFavoritesRepository favoriteSounds, ISemanticMatchingService matching, IConfiguration configuration,
+    ISoundFavoritesRepository favoriteSounds, ISemanticMatchingService matching, IShareLinks links, IConfiguration configuration,
     IHostEnvironment environment, ILogger<VideoRunStep> logger,
     IDirectorService? director = null, IVideoRoast? roast = null, IAiVisionService? vision = null) : IRunStep
 {
     /// <summary>Most frames sampled here from a video that arrived without any.</summary>
     private const int MaxSampledFrames = 40;
+
+    /// <summary>The shortest stretch a trim may leave.</summary>
+    internal const double MinTrimSeconds = 1;
+
+    /// <summary>The cues a render used, kept with the result so a shared one can be remixed onto another video.</summary>
+    internal sealed record SavedScript(double DurationSeconds, string? Title, ScriptEntry[] Entries);
 
     public IReadOnlySet<MediaFunction> Handles { get; } = Available(director, roast, transcription, configuration, environment);
 
@@ -53,17 +61,34 @@ public sealed class VideoRunStep(
 
         await context.ReportAsync("Listening to the video");
         var sourceAudio = await audio.GetAsync(source.Id, source.SourcePath, ct);
-        var duration = sourceAudio.DurationSeconds > 0 ? sourceAudio.DurationSeconds : source.DurationSeconds ?? 0;
-        var transcript = Transcript(context, sourceAudio, captions);
+        var whole = sourceAudio.DurationSeconds > 0 ? sourceAudio.DurationSeconds : source.DurationSeconds ?? 0;
+        var (trimStart, trimEnd) = TrimWindow(context.Option(RunOptions.VideoTrimStart), context.Option(RunOptions.VideoTrimEnd), whole);
+        var duration = trimEnd - trimStart;
+        var trimmed = duration < whole;
 
-        var labels = memeify || context.Has(MediaFunction.VideoRoast)
-            ? [.. (await LabelsAsync(context, ct)).Where(l => l.TimestampSeconds >= 0 && l.TimestampSeconds < duration).OrderBy(l => l.TimestampSeconds)]
+        // What is stored about the source is in source time. From here on, every time counts from
+        // the trimmed start, which is also how the render sees the video.
+        if (trimmed)
+            sourceAudio = Trimmed(sourceAudio, trimStart, trimEnd);
+        var transcript = Transcript(context, sourceAudio, captions);
+        if (transcript.Count > 0)
+            await context.ReportAsync($"Heard {transcript.Count} line(s) of speech. First: \"{transcript[0].Text}\"");
+
+        var remix = memeify ? await RemixAsync(context, duration, ct) : null;
+        var labels = (memeify && remix is null) || context.Has(MediaFunction.VideoRoast)
+            ? [.. (await LabelsAsync(context, ct))
+                .Select(l => l with { TimestampSeconds = l.TimestampSeconds - trimStart })
+                .Where(l => l.TimestampSeconds >= 0 && l.TimestampSeconds < duration)
+                .OrderBy(l => l.TimestampSeconds)]
             : Array.Empty<SceneLabel>();
+        if (labels.Length > 0)
+            await context.ReportAsync($"Found {labels.Length} moment(s): {string.Join(" · ", labels.Take(6).Select(l => l.Label))}");
 
         var cues = new List<RenderVisualEntry>();
         string? title = null;
+        ScriptEntry[] script = [];
         if (memeify)
-            (cues, title) = await DirectAsync(context, labels, transcript, sourceAudio, duration, persona, ct);
+            (cues, title, script) = await DirectAsync(context, labels, transcript, sourceAudio, duration, persona, remix, ct);
 
         var track = context.Has(MediaFunction.VideoRoast) ? await RoastAsync(context, labels, transcript, duration, ct) : null;
         if (track is not null)
@@ -94,7 +119,25 @@ public sealed class VideoRunStep(
             AggressiveVisuals: memeify && DirectorPrompt.Persona(persona) is "brainrot" or "mlg",
             Cues: cues,
             AspectRatio: context.Option(RunOptions.VideoAspect),
-            Subtitles: captions && transcript.Count > 0 ? transcript : null), ct);
+            Subtitles: captions && transcript.Count > 0 ? transcript : null,
+            TrimStartSeconds: trimStart,
+            TrimSeconds: trimmed ? duration : null), ct);
+
+        if (script.Length > 0)
+        {
+            await blobs.UploadAsync(
+                MediaAnalysisPaths.Script(output.Id.Value),
+                JsonSerializer.SerializeToUtf8Bytes(new SavedScript(duration, title, script), JsonSerializerOptions.Web), "application/json", ct);
+        }
+
+        // The roast is stored with the source and replaced by the next one; the result keeps its own copy.
+        if (track is not null)
+        {
+            var extension = Path.GetExtension(track.AudioPath).TrimStart('.');
+            await blobs.UploadAsync(
+                MediaAnalysisPaths.RoastClip(output.Id.Value, 0, extension), await blobs.ReadAllBytesAsync(track.AudioPath, ct),
+                extension == "wav" ? "audio/wav" : "audio/mpeg", ct);
+        }
 
         if (captions && transcript.Count > 0)
             await MediaTranscript.SaveAsync(blobs, output.Id, transcript, ct);
@@ -103,6 +146,69 @@ public sealed class VideoRunStep(
         output = output with { SizeBytes = size, DurationSeconds = seconds > 0 ? seconds : duration };
         await media.SaveAsync(output, ct);
         await context.AddOutputAsync(output);
+    }
+
+    /// <summary>
+    /// The stretch of the source to keep, in seconds. Anything unreadable or out of range falls
+    /// back to the nearest valid value, so a bad option trims less rather than failing the run.
+    /// </summary>
+    internal static (double Start, double End) TrimWindow(string? start, string? end, double duration)
+    {
+        static double? Parse(string? text) =>
+            double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && double.IsFinite(value) ? value : null;
+
+        if (duration <= MinTrimSeconds)
+            return (0, duration);
+
+        var from = Math.Clamp(Parse(start) ?? 0, 0, duration - MinTrimSeconds);
+        return (from, Math.Clamp(Parse(end) ?? duration, from + MinTrimSeconds, duration));
+    }
+
+    /// <summary>The source's speech and loudness cut to the kept stretch and counted from its start.</summary>
+    private static SourceAudio Trimmed(SourceAudio whole, double from, double to)
+    {
+        var envelope = whole.Envelope;
+        if (envelope is not null)
+        {
+            var first = Math.Min(envelope.Rms.Length, (int)(from * envelope.FramesPerSecond));
+            var last = Math.Clamp((int)(to * envelope.FramesPerSecond), first, envelope.Rms.Length);
+            envelope = new AudioEnvelope(envelope.Rms[first..last], envelope.FramesPerSecond);
+        }
+
+        return whole with
+        {
+            Speech = [.. whole.Speech
+                .Where(s => s.EndSeconds > from && s.StartSeconds < to)
+                .Select(s => new TranscriptSegmentDto(Math.Max(0, s.StartSeconds - from), Math.Min(to, s.EndSeconds) - from, s.Text))],
+            Envelope = envelope,
+            DurationSeconds = to - from,
+        };
+    }
+
+    /// <summary>
+    /// The cues of the shared video a remix names, moved onto this video in proportion to its
+    /// length. Null when no remix was asked for, or the shared video can no longer be read.
+    /// </summary>
+    private async Task<SavedScript?> RemixAsync(RunContext context, double duration, CancellationToken ct)
+    {
+        if (context.Option(RunOptions.VideoRemix) is not { } token)
+            return null;
+
+        if (await links.ResolveAsync(token, ct) is { } link
+            && MediaAnalysisPaths.Script(link.Media.Value) is var path
+            && await blobs.ExistsAsync(path, ct)
+            && JsonSerializer.Deserialize<SavedScript>(await blobs.ReadAllBytesAsync(path, ct), JsonSerializerOptions.Web)
+                is { Entries.Length: > 0, DurationSeconds: > 0 } saved)
+        {
+            foreach (var entry in saved.Entries)
+                entry.TimestampMs = (long)(entry.TimestampMs * duration / saved.DurationSeconds);
+            await links.CountRemixAsync(token, ct);
+            await context.ReportAsync($"Remix: copying {saved.Entries.Length} cue(s) from \"{saved.Title ?? "a shared video"}\" onto your video");
+            return saved;
+        }
+
+        context.AddNote("The shared video can no longer be remixed, so the director made a fresh one.");
+        return null;
     }
 
     /// <summary>What was said, when speech is available; otherwise nothing, with the reason noted if captions were asked for.</summary>
@@ -192,17 +298,24 @@ public sealed class VideoRunStep(
         }
     }
 
-    /// <summary>Picks the moments, asks the director for a cue at each, and resolves every cue's sound.</summary>
-    private async Task<(List<RenderVisualEntry> Cues, string? Title)> DirectAsync(
+    /// <summary>
+    /// Picks the moments, asks the director for a cue at each, and resolves every cue's sound.
+    /// A remix skips the picking and the director: its cues are already written.
+    /// </summary>
+    private async Task<(List<RenderVisualEntry> Cues, string? Title, ScriptEntry[] Script)> DirectAsync(
         RunContext context, SceneLabel[] labels, IReadOnlyList<TranscriptSegmentDto> transcript, SourceAudio sourceAudio,
-        double duration, string? persona, CancellationToken ct)
+        double duration, string? persona, SavedScript? remix, CancellationToken ct)
     {
         var library = (await sounds.LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
         if (library.Count == 0)
         {
             context.AddNote("The sound library is empty, so no meme sounds were added. Seed it with the seed-sounds command.");
-            return ([], null);
+            return ([], null, []);
         }
+
+        await context.ReportAsync($"Sound library: {library.Count} sound(s)");
+        if (remix is not null)
+            return (await CuesAsync(context, remix.Entries, library), remix.Title, remix.Entries);
 
         var favorites = await favoriteSounds.GetAsync(context.Run.Owner, ct);
         var sceneLabels = PlacementPlanner.SceneLabels(labels, transcript, duration);
@@ -246,15 +359,29 @@ public sealed class VideoRunStep(
         entries = [.. entries.OrderBy(e => e.TimestampMs)];
         SnapToAudio(entries, plan.ApprovedLabels, sourceAudio, duration);
 
+        return (await CuesAsync(context, entries, library), title, entries);
+    }
+
+    /// <summary>The script as the renderer takes it, with each cue written to the run's log on the way.</summary>
+    private static async Task<List<RenderVisualEntry>> CuesAsync(RunContext context, ScriptEntry[] entries, IReadOnlyList<SoundAsset> library)
+    {
         // A cue whose sound has left the library is dropped rather than failing the render.
         var soundPaths = library.ToDictionary(s => s.SoundId, s => s.BlobPath);
-        var cues = entries
-            .Where(e => soundPaths.ContainsKey(e.SoundId))
-            .Select(e => new RenderVisualEntry(
+        var cues = new List<RenderVisualEntry>();
+        foreach (var e in entries.Where(e => soundPaths.ContainsKey(e.SoundId)))
+        {
+            cues.Add(new RenderVisualEntry(
                 e.TimestampMs, soundPaths[e.SoundId], e.VisualEffect?.ToString(), e.CaptionText, e.CaptionPosition,
-                FFmpegArgs.ResolveOverlayAssetPath(e.OverlayAssetId), e.OverlayX, e.OverlayY, e.OverlayScale))
-            .ToList();
-        return (cues, title);
+                FFmpegArgs.ResolveOverlayAssetPath(e.OverlayAssetId), e.OverlayX, e.OverlayY, e.OverlayScale));
+            await context.ReportAsync(
+                string.Create(CultureInfo.InvariantCulture, $"HIT #{cues.Count} · {e.TimestampMs / 1000.0:0.0}s · {e.SoundName}")
+                + (string.IsNullOrWhiteSpace(e.CaptionText) ? "" : $" · \"{e.CaptionText}\"")
+                + (e.VisualEffect is { } effect && effect != VisualEffectType.None ? $" · {effect}" : "")
+                + (string.IsNullOrEmpty(e.OverlayAssetId) ? "" : $" · sticker {e.OverlayAssetId}")
+                + (string.IsNullOrWhiteSpace(e.SelectionRationale) ? "" : $" — {e.SelectionRationale}"));
+        }
+
+        return cues;
     }
 
     private async Task<RoastTrack?> RoastAsync(
@@ -268,6 +395,8 @@ public sealed class VideoRunStep(
             var track = await roast!.GenerateAsync(context.Source.Id, voice, labels, transcript, duration, ct);
             if (track is null)
                 context.AddNote("Nothing in this video gave the roast anything to work with, so it was left out.");
+            foreach (var line in track?.Lines ?? [])
+                await context.ReportAsync(string.Create(CultureInfo.InvariantCulture, $"ROAST @ {line.TimestampMs / 1000.0:0.0}s: \"{line.Text}\""));
             return track;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

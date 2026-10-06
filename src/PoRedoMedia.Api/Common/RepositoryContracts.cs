@@ -41,6 +41,7 @@ public interface ISoundAssetRepository
 
     Task AddSoundAsync(SoundAsset asset, CancellationToken cancellationToken = default);
 
+    Task DeleteSoundAsync(SoundId soundId, CancellationToken cancellationToken = default);
 }
 
 public interface ISoundFavoritesRepository

@@ -1,8 +1,10 @@
 @page "/gallery"
 @implements IAsyncDisposable
 @inject MediaApi Api
+@inject RunTracker Tracker
 @inject NotificationService Notifications
 @inject DialogService Dialogs
+@inject ContextMenuService Menus
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -60,7 +62,8 @@
                     var item = media;
                     var on = _selecting ? _picked.Contains(item.Id) : item.Id == _selectedId;
                     <button type="button" class="gallery-card @(on ? "selected" : "")" data-id="@item.Id" @key="item.Id"
-                            aria-pressed="@(on ? "true" : "false")" @onclick="@(() => ClickAsync(item))">
+                            aria-pressed="@(on ? "true" : "false")" @onclick="@(() => ClickAsync(item))"
+                            @oncontextmenu="@(e => OpenMenu(e, item))" @oncontextmenu:preventDefault>
                         @if (item.Kind == MediaKind.Audio)
                         {
                             <span class="gallery-thumb gallery-audio" aria-hidden="true"><RadzenIcon Icon="music_note" /></span>
@@ -99,6 +102,8 @@
 
 @code {
     private static readonly string[] Sorts = ["Newest", "Oldest", "Name", "Largest"];
+    private const int MaxZipItems = 50;
+    private const long MaxZipBytes = 1024L * 1024 * 1024;
 
     // What is filtered, sorted and open lives in the address, so back, forward and refresh keep it.
     [SupplyParameterFromQuery] public string? Kind { get; set; }
@@ -121,7 +126,21 @@
 
     private IEnumerable<MediaDto> Visible => Order(Filter(_items ?? [], _kind, _search), _sort);
 
-    protected override async Task OnInitializedAsync() => _items = await Api.ListAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        Tracker.Finished += OnRunFinished;
+        _items = await Api.ListAsync();
+    }
+
+    // A run that ends while the gallery is open puts its results at the top, without a refresh.
+    private void OnRunFinished(TrackedRun run) => InvokeAsync(() =>
+    {
+        if (_items is null)
+            return;
+
+        _items.InsertRange(0, run.Outputs.Where(o => _items.All(m => m.Id != o.Id)).ToList());
+        StateHasChanged();
+    });
 
     protected override void OnParametersSet() =>
         (_kind, _search, _sort, _selectedId) = (Kind ?? "All", Q ?? "", Sorts.Contains(Sort) ? Sort! : "Newest", Item);
@@ -236,8 +255,69 @@
         _working = false;
     }
 
-    private async Task DownloadPickedAsync() =>
-        await JS.InvokeVoidAsync("poMedia.downloadMany", _items!.Where(m => _picked.Contains(m.Id)).Select(m => m.Url + "?download=true").ToArray());
+    /// <summary>One item downloads as itself; several come as one ZIP.</summary>
+    private async Task DownloadPickedAsync()
+    {
+        var picked = _items!.Where(m => _picked.Contains(m.Id)).ToList();
+        // The server stops at 50 items, and a larger archive would not finish on the hosting plan.
+        if (picked.Count > MaxZipItems || picked.Sum(m => m.SizeBytes) > MaxZipBytes)
+        {
+            Notifications.Notify(NotificationSeverity.Warning, "Too much for one download", $"Pick up to {MaxZipItems} items and 1 GB at a time.", 8000);
+            return;
+        }
+
+        await JS.InvokeVoidAsync("poMedia.download", picked.Count == 1 ? picked[0].Url + "?download=true" : $"api/media/zip?ids={string.Join(',', picked.Select(m => m.Id))}");
+    }
+
+    /// <summary>The right-click menu: the panel's actions without opening the panel first.</summary>
+    private void OpenMenu(MouseEventArgs e, MediaDto item)
+    {
+        var items = new List<ContextMenuItem> { new() { Text = "Open", Value = "open", Icon = "open_in_full" } };
+        if (item.Kind != MediaKind.Audio)
+            items.Add(new() { Text = "Use as source", Value = "source", Icon = "play_arrow" });
+        if (item.Kind == MediaKind.Image)
+            items.Add(new() { Text = "Copy picture", Value = "copy", Icon = "content_copy" });
+        items.Add(new() { Text = "Download", Value = "download", Icon = "download" });
+        items.Add(new() { Text = item.Pinned ? "Unpin" : "Pin", Value = "pin", Icon = "push_pin" });
+        items.Add(new() { Text = "Delete", Value = "delete", Icon = "delete" });
+        Menus.Open(e, items, args => InvokeAsync(() => OnMenuAsync(args.Value as string, item)));
+    }
+
+    private async Task OnMenuAsync(string? action, MediaDto item)
+    {
+        Menus.Close();
+        switch (action)
+        {
+            case "open":
+                (_selecting, _picked) = (false, []);
+                await SetAsync(selected: item.Id);
+                break;
+            case "source":
+                Navigation.NavigateTo($"?source={item.Id}");
+                break;
+            case "copy":
+                if (!await JS.InvokeAsync<bool>("poMedia.copyImage", item.Url))
+                    Notifications.Notify(NotificationSeverity.Error, "Could not copy", "This browser did not allow a picture on the clipboard.", 8000);
+                else
+                    Notifications.Notify(NotificationSeverity.Success, "Copied", "The picture is on the clipboard.");
+                break;
+            case "download":
+                await JS.InvokeVoidAsync("poMedia.download", item.Url + "?download=true");
+                break;
+            case "pin":
+                if ((await Api.UpdateAsync(item.Id, null, !item.Pinned)).Media is { } updated)
+                    OnChanged(updated);
+                break;
+            case "delete":
+                _picked = [item.Id];
+                await DeletePickedAsync();
+                if (_selectedId == item.Id && _items!.All(m => m.Id != item.Id))
+                    await SetAsync(clearSelected: true);
+                break;
+        }
+
+        StateHasChanged();
+    }
 
     private async Task DeletePickedAsync()
     {
@@ -311,6 +391,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Tracker.Finished -= OnRunFinished;
         try
         {
             await JS.InvokeVoidAsync("poMedia.releaseShortcuts");

@@ -35,6 +35,10 @@ into the slice that uses them, or into `Api/Common` when two slices need them.
 | Gallery of images and videos; pin, delete, download, use as source | `Media` / `Gallery` page | Redo `UserImages`, `Gallery`; Meme `Output`, `Results` | Rework |
 | Share link with public page `/v/{token}` | `Sharing` | Meme `ShareLinkStore`, `SharePageEndpoints` | Port, extended to images |
 | Sign in, sign out | `Auth` / `Login` page | Redo `Features/Auth` | Port |
+| Feed of posted items (trending, new), view counts, remix | `Sharing` / `Feed` page; `Memeify` for remix | Meme `FeedRanking`, `Feed`, `RemixScriptMapper` | Rework, added 2026-10-05 |
+| Video trim, run log, GIF and roast-audio export | `Memeify`, `Render`, `Runs` | Meme `Source` trim, `EngineFeed`, `ExportMenu` | Rework, added 2026-10-05 |
+| Roast stage: seek by line, timing slider, video export, "What the AI saw" | Client `RoastStage` | Redo `RapRoast`, `roastStage.js` | Rework, added 2026-10-05 |
+| Gallery right-click menu, copy picture, ZIP download; background notifications | `Media` / `Gallery` page | Redo `Gallery`, `ux.js` | Rework, added 2026-10-05 |
 
 ### 2.2 Image functions
 
@@ -89,9 +93,7 @@ All existing providers are kept.
 
 | Capability | Origin | Reason |
 |---|---|---|
-| Public feed, trending, remix | Meme `FeedRanking`, `Feed` page, `RemixScriptMapper` | App is a private studio with share links |
 | Cue Studio: timeline, cue editing, "Ask director", re-render | Meme `Reveal`, `CueStage`, `CueList`, `cue-scrubber.js`, `DirectorAssistService` | Dropped in the feature audit; a result is changed by running again |
-| GIF export | Meme `OutputEndpoints` | Dropped in the feature audit |
 | Retro-terminal UI and its hand-rolled components | Meme `Components/`, `retro-terminal.*.css` | Replaced by Radzen |
 | One page per feature | Redo `Pages/*`, `FeaturePageBase`, `FeatureShell`; Meme `Source`, `Engine` | Replaced by one pick → stack → run flow |
 | Onion layer projects | Redo `Domain`, `Application`, `Infrastructure` | Collapsed into slices |

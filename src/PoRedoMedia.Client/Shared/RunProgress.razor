@@ -36,6 +36,22 @@
         </RadzenAlert>
     }
 
+    @if (Run.Log.Count > 1)
+    {
+        <details class="run-log" open="@(!Run.Finished)">
+            <summary>Log (@Run.Log.Count)</summary>
+            @* The box's flow is reversed in the stylesheet, so it stays scrolled to the newest line. *@
+            <div class="run-log-lines" role="log" aria-label="What the run has done so far" tabindex="0">
+                <ol>
+                    @foreach (var line in Run.Log)
+                    {
+                        <li class="@(line.StartsWith("HIT #", StringComparison.Ordinal) || line.StartsWith("ROAST @", StringComparison.Ordinal) ? "run-log-cue" : null)">@line</li>
+                    }
+                </ol>
+            </div>
+        </details>
+    }
+
     @foreach (var note in Run.Notes)
     {
         <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-m-0">@note</RadzenAlert>
@@ -57,6 +73,10 @@
                 @if (output.Kind == MediaKind.Video && Run.Run.Functions.Contains(MediaFunction.Captions))
                 {
                     <a href="@($"api/media/{output.Id}/captions.srt")" download="captions.srt">Download the captions (SRT)</a>
+                }
+                @if (output.Kind == MediaKind.Video && output.Text is not null)
+                {
+                    <a href="@($"api/media/{output.Id}/roast-audio")" download>Download the roast alone (audio)</a>
                 }
                 @if (output.Kind != MediaKind.Audio && output.Text is not null)
                 {

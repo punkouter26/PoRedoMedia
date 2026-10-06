@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoRedoMedia UI changes: record a video with the camera</title>
+<style>
+    body { margin: 0; padding: 1.5rem; background: #14151a; color: #eceef3; font: 15px/1.5 system-ui, sans-serif; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1.15rem; margin: 2.5rem 0 0.5rem; border-top: 1px solid #333; padding-top: 1.25rem; }
+    p { margin: 0 0 1rem; color: #b9bdc9; max-width: 70rem; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+    .pair.phone { grid-template-columns: 300px 300px 1fr; }
+    figure { margin: 0; }
+    figcaption { font-weight: 700; margin-bottom: 0.35rem; }
+    figcaption.old { color: #ff9c8a; }
+    figcaption.new { color: #8be28f; }
+    .shot { position: relative; border: 1px solid #3a3d48; border-radius: 6px; overflow: hidden; }
+    .shot img { display: block; width: 100%; }
+    .mark { position: absolute; transform: translate(-50%, -50%); width: 1.7rem; height: 1.7rem; border-radius: 50%;
+            display: grid; place-items: center; font-weight: 800; font-size: 0.9rem; color: #14151a;
+            background: #ffd400; border: 2px solid #14151a; box-shadow: 0 0 0 2px #ffd400, 0 2px 8px rgb(0 0 0 / 60%); }
+    .mark.gone { background: #ff7a66; box-shadow: 0 0 0 2px #ff7a66, 0 2px 8px rgb(0 0 0 / 60%); }
+    .box { position: absolute; border: 3px solid #ffd400; border-radius: 6px; pointer-events: none; }
+    .box.gone { border-color: #ff7a66; border-style: dashed; }
+    ol { margin: 0.75rem 0 0; padding-left: 1.4rem; max-width: 70rem; }
+    li { margin-bottom: 0.3rem; }
+    li b { color: #ffd400; }
+    li.gone b { color: #ff7a66; }
+    @media (max-width: 1000px) { .pair, .pair.phone { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>PoRedoMedia UI changes: record a video with the camera</h1>
+<p>5 October 2026. Left is before, right is after. Yellow numbers mark what is new. Captured at 1440×900 with the
+   browser's synthetic test camera, which is why the picture is a green test pattern.</p>
+
+<h2>Create: the camera panel</h2>
+<div class="pair">
+    <figure><figcaption class="old">Before: the camera takes a photo only</figcaption>
+        <div class="shot"><img src="v3-camera-before.png" alt="Camera panel before, with Take the photo and Cancel"></div></figure>
+    <figure><figcaption class="new">After: recording a video</figcaption>
+        <div class="shot"><img src="v3-camera-recording.png" alt="Camera panel after, recording a video"><span class="box" style="left:43.7%;top:81.2%;width:12.5%;height:2.7%"></span><span class="mark" style="left:43.7%;top:81.2%">1</span><span class="box" style="left:37.7%;top:85.2%;width:24.6%;height:4.0%"></span><span class="mark" style="left:37.7%;top:85.2%">2</span></div></figure>
+</div>
+<ol>
+    <li><b>1</b> How long the recording has been going, out of the 5 minute limit. It stops by itself at the limit.</li>
+    <li><b>2</b> "Record a video" sits beside "Take the photo" until it is pressed; while recording it becomes
+        "Stop and use the video". Cancel throws the recording away.</li>
+</ol>
+
+<h2>Create: the recorded video is picked</h2>
+<div>
+    <figure><figcaption class="new">After</figcaption>
+        <div class="shot"><img src="v3-camera-picked.png" alt="The recorded clip picked as the source, with the video functions offered"></div></figure>
+</div>
+<ol>
+    <li>The clip is uploaded like any chosen file and offered the video functions, Insult roast included.</li>
+</ol>
+</body>
+</html>

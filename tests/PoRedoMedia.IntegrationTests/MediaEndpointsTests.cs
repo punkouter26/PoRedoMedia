@@ -178,14 +178,14 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
-    public async Task A_video_longer_than_ten_minutes_is_refused()
+    public async Task A_video_longer_than_a_minute_is_refused()
     {
         var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
 
-        var confirmed = await UploadAndConfirmAsync(client, "long.mp4", await ClipAsync(601));
+        var confirmed = await UploadAndConfirmAsync(client, "long.mp4", await ClipAsync(65));
 
         Assert.Equal(HttpStatusCode.BadRequest, confirmed.StatusCode);
-        Assert.Contains("10 minutes", await confirmed.Content.ReadAsStringAsync());
+        Assert.Contains("1 minute", await confirmed.Content.ReadAsStringAsync());
     }
 
     [DockerFact]

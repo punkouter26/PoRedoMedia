@@ -22,7 +22,9 @@ public static class ConfigEndpoint
                 [.. (router as VisionServiceRouter)?.Available ?? []],
                 new AiPricingDto(
                     Price("VisionUsd", 0.001m), Price("TextUsd", 0.0015m), Price("ImageUsd", 0.039m), Price("MusicUsd", 0.04m), Price("VideoUsd", 0.40m)),
-                ServerSpeech: transcription.IsEnabled));
+                ServerSpeech: transcription.IsEnabled,
+                // Shown beside an unpinned item, so its expiry, and its share link's, is no surprise.
+                RetentionDays: configuration.GetValue<int?>(ConfigKeys.RetentionDays) ?? Features.Housekeeping.HousekeepingService.DefaultRetentionDays));
         }).AllowAnonymous();
         return app;
     }

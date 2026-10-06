@@ -9,6 +9,22 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
     private static readonly string Shots = Path.Combine(Path.GetTempPath(), "poredomedia-shots");
 
     [LiveServerFact]
+    public async Task A_video_recorded_with_the_camera_becomes_the_picked_media_and_can_be_roasted()
+    {
+        var page = await SignedInPageAsync("/");
+        await page.GetByRole(AriaRole.Button, new() { Name = "Use the camera" }).ClickAsync(new() { Timeout = 30_000 });
+        await page.GetByRole(AriaRole.Button, new() { Name = "Record a video" }).ClickAsync();
+        await Assertions.Expect(page.GetByText(new System.Text.RegularExpressions.Regex(@"Recording 0:0[2-9] of 1:00"))).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await page.GetByRole(AriaRole.Button, new() { Name = "Stop and use the video" }).ClickAsync();
+
+        await Assertions.Expect(page.GetByText(new System.Text.RegularExpressions.Regex(@"camera-\d+\.webm · video"))).ToBeVisibleAsync(new() { Timeout = 60_000 });
+        await page.Locator("[data-fn=VideoRoast] input").CheckAsync();
+        await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).ClickAsync();
+        await Assertions.Expect(page.GetByText("Done. The results are in your gallery.")).ToBeVisibleAsync(new() { Timeout = 120_000 });
+        await Assertions.Expect(page.Locator("figure.run-result video")).ToHaveCountAsync(1);
+    }
+
+    [LiveServerFact]
     public async Task A_photo_taken_with_the_camera_becomes_the_picked_media()
     {
         var page = await SignedInPageAsync("/");

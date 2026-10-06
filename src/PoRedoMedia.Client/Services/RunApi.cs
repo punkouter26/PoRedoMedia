@@ -17,6 +17,13 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
             : (null, await MediaApi.ReasonAsync(response));
     }
 
+    /// <summary>Asks a queued or running run to stop. Returns the reason when it could not be.</summary>
+    public async Task<string?> CancelAsync(Guid id)
+    {
+        using var response = await http.DeleteAsync($"api/runs/{id}");
+        return response.IsSuccessStatusCode ? null : await MediaApi.ReasonAsync(response);
+    }
+
     public Task<RunDto?> GetAsync(Guid id) => http.GetFromJsonAsync($"api/runs/{id}", WireJson.Default.RunDto);
 
     /// <summary>The user's runs, newest first.</summary>
@@ -41,10 +48,11 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
     /// subscription was in place are not replayed, so read the run once after this returns.
     /// </summary>
     /// <param name="onGap">
-    /// Called when events may have been missed: after a reconnect, and when reconnecting is given
-    /// up. The caller reads the run again there, or a run that ended in the gap spins forever.
+    /// Called after a reconnect, when events may have been missed. The caller reads the run again
+    /// there, or a run that ended in the gap spins forever.
     /// </param>
-    public async Task<IAsyncDisposable> FollowAsync(Guid runId, Func<RunProgressDto, Task> onProgress, Func<Task> onGap)
+    /// <param name="onClosed">Called when reconnecting is given up: no more events will come.</param>
+    public async Task<IAsyncDisposable> FollowAsync(Guid runId, Func<RunProgressDto, Task> onProgress, Func<Task> onGap, Func<Task> onClosed)
     {
         var hub = new HubConnectionBuilder()
             .WithUrl(navigation.ToAbsoluteUri("hubs/run"))
@@ -57,7 +65,7 @@ public sealed class RunApi(HttpClient http, NavigationManager navigation)
             await hub.InvokeAsync("JoinRun", runId.ToString());
             await onGap();
         };
-        hub.Closed += _ => onGap();
+        hub.Closed += _ => onClosed();
         await hub.StartAsync();
         await hub.InvokeAsync("JoinRun", runId.ToString());
         return hub;

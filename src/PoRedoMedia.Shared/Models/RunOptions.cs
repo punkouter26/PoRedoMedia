@@ -46,6 +46,16 @@ public static class RunOptions
     /// <summary>"original", "9:16" or "1:1". Applies to the whole render.</summary>
     public const string VideoAspect = "Video.aspect";
 
+    /// <summary>Seconds into the video where the result starts and ends. Absent = the whole video.</summary>
+    public const string VideoTrimStart = "Video.trimStart";
+    public const string VideoTrimEnd = "Video.trimEnd";
+
+    /// <summary>
+    /// A share token. Meme-ify then copies that shared video's sounds, captions and stickers,
+    /// re-timed onto this one, instead of asking the director.
+    /// </summary>
+    public const string VideoRemix = "Memeify.remix";
+
     /// <summary>The roast voice: "Comic", "Neural" or "Rap". Absent = the first one the server offers.</summary>
     public const string VideoRoastVoice = "VideoRoast.voice";
 

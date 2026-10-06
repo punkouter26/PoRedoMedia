@@ -60,7 +60,8 @@ public sealed class RapRoastStep(
 
         var item = await outputs.SaveAsync(
             context.Current, MediaFunction.RapRoast, MediaKind.Audio, track.Audio, track.ContentType,
-            track.ContentType.Contains("wav", StringComparison.OrdinalIgnoreCase) ? ".wav" : ".mp3", ct, text: lyrics.Text);
+            track.ContentType.Contains("wav", StringComparison.OrdinalIgnoreCase) ? ".wav" : ".mp3", ct, text: lyrics.Text,
+            detail: scene.Snapshot.HasSubstance ? scene.Snapshot.ToProse() : scene.Text);
         await context.AddOutputAsync(item);
     }
 

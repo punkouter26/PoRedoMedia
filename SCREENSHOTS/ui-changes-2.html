@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoRedoMedia UI changes: features brought back from the old apps</title>
+<style>
+    body { margin: 0; padding: 1.5rem; background: #14151a; color: #eceef3; font: 15px/1.5 system-ui, sans-serif; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 1.15rem; margin: 2.5rem 0 0.5rem; border-top: 1px solid #333; padding-top: 1.25rem; }
+    p { margin: 0 0 1rem; color: #b9bdc9; max-width: 70rem; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+    .pair.phone { grid-template-columns: 300px 300px 1fr; }
+    figure { margin: 0; }
+    figcaption { font-weight: 700; margin-bottom: 0.35rem; }
+    figcaption.old { color: #ff9c8a; }
+    figcaption.new { color: #8be28f; }
+    .shot { position: relative; border: 1px solid #3a3d48; border-radius: 6px; overflow: hidden; }
+    .shot img { display: block; width: 100%; }
+    .mark { position: absolute; transform: translate(-50%, -50%); width: 1.7rem; height: 1.7rem; border-radius: 50%;
+            display: grid; place-items: center; font-weight: 800; font-size: 0.9rem; color: #14151a;
+            background: #ffd400; border: 2px solid #14151a; box-shadow: 0 0 0 2px #ffd400, 0 2px 8px rgb(0 0 0 / 60%); }
+    .mark.gone { background: #ff7a66; box-shadow: 0 0 0 2px #ff7a66, 0 2px 8px rgb(0 0 0 / 60%); }
+    .box { position: absolute; border: 3px solid #ffd400; border-radius: 6px; pointer-events: none; }
+    .box.gone { border-color: #ff7a66; border-style: dashed; }
+    ol { margin: 0.75rem 0 0; padding-left: 1.4rem; max-width: 70rem; }
+    li { margin-bottom: 0.3rem; }
+    li b { color: #ffd400; }
+    li.gone b { color: #ff7a66; }
+    @media (max-width: 1000px) { .pair, .pair.phone { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>PoRedoMedia UI changes: features brought back from the old apps</h1>
+<p>5 October 2026. Where a "before" exists it is on the left. Yellow numbers mark what is new. Captured from the app running in mock mode at 1440×900, so the pictures, titles and insults are placeholders.</p>
+<h2>Create: trim a video</h2>
+<p>Two sliders pick the stretch of the video to keep. Everything else in the run counts from the trimmed start.</p>
+<div class="pair">
+<figure><figcaption class="old">Before: no trim (image source shown; the video options had no trim either)</figcaption><div class="shot"><img src="after-create-source-desktop.png" alt="Before: no trim (image source shown; the video options had no trim either)"></div></figure>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-create-trim.png" alt="Create: trim a video, after">
+<span class="box" style="left:43.4%;top:62.1%;width:52.1%;height:8.9%"></span><span class="mark" style="left:43.4%;top:62.1%">1</span>
+</div></figure></div>
+<ol><li><b>1</b> Trim start and end, with the kept length shown. Shown for videos longer than 3 seconds.</li></ol>
+<h2>Create: the run log</h2>
+<p>The lines the run reports are kept with the run, so they are still there after a reload.</p>
+<div class="pair">
+<figure><figcaption class="old">Before: step chips and results only</figcaption><div class="shot"><img src="after-run-done-desktop.png" alt="Before: step chips and results only"></div></figure>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-run-log.png" alt="Create: the run log, after">
+<span class="box" style="left:42.2%;top:41.7%;width:54.4%;height:28.4%"></span><span class="mark" style="left:42.2%;top:41.7%">1</span>
+</div></figure></div>
+<ol><li><b>1</b> Log: what was heard and seen, each cue the director placed (HIT), and each roast joke (ROAST).</li><li><b>2</b> Below the result (scrolled off here): &quot;Download the roast alone (audio)&quot;.</li></ol>
+<h2>Roast stage</h2>
+<p>The stage for a rap roast of a picture.</p>
+<div class="pair">
+<figure><figcaption class="old">Before: lines light up, card export only</figcaption><div class="shot"><img src="after-gallery-roast-desktop.png" alt="Before: lines light up, card export only"></div></figure>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-roast-stage.png" alt="Roast stage, after">
+<span class="box" style="left:43.1%;top:42.7%;width:52.8%;height:26.7%"></span><span class="mark" style="left:43.1%;top:42.7%">1</span>
+<span class="box" style="left:43.1%;top:70.7%;width:52.8%;height:2.4%"></span><span class="mark" style="left:43.1%;top:70.7%">2</span>
+<span class="box" style="left:43.1%;top:74.4%;width:52.8%;height:3.1%"></span><span class="mark" style="left:43.1%;top:74.4%">3</span>
+<span class="box" style="left:43.1%;top:78.8%;width:52.8%;height:6.2%"></span><span class="mark" style="left:43.1%;top:78.8%">4</span>
+</div></figure></div>
+<ol><li><b>1</b> Each line is a button: it plays the track from where that line starts.</li><li><b>2</b> Lyric timing: moves the highlighting up to 3 seconds earlier or later.</li><li><b>3</b> Export video: records the picture, the current line and the track. Meme cut or Classic.</li><li><b>4</b> What the AI saw: the description the roast was written from.</li></ol>
+<h2>Gallery: video exports</h2>
+<p>A video opened in the gallery.</p>
+<div class="pair">
+<figure><figcaption class="old">Before</figcaption><div class="shot"><img src="after-gallery-desktop.png" alt="Before"></div></figure>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-gallery-video.png" alt="Gallery: video exports, after">
+<span class="box" style="left:70.4%;top:70.1%;width:25.5%;height:8.4%"></span><span class="mark" style="left:70.4%;top:70.1%">1</span>
+</div></figure></div>
+<ol><li><b>1</b> GIF (first 8 seconds; making it uses one run) and Roast audio (the insults alone). An image gets Copy here instead.</li></ol>
+<h2>Gallery: right-click menu</h2>
+<p>Right-click a card for its actions without opening it. With several items selected, Download now gives one ZIP.</p>
+<div>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-gallery-menu.png" alt="Gallery: right-click menu, after">
+<span class="box" style="left:19.9%;top:32.4%;width:11.3%;height:28.4%"></span><span class="mark" style="left:19.9%;top:32.4%">1</span>
+</div></figure></div>
+<ol><li><b>1</b> Open, Use as source, Copy picture (images), Download, Pin, Delete.</li></ol>
+<h2>Share: post to the feed</h2>
+<p>Sharing still makes a private link. The new switch also lists the item on the feed.</p>
+<div>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-share-feed.png" alt="Share: post to the feed, after">
+<span class="box" style="left:32.8%;top:52.1%;width:34.4%;height:2.7%"></span><span class="mark" style="left:32.8%;top:52.1%">1</span>
+</div></figure></div>
+<ol><li><b>1</b> Off by default. On, every signed-in user can see the item on the Feed page.</li></ol>
+<h2>Feed (new page)</h2>
+<p>What signed-in users have posted. The public share page now also shows a view count and, for Meme-ify videos, a remix link.</p>
+<div>
+<figure><figcaption class="new">After</figcaption><div class="shot"><img src="v2-feed.png" alt="Feed (new page), after">
+<span class="box" style="left:21.1%;top:0.7%;width:2.5%;height:4.9%"></span><span class="mark" style="left:21.1%;top:0.7%">1</span>
+<span class="box" style="left:8.1%;top:16.7%;width:12.2%;height:4.0%"></span><span class="mark" style="left:8.1%;top:16.7%">2</span>
+<span class="box" style="left:2.5%;top:22.8%;width:22.5%;height:33.2%"></span><span class="mark" style="left:2.5%;top:22.8%">3</span>
+</div></figure></div>
+<ol><li><b>1</b> Feed in the main navigation.</li><li><b>2</b> Trending or New. Trending favours remixes, then views, and fades with age.</li><li><b>3</b> A post: player, who posted it, views and remixes. Remix re-times its sounds, captions and stickers onto your own video.</li></ol>
+</body>
+</html>

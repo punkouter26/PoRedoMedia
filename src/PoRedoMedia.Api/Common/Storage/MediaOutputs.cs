@@ -7,7 +7,7 @@ public sealed class MediaOutputs(BlobStorageService blobs, IMediaRepository medi
 {
     public async Task<MediaItem> SaveAsync(
         MediaItem madeFrom, MediaFunction function, MediaKind kind, byte[] content, string contentType, string extension,
-        CancellationToken ct, double? durationSeconds = null, string? title = null, string? text = null)
+        CancellationToken ct, double? durationSeconds = null, string? title = null, string? text = null, string? detail = null)
     {
         var item = new MediaItem
         {
@@ -23,6 +23,7 @@ public sealed class MediaOutputs(BlobStorageService blobs, IMediaRepository medi
             SizeBytes = content.Length,
             DurationSeconds = durationSeconds,
             Text = text,
+            Detail = detail,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 

@@ -1,0 +1,99 @@
+@page "/feed"
+@inject MediaApi Api
+@inject NavigationManager Navigation
+@inject NotificationService Notifications
+@inject IJSRuntime JS
+
+<PageTitle>Feed · PoRedoMedia</PageTitle>
+
+<RadzenStack Gap="0.75rem">
+    <div class="feed-bar">
+        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Feed</RadzenText>
+        <RadzenSelectBar TValue="string" Value="@(Sort == "new" ? "new" : "trending")" Change="SetSort" aria-label="Order">
+            <Items>
+                <RadzenSelectBarItem Text="Trending" Value="@("trending")" />
+                <RadzenSelectBarItem Text="New" Value="@("new")" />
+            </Items>
+        </RadzenSelectBar>
+    </div>
+
+    @if (_items is null)
+    {
+        <div class="feed-grid" role="status" aria-label="Loading">
+            @for (var i = 0; i < 6; i++)
+            {
+                <div class="po-skeleton feed-skeleton"></div>
+            }
+        </div>
+    }
+    else if (_items.Count == 0)
+    {
+        <RadzenText>Nothing has been posted yet. Open something in your <RadzenLink Path="gallery" Text="gallery" />, share it, and switch on "post it to the feed".</RadzenText>
+    }
+    else
+    {
+        <div class="feed-grid">
+            @foreach (var post in _items)
+            {
+                var item = post;
+                var url = $"v/{item.Token}";
+                <article class="feed-card po-pop" @key="item.Token">
+                    @switch (item.Kind)
+                    {
+                        case MediaKind.Image:
+                            <img src="@($"{url}/content")" alt="@item.Title" loading="lazy" />
+                            break;
+                        case MediaKind.Video:
+                            <video src="@($"{url}/content")" poster="@($"{url}/thumb")" controls loop preload="none" aria-label="@item.Title"></video>
+                            break;
+                        default:
+                            <audio src="@($"{url}/content")" controls preload="none" aria-label="@item.Title"></audio>
+                            break;
+                    }
+                    <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0 feed-title">@item.Title</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
+                        @(item.Mine ? "you" : item.Author) · @item.SharedAt.LocalDateTime.ToString("d MMM") · @item.Views @(item.Views == 1 ? "view" : "views")
+                        @if (item.CanRemix)
+                        {
+                            <span> · @item.Remixes @(item.Remixes == 1 ? "remix" : "remixes")</span>
+                        }
+                    </RadzenText>
+                    <div class="feed-actions">
+                        @if (item.CanRemix && !item.Mine)
+                        {
+                            <RadzenLink Path="@($"?remix={item.Token}")" Text="Remix" class="rz-button rz-button-sm rz-variant-filled rz-primary rz-shade-default" />
+                        }
+                        <RadzenButton Text="Copy link" Icon="link" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => CopyAsync(url))" />
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</RadzenStack>
+
+@code {
+    /// <summary>"new" for newest first; anything else is trending. Kept in the address.</summary>
+    [SupplyParameterFromQuery] public string? Sort { get; set; }
+
+    private List<FeedItemDto>? _items;
+    private string? _loaded;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var sort = Sort == "new" ? "new" : "trending";
+        if (_loaded == sort)
+            return;
+
+        _loaded = sort;
+        _items = await Api.FeedAsync(newest: sort == "new");
+    }
+
+    private void SetSort(string sort) =>
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("sort", sort == "new" ? "new" : null), replace: true);
+
+    private async Task CopyAsync(string path)
+    {
+        if (await JS.InvokeAsync<bool>("poMedia.copyText", Navigation.ToAbsoluteUri(path).ToString()))
+            Notifications.Notify(NotificationSeverity.Success, "Link copied");
+    }
+}

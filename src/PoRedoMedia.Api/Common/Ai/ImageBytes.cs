@@ -24,6 +24,9 @@ public static class ImageBytes
     public static byte[] ForProcessing(byte[] image)
     {
         using var loaded = Image.Load(new SixLabors.ImageSharp.Formats.DecoderOptions { MaxFrames = 1 }, image);
+        // A phone photo is stored on its side with a tag saying how to turn it. Turned here, so
+        // text is drawn on, and the AI is shown, the picture the way the user sees it.
+        loaded.Mutate(x => x.AutoOrient());
         if (Math.Max(loaded.Width, loaded.Height) > MaxEdge)
             loaded.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(MaxEdge, MaxEdge), Mode = ResizeMode.Max }));
 

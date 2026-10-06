@@ -7,7 +7,13 @@ public static class UploadValidation
 {
     public const long MaxImageBytes = 10L * 1024 * 1024;
     public const long MaxVideoBytes = 200L * 1024 * 1024;
-    public const double MaxVideoSeconds = 600;
+    public const double MaxVideoSeconds = 60;
+
+    /// <summary>
+    /// How far past the limit a video may measure and still be taken. A clip recorded to "one
+    /// minute" rarely measures exactly 60 seconds: recorders finish the frame they are on.
+    /// </summary>
+    public const double VideoSecondsSlack = 2;
 
     /// <summary>Width times height. Decoding costs memory per pixel, whatever the file size.</summary>
     public const long MaxImagePixels = 40_000_000;

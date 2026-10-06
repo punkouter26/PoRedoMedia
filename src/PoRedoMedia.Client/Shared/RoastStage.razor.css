@@ -25,29 +25,66 @@
     gap: 0.15rem;
 }
 
-.roast-lines li {
+/* A line is a button that plays from there; it reads as a line of the lyrics. */
+.roast-lines [data-line] {
+    display: block;
+    width: 100%;
+    padding: 0.1rem 0.25rem;
+    border: 0;
+    border-radius: var(--po-radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     transform-origin: left center;
     opacity: 0.92;
     transition: transform 180ms var(--po-spring), opacity 180ms, font-weight 180ms;
 }
 
-.roast-lines li.sung {
+.roast-lines [data-line]:hover {
+    background: color-mix(in srgb, var(--rz-primary) 12%, transparent);
+}
+
+.roast-lines [data-line].sung {
     opacity: 0.72;
 }
 
 /* The line being delivered grows with the beat. */
-.roast-lines li.now {
+.roast-lines [data-line].now {
     opacity: 1;
     font-weight: 800;
     transform: scale(calc(1.06 + var(--beat) * 0.1));
 }
 
+.roast-sync,
+.roast-exports {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.roast-sync input {
+    flex: 1;
+    min-width: 8rem;
+}
+
+.roast-sync output {
+    min-width: 6rem;
+}
+
+.roast-saw p {
+    margin: 0.5rem 0 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .roast-lines li {
+    .roast-lines [data-line] {
         transition: none;
     }
 
-    .roast-lines li.now {
+    .roast-lines [data-line].now {
         transform: none;
     }
 }

@@ -8,6 +8,9 @@ public class SoundAssetDto
     public string[] ActionVectorTags { get; init; } = [];
     public string Attribution { get; init; } = string.Empty;
 
+    /// <summary>Whether the calling user uploaded this sound, and so may delete it.</summary>
+    public bool IsMine { get; init; }
+
     /// <summary>Whether the calling user has starred this sound.</summary>
     public bool IsFavorite { get; init; }
 }

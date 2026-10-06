@@ -22,6 +22,13 @@ public sealed class SoundsApi(HttpClient http)
         return response.IsSuccessStatusCode ? null : await MediaApi.ReasonAsync(response);
     }
 
+    /// <summary>Deletes one of the user's own uploads.</summary>
+    public async Task<string?> DeleteAsync(Guid soundId)
+    {
+        using var response = await http.DeleteAsync($"api/sounds/{soundId}");
+        return response.IsSuccessStatusCode ? null : await MediaApi.ReasonAsync(response);
+    }
+
     public async Task<(SoundAssetDto? Sound, string? Error)> UploadAsync(IBrowserFile file)
     {
         using var content = new MultipartFormDataContent();

@@ -66,7 +66,7 @@ public sealed partial class FFmpegRenderService : IMediaToolkit, IDisposable
 
             // Probe the true source duration so the render can be hard-trimmed to match it
             // (prevents trailing meme audio from extending the output past the video).
-            var sourceDurationSeconds = await _ffmpeg.DurationSecondsAsync(sourcePath, cancellationToken);
+            var sourceDurationSeconds = job.TrimSeconds ?? await _ffmpeg.DurationSecondsAsync(sourcePath, cancellationToken);
 
             // Probe for an audio stream so we only try to mix the original audio when it exists
             // (referencing [0:a] on a silent video would fail the filter graph).
@@ -109,7 +109,8 @@ public sealed partial class FFmpegRenderService : IMediaToolkit, IDisposable
                 sourceDurationSeconds,
                 sourceHasAudio,
                 job.AspectRatio,
-                job.Subtitles);
+                job.Subtitles,
+                job.TrimStartSeconds);
 
             _logger.LogDebug("FFmpeg args: {Args}", args);
 

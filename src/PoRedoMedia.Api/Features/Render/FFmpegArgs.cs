@@ -58,11 +58,15 @@ internal static class FFmpegArgs
         double sourceDurationSeconds,
         bool sourceHasAudio,
         string? aspectRatio = null,
-        IReadOnlyList<TranscriptSegmentDto>? subtitles = null)
+        IReadOnlyList<TranscriptSegmentDto>? subtitles = null,
+        double trimStartSeconds = 0)
     {
         var sb = new StringBuilder();
 
-        // Input 0: source video
+        // Input 0: source video. A trim seeks the input, so every time in the filter graph already
+        // counts from the trimmed start; the -t further down ends it.
+        if (trimStartSeconds > 0)
+            sb.Append(CultureInfo.InvariantCulture, $"-ss {trimStartSeconds:0.###} ");
         sb.Append(CultureInfo.InvariantCulture, $"-i \"{sourcePath}\"");
 
         // Inputs 1..N: sound files

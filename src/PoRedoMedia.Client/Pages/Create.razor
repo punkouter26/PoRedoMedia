@@ -17,6 +17,14 @@
 <div class="create-page">
     <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0 rz-mb-4">Create</RadzenText>
 
+    @if (Remixing && _run is null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mt-0 rz-mb-3 po-alert-ink">
+            Remixing a shared video: pick a video of your own and its sounds, captions and stickers are re-timed onto it. The AI director is skipped.
+            <RadzenButton Text="Cancel the remix" Variant="Variant.Text" Size="ButtonSize.Small" class="rz-ml-2" Click="CancelRemix" />
+        </RadzenAlert>
+    }
+
     @if (_source is null && _run is null)
     {
         @if (_opening)
@@ -44,7 +52,7 @@
                 {
                     <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
                     <FunctionPicker Kind="_source.Kind" Value="_functions" ValueChanged="OnFunctionsChanged" Available="_available" />
-                    <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Changed="StateHasChanged" />
+                    <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Duration="_source.DurationSeconds" Changed="StateHasChanged" />
                     @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
                     {
                         <RadzenFieldset Text="AI model" class="rz-mt-2">
@@ -119,6 +127,18 @@
                             <strong>@(_source?.Title ?? "A deleted item")</strong> → @string.Join(", then ", _run.Run.Functions.Select(FunctionStack.Label))
                         </RadzenText>
                         <RunProgress @key="_run.Run.Id" Run="_run" />
+                        @if (!_run.Finished)
+                        {
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                <RadzenButton Text="@(_cancelling == _run.Run.Id ? "Stopping…" : "Cancel the run")" Icon="cancel" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger"
+                                              Disabled="@(_cancelling == _run.Run.Id)" Click="CancelRunAsync" />
+                                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">Results already made are kept. A run that made nothing is not charged.</RadzenText>
+                            </RadzenStack>
+                            @if (_problem is not null)
+                            {
+                                <RadzenAlert AlertStyle="AlertStyle.Danger" AllowClose="false" class="rz-m-0">@_problem</RadzenAlert>
+                            }
+                        }
                         @if (_run.Finished)
                         {
                             @QuotaLine
@@ -129,9 +149,9 @@
                                     {
                                         <RadzenButton Text="Retry" Icon="refresh" IsBusy="_starting" Click="RunAsync" />
                                     }
-                                    <RadzenButton Text="Change the functions" Variant="Variant.Outlined" Click="BackToFunctions" />
+                                    <RadzenButton Text="Change the functions" Variant="Variant.Outlined" Disabled="_starting" Click="BackToFunctions" />
                                 }
-                                <RadzenButton Text="Start over" Variant="Variant.Outlined" Click="StartOver" />
+                                <RadzenButton Text="Start over" Variant="Variant.Outlined" Disabled="_starting" Click="StartOver" />
                                 <RadzenLink Path="gallery" Text="Open the gallery" />
                             </RadzenStack>
                             @if (_problem is not null)
@@ -160,6 +180,9 @@
     /// <summary>A run to show, set when one starts and by the header's run tray.</summary>
     [SupplyParameterFromQuery] public Guid? Run { get; set; }
 
+    /// <summary>A share token, set by the feed's Remix: the picked video borrows that shared video's cues.</summary>
+    [SupplyParameterFromQuery] public string? Remix { get; set; }
+
     /// <summary>Present when another app shared a file to this one.</summary>
     [SupplyParameterFromQuery] public string? Shared { get; set; }
 
@@ -181,6 +204,13 @@
     private bool _starting;
     private bool _opening;
     private Guid? _openedSource;
+    private Guid? _cancelling;
+
+    /// <summary>
+    /// True while the next run would be a remix. Once a video is picked the run's options say so,
+    /// and the banner follows them, so what is shown and what is sent cannot differ.
+    /// </summary>
+    private bool Remixing => _options.ContainsKey(RunOptions.VideoRemix) || (Remix is not null && _source is null);
 
     private RenderFragment? QuotaLine => _quota is { Unlimited: false }
         ? @<RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_quota.Remaining of @_quota.Limit runs left today. A run costs one.</RadzenText>
@@ -245,7 +275,33 @@
     {
         (_source, _functions, _run, _problem, _recipe) = (media, [], null, null, null);
         _options = _lastOptions.Where(o => Remembered.Contains(o.Key)).ToDictionary(o => o.Key, o => o.Value);
+        if (Remix is not null && media.Kind == MediaKind.Video && _available.Contains(MediaFunction.Memeify))
+        {
+            _functions = [MediaFunction.Memeify];
+            _options[RunOptions.VideoRemix] = Remix;
+        }
+        else if (Remix is not null)
+        {
+            _problem = "A remix needs a video, so this will be an ordinary run. Change the media to remix.";
+        }
+
         return Task.CompletedTask;
+    }
+
+    private void CancelRemix()
+    {
+        _options.Remove(RunOptions.VideoRemix);
+        // The picked media stays picked: only the remix leaves the address.
+        _openedSource = _source?.Id;
+        Navigation.NavigateTo(_source is null ? "" : $"?source={_source.Id}", replace: true);
+    }
+
+    private async Task CancelRunAsync()
+    {
+        _cancelling = _run!.Run.Id;
+        _problem = await Runs.CancelAsync(_run.Run.Id);
+        if (_problem is not null)
+            _cancelling = null;
     }
 
     private void OnFunctionsChanged(IReadOnlyList<MediaFunction> functions) => (_functions, _problem) = (functions, null);
@@ -257,7 +313,11 @@
             return;
 
         _functions = FunctionStack.InRunOrder(recipe.Functions.Where(_available.Contains));
+        // A recipe replaces the options, but not the remix they were carrying.
+        var remix = _options.GetValueOrDefault(RunOptions.VideoRemix);
         _options = new(recipe.Options ?? []);
+        if (remix is not null)
+            _options[RunOptions.VideoRemix] = remix;
         _problem = null;
     }
 
@@ -265,7 +325,8 @@
     {
         // The words typed for this one picture, and the description of it, stay out of the recipe.
         var kept = _options
-            .Where(o => o.Key != RunOptions.VisionDescription && !o.Key.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))
+            .Where(o => o.Key is not (RunOptions.VisionDescription or RunOptions.VideoTrimStart or RunOptions.VideoTrimEnd or RunOptions.VideoRemix)
+                && !o.Key.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))
             .ToDictionary(o => o.Key, o => o.Value);
         _recipe = _recipeName.Trim();
         _recipes[_recipe] = new RunRequest(Guid.Empty, [.. _functions], kept);
@@ -296,6 +357,8 @@
         _starting = true;
         try
         {
+            // Asked here, on the click that starts something worth being told about.
+            await JS.InvokeVoidAsync("poMedia.askNotify");
             if (AiCatalog.RunsInBrowser(_options.GetValueOrDefault(RunOptions.VisionModel)) && !await DescribeOnDeviceAsync())
                 return;
 

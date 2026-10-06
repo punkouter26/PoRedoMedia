@@ -58,6 +58,15 @@
     background: var(--rz-base-200);
 }
 
+.picker-rec {
+    font-weight: 700;
+    color: var(--rz-danger);
+}
+
+.picker-rec::before {
+    content: "● ";
+}
+
 @media (prefers-reduced-motion: reduce) {
     .picker-drop {
         transition: none;

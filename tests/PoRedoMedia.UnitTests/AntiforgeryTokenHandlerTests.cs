@@ -23,6 +23,23 @@ public sealed class AntiforgeryTokenHandlerTests
     }
 
     [Fact]
+    public async Task A_400_that_is_the_endpoints_own_answer_is_not_sent_again()
+    {
+        var api = new FakeApi { Refusal = """{"detail":"Videos can be up to 1 minute long."}""" };
+        var handler = new AntiforgeryTokenHandler(() => new HttpClient(api, disposeHandler: false) { BaseAddress = new Uri("http://app/") })
+        {
+            InnerHandler = api,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("http://app/") };
+
+        var response = await client.PostAsync("api/things", new StringContent("payload"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Single(api.TokensSeenOnWrites);
+        Assert.Contains("1 minute", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task A_read_is_sent_without_fetching_a_token()
     {
         var api = new FakeApi();
@@ -41,6 +58,9 @@ public sealed class AntiforgeryTokenHandlerTests
         public List<string> TokensSeenOnWrites { get; } = [];
         public List<string> BodiesSeenOnWrites { get; } = [];
 
+        /// <summary>What a refused write answers with. The default is the server's antiforgery refusal.</summary>
+        public string Refusal { get; init; } = """{"title":"Invalid antiforgery token"}""";
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request.RequestUri!.AbsolutePath == "/api/antiforgery/token")
@@ -51,7 +71,9 @@ public sealed class AntiforgeryTokenHandlerTests
             var token = request.Headers.GetValues("X-CSRF-TOKEN").Single();
             TokensSeenOnWrites.Add(token);
             BodiesSeenOnWrites.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
-            return new HttpResponseMessage(token == "token-1" ? HttpStatusCode.BadRequest : HttpStatusCode.OK);
+            return token == "token-1"
+                ? new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(Refusal) }
+                : new HttpResponseMessage(HttpStatusCode.OK);
         }
     }
 }

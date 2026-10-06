@@ -10,7 +10,7 @@ namespace PoRedoMedia.Shared.Models;
 /// <param name="ServerSpeech">The server can transcribe speech. When false, the browser's own speech model does it.</param>
 public sealed record AppConfigDto(
     bool UseMockAi, bool DevLoginEnabled, MediaFunction[] AvailableFunctions, string[] RoastVoices, string[] VisionModels, AiPricingDto Pricing,
-    bool ServerSpeech = true);
+    bool ServerSpeech = true, int RetentionDays = 30);
 
 /// <summary>Indicative list prices in US dollars per call. Estimates, not billed amounts.</summary>
 public sealed record AiPricingDto(decimal VisionUsd, decimal TextUsd, decimal ImageUsd, decimal MusicUsd, decimal VideoUsd);

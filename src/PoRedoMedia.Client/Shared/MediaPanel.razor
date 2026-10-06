@@ -1,5 +1,6 @@
 @* One gallery item in detail: what it is, where it came from, and what can be done with it. *@
 @inject MediaApi Api
+@inject AppConfigService Config
 @inject DialogService Dialogs
 @inject NotificationService Notifications
 @inject IJSRuntime JS
@@ -34,6 +35,10 @@
             {
                 <span> · pinned</span>
             }
+            else if (Expiry is { } expiry)
+            {
+                <span> · @expiry</span>
+            }
         </RadzenText>
 
         @if (Lineage.Count > 0 || Children > 0)
@@ -62,6 +67,19 @@
             }
             <RadzenButton Text="Download" Icon="download" Variant="Variant.Outlined"
                           Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
+            @if (Media.Kind == MediaKind.Image)
+            {
+                <RadzenButton Text="Copy" Icon="content_copy" Variant="Variant.Outlined" title="Copy the picture to the clipboard" Click="CopyImageAsync" />
+            }
+            @if (Media.Kind == MediaKind.Video)
+            {
+                <RadzenButton Text="GIF" Icon="gif_box" Variant="Variant.Outlined" title="A looping GIF of the first 8 seconds. Making it uses one run; after that it is free." Disabled="_busy" Click="GifAsync" />
+                @if (Media.Text is not null)
+                {
+                    <RadzenButton Text="Roast audio" Icon="mic" Variant="Variant.Outlined" title="The insults alone, as a sound file"
+                                  Click="@(() => JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/roast-audio"))" />
+                }
+            }
             <span class="panel-more">
                 <RadzenButton Icon="push_pin" Variant="@(Media.Pinned ? Variant.Filled : Variant.Text)" Disabled="_busy"
                               aria-label="@(Media.Pinned ? "Unpin" : "Pin")" title="@(Media.Pinned ? "Unpin: let it expire (P)" : "Pin: keep it past 30 days (P)")"
@@ -93,7 +111,20 @@
     private string _title = "";
     private bool _busy;
 
-    protected override void OnInitialized() => _title = Media.Title;
+    private int _retentionDays;
+
+    /// <summary>When an unpinned item will be removed, in words; null when it is kept.</summary>
+    private string? Expiry => Media.Pinned || _retentionDays <= 0
+        ? null
+        : (Media.CreatedAt.AddDays(_retentionDays) - DateTimeOffset.UtcNow).Days is > 0 and var days
+            ? $"expires in {days} {(days == 1 ? "day" : "days")}"
+            : "expires within a day";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _title = Media.Title;
+        _retentionDays = (await Config.GetAsync())?.RetentionDays ?? 0;
+    }
 
     private static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / (1024.0 * 1024):0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
 
@@ -117,17 +148,46 @@
         await Changed.InvokeAsync(updated);
     }
 
+    public async Task CopyImageAsync()
+    {
+        if (await JS.InvokeAsync<bool>("poMedia.copyImage", Media.Url))
+            Notifications.Notify(NotificationSeverity.Success, "Copied", "The picture is on the clipboard.");
+        else
+            Notifications.Notify(NotificationSeverity.Error, "Could not copy", "This browser did not allow a picture on the clipboard.", 8000);
+    }
+
+    private async Task GifAsync()
+    {
+        if (_busy)
+            return;
+
+        Notifications.Notify(NotificationSeverity.Info, "Making the GIF", "The first time takes a few seconds and uses one run.", 6000);
+        _busy = true;
+        var error = await Api.MakeGifAsync(Media.Id);
+        _busy = false;
+        if (error is not null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not make the GIF", error, 8000);
+            return;
+        }
+
+        await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/gif");
+    }
+
     /// <summary>Makes the link (asking again returns the same one) and shows it with the way to turn it off.</summary>
     private async Task ShareAsync()
     {
         _busy = true;
-        var (url, error) = await Api.ShareAsync(Media.Id);
+        var (link, error) = await Api.ShareAsync(Media.Id);
         _busy = false;
-        if (url is null)
+        if (link is null)
         {
             Notifications.Notify(NotificationSeverity.Error, "Could not share", error ?? "", 8000);
             return;
         }
+
+        var url = link.Url;
+        var onFeed = link.Feed;
 
         if (!Media.Shared)
             await Changed.InvokeAsync(Media with { Shared = true });
@@ -137,6 +197,14 @@
                 <RadzenFormField Text="Anyone with this link can view it" class="po-fill">
                     <RadzenTextBox Value="@url" ReadOnly="true" aria-label="Share link" />
                 </RadzenFormField>
+                @if (Expiry is { } expiry)
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">This item @expiry, and the link stops working with it. Pin the item to keep both.</RadzenText>
+                }
+                <div class="panel-feed">
+                    <RadzenSwitch Name="share-feed" Value="onFeed" Change="@(async on => onFeed = (await Api.ShareAsync(Media.Id, on)).Link?.Feed ?? onFeed)" />
+                    <RadzenLabel Component="share-feed" Text="Also post it to the feed, where every signed-in user can see it" />
+                </div>
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End">
                     <RadzenButton Text="Stop sharing" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Click="@(() => StopSharingAsync(dialog))" />
                     <RadzenButton Text="Copy" Icon="content_copy" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", url))" />

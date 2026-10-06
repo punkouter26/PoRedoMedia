@@ -48,7 +48,10 @@ public static class AuthServiceExtensions
                 options.LoginPath = "/login";
                 options.AccessDeniedPath = "/login";
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.Strict;
+                // Lax, not Strict: Microsoft sends the browser back from its own site, and a Strict
+                // cookie set on that return is withheld from the redirect into the app, so the
+                // user arrived signed out. Writes are still protected by the antiforgery token.
+                options.Cookie.SameSite = SameSiteMode.Lax;
                 // Dev and Test run over plain HTTP, where a Secure cookie is silently discarded.
                 options.Cookie.SecurePolicy = environment.IsDevOrTest()
                     ? CookieSecurePolicy.SameAsRequest

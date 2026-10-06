@@ -1,20 +1,41 @@
 @* A roast performed: the track, with the line being delivered lit up and the stage pulsing to
-   the track's loudness. The picture and the words can be saved together as a card. *@
+   the track's loudness. A line starts the track from there. The picture and the words can be
+   saved together as a card, or recorded with the track as a video. *@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 @inject NotificationService Notifications
 
 <div class="roast-stage" @ref="_stage">
     <audio @ref="_audio" src="@Media.Url" controls preload="metadata" aria-label="@Media.Title"></audio>
-    <ol class="roast-lines" aria-label="Lyrics" tabindex="0">
+    <ol class="roast-lines" aria-label="Lyrics. Pick a line to play from there.">
         @foreach (var line in Lines)
         {
-            <li data-line>@line</li>
+            <li><button type="button" data-line>@line</button></li>
         }
     </ol>
+    <label class="roast-sync">
+        <span>Lyric timing</span>
+        <input type="range" min="-3" max="3" step="0.1" value="0" data-sync />
+        <output data-sync-out>on the beat</output>
+    </label>
     @if (Media.ParentId is not null)
     {
-        <RadzenButton Text="Save as a card" Icon="image" Size="ButtonSize.Small" Variant="Variant.Outlined" IsBusy="_saving" Click="SaveCardAsync" />
+        <div class="roast-exports">
+            <RadzenButton Text="Save as a card" Icon="image" Size="ButtonSize.Small" Variant="Variant.Outlined" IsBusy="_saving" Disabled="_recording is not null" Click="SaveCardAsync" />
+            <select @bind="_cut" aria-label="Video style" disabled="@(_recording is not null)">
+                <option value="meme">Meme cut</option>
+                <option value="classic">Classic</option>
+            </select>
+            <RadzenButton Text="@(_recording is { } percent ? $"Recording {percent}%" : "Export video")" Icon="movie" Size="ButtonSize.Small" Variant="Variant.Outlined"
+                          Disabled="@(_recording is not null || _saving)" Click="ExportVideoAsync" />
+        </div>
+    }
+    @if (Media.Detail is not null)
+    {
+        <details class="roast-saw">
+            <summary>What the AI saw</summary>
+            <p>@Media.Detail</p>
+        </details>
     }
 </div>
 
@@ -25,6 +46,10 @@
     private ElementReference _audio;
     private bool _attached;
     private bool _saving;
+    private string _cut = "meme";
+    private int? _recording;
+
+    private string PictureUrl => $"api/media/{Media.ParentId}/content";
 
     private IEnumerable<string> Lines =>
         (Media.Text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -41,10 +66,25 @@
     private async Task SaveCardAsync()
     {
         _saving = true;
-        var saved = await JS.InvokeAsync<bool>("poRoast.card", $"api/media/{Media.ParentId}/content", Media.Title, Media.Text ?? "");
+        var saved = await JS.InvokeAsync<bool>("poRoast.card", PictureUrl, Media.Title, Media.Text ?? "");
         _saving = false;
         if (!saved)
             Notifications.Notify(NotificationSeverity.Error, "Could not make the card", "The picture this roast was made from is no longer in your gallery.", 8000);
+    }
+
+    /// <summary>Recorded in the browser while the track plays, so it takes as long as the track.</summary>
+    private async Task ExportVideoAsync()
+    {
+        _recording = 0;
+        using var progress = DotNetObjectReference.Create(new BlobUploadService.ProgressSink(percent =>
+        {
+            _recording = percent;
+            InvokeAsync(StateHasChanged);
+        }));
+        var saved = await JS.InvokeAsync<bool>("poRoast.video", PictureUrl, Media.Url, Media.Text ?? "", _cut == "meme", progress);
+        _recording = null;
+        if (!saved)
+            Notifications.Notify(NotificationSeverity.Error, "Could not record the video", "This browser cannot record video, or the picture this roast was made from is gone.", 8000);
     }
 
     public async ValueTask DisposeAsync()

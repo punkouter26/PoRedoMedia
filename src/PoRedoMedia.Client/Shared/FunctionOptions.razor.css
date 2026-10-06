@@ -11,3 +11,23 @@
     flex-shrink: 0;
     accent-color: var(--rz-primary);
 }
+
+.trim {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.trim label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.trim label span {
+    min-width: 2.5rem;
+}
+
+.trim input {
+    flex: 1;
+}

@@ -17,7 +17,8 @@ public sealed record MediaDto(
     DateTimeOffset CreatedAt,
     string Url,
     string ThumbUrl,
-    string? Text = null);
+    string? Text = null,
+    string? Detail = null);
 
 public sealed record UploadRequest(string FileName, long SizeBytes);
 
@@ -32,4 +33,17 @@ public sealed record FrameUploadRequest(List<string> Frames, List<double>? Times
 public sealed record FramesResult(int FramesStored, int MomentsFound);
 
 /// <summary>The public address of a shared item.</summary>
-public sealed record ShareLinkDto(string Url);
+/// <param name="Feed">True when the item is also listed on the feed every signed-in user sees.</param>
+public sealed record ShareLinkDto(string Url, bool Feed = false);
+
+/// <summary>One shared item on the feed. Its picture and file are read through its share link.</summary>
+public sealed record FeedItemDto(
+    string Token,
+    string Title,
+    MediaKind Kind,
+    string Author,
+    DateTimeOffset SharedAt,
+    int Views,
+    int Remixes,
+    bool Mine,
+    bool CanRemix);

@@ -40,6 +40,12 @@ public static class MediaAnalysisPaths
     /// <summary>One spoken roast line (or the whole sung track), as the voice engine returned it.</summary>
     public static string RoastClip(Guid mediaId, int index, string extension) => $"{Prefix(mediaId)}roast/line_{index:D2}.{extension}";
 
+    /// <summary>The cues a Meme-ify render used, kept with the result so a shared one can be remixed.</summary>
+    public static string Script(Guid mediaId) => $"{Prefix(mediaId)}script.json";
+
+    /// <summary>The looping GIF made from a video the first time it is asked for.</summary>
+    public static string Gif(Guid mediaId) => $"{Prefix(mediaId)}export.gif";
+
     /// <summary>Every roast line back to back, as one sound file.</summary>
     public static string RoastAudio(Guid mediaId) => $"{Prefix(mediaId)}roast/roast.mp3";
 

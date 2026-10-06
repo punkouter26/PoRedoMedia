@@ -28,9 +28,10 @@ public sealed class GalleryTests
     }
 
     [Fact]
-    public void Each_item_is_shown_with_its_thumbnail_title_and_kind()
+    public async Task Each_item_is_shown_with_its_thumbnail_title_and_kind()
     {
-        using var ctx = new BunitContext();
+        // Disposed asynchronously: the run tracker the gallery listens to can only be disposed that way.
+        await using var ctx = new BunitContext();
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.Services.AddRadzenComponents();
         var json = """
@@ -41,6 +42,9 @@ public sealed class GalleryTests
             """;
         ctx.Services.AddSingleton(new MediaApi(new HttpClient(new StubHandler(json)) { BaseAddress = new Uri("http://app/") }));
         ctx.Services.AddScoped<BlobUploadService>();
+        ctx.Services.AddScoped(services => new RunApi(
+            new HttpClient(new StubHandler("[]")) { BaseAddress = new Uri("http://app/") }, services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>()));
+        ctx.Services.AddScoped<RunTracker>();
 
         var cut = ctx.Render<Gallery>();
 

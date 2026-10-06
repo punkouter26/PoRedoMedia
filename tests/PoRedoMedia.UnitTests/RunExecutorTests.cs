@@ -13,6 +13,7 @@ public sealed class RunExecutorTests
     private readonly FakeMedia _media = new();
     private readonly FakeRuns _runs = new();
     private readonly FakeNotifier _notifier = new();
+    private readonly FakeQuota _quota = new();
     private readonly List<string> _calls = [];
 
     private MediaItem NewMedia(MediaKind kind = MediaKind.Image, string origin = "Upload") => _media.Add(new MediaItem
@@ -25,7 +26,7 @@ public sealed class RunExecutorTests
         new() { Owner = Owner, Id = RunId.New(), SourceId = source.Id, Functions = functions, CreatedAt = DateTimeOffset.UtcNow };
 
     private RunExecutor Executor(params IRunStep[] steps) =>
-        new(steps, _runs, _media, _notifier, NullLogger<RunExecutor>.Instance);
+        new(steps, _runs, _media, _notifier, _quota, NullLogger<RunExecutor>.Instance);
 
     private FakeStep Step(MediaFunction function, Func<RunContext, Task>? work = null) =>
         new([function], async context =>
@@ -74,6 +75,7 @@ public sealed class RunExecutorTests
         Assert.Equal((RunStatus.Failed, MemeCaption, "The image model declined this photo."), (run.Status, run.CurrentStep, run.Error));
         Assert.Single(run.OutputIds);
         Assert.Equal(["Used a fallback description."], run.Notes);
+        Assert.Equal(0, _quota.Refunds);
     }
 
     [Fact]
@@ -83,7 +85,27 @@ public sealed class RunExecutorTests
 
         await executor.ExecuteAsync(NewRun(NewMedia(), Restyle), default);
 
-        Assert.Equal("Restyle failed unexpectedly.", Assert.Single(_runs.All).Error);
+        Assert.Equal("Restyle failed unexpectedly. It was not charged.", Assert.Single(_runs.All).Error);
+        Assert.Equal(1, _quota.Refunds);
+    }
+
+    [Fact]
+    public async Task A_cancelled_run_ends_as_failed_keeps_its_results_and_refunds_only_when_it_made_none()
+    {
+        var executor = Executor();
+        var empty = NewRun(NewMedia(), Restyle) with { Status = RunStatus.Running };
+        var partial = NewRun(NewMedia(), Restyle) with { Status = RunStatus.Running, OutputIds = [MediaId.New()] };
+        await _runs.SaveAsync(empty);
+        await _runs.SaveAsync(partial);
+
+        await executor.AbandonAsync(empty, "Cancelled.");
+        await executor.AbandonAsync(partial, "Cancelled.");
+        await executor.AbandonAsync(partial, "Cancelled.");
+
+        Assert.Equal("Cancelled. It was not charged.", (await _runs.GetAsync(Owner, empty.Id))!.Error);
+        var kept = (await _runs.GetAsync(Owner, partial.Id))!;
+        Assert.Equal((RunStatus.Failed, "Cancelled.", 1), (kept.Status, kept.Error, kept.OutputIds.Count));
+        Assert.Equal(1, _quota.Refunds);
     }
 
     [Fact]
@@ -126,6 +148,14 @@ public sealed class RunExecutorTests
     {
         public IReadOnlySet<MediaFunction> Handles { get; } = handles.ToHashSet();
         public Task ExecuteAsync(RunContext context, CancellationToken ct) => work(context);
+    }
+
+    private sealed class FakeQuota : IRenderQuota
+    {
+        public int Refunds { get; private set; }
+        public Task<QuotaStatusDto> GetStatusAsync(UserId userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<(bool Allowed, QuotaStatusDto Status)> TryConsumeAsync(UserId userId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task RefundAsync(UserId userId, CancellationToken ct = default) { Refunds++; return Task.CompletedTask; }
     }
 
     private sealed class FakeNotifier : IRunNotifier

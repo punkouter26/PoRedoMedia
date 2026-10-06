@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,7 @@ public static class MediaEndpoints
         group.MapPost("/{id}/frames", UploadFramesAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapPost("/{id}/transcript", SaveTranscriptAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapGet("/", ListAsync);
+        group.MapGet("/zip", ZipAsync);
         group.MapGet("/{id}", GetAsync);
         group.MapGet("/{id}/content", ContentAsync);
         group.MapGet("/{id}/thumb", ThumbAsync);
@@ -98,10 +100,12 @@ public static class MediaEndpoints
         {
             // ffprobe reads the headers straight from storage; the video is never copied here.
             duration = await ffmpeg.DurationSecondsAsync(storage.CreateReadLink(uploadPath, TimeSpan.FromMinutes(5)).ToString(), ct);
+            if (duration <= 0 && item.Extension == ".webm")
+                (duration, size) = await RepackAsync(uploadPath, item, storage, blobs, ffmpeg, size, ct);
             if (duration <= 0)
                 problem = "That file is not a readable video.";
-            else if (duration > UploadValidation.MaxVideoSeconds)
-                problem = "Videos can be up to 10 minutes long.";
+            else if (duration > UploadValidation.MaxVideoSeconds + UploadValidation.VideoSecondsSlack)
+                problem = "Videos can be up to 1 minute long.";
         }
 
         if (problem is not null)
@@ -126,6 +130,35 @@ public static class MediaEndpoints
         if (item.Kind == MediaKind.Video)
             audio.Prefetch(item.Id, item.SourcePath);
         return TypedResults.Ok(item.ToDto());
+    }
+
+    /// <summary>
+    /// A clip recorded in the browser is a WebM written while it was being captured: its header
+    /// carries no length, so it cannot be measured from storage or scrubbed in a player. Copying
+    /// its streams into a fresh file, without re-encoding, gives it both. Returns the length and
+    /// size of the repacked file, or a length of 0 when the file was not a video after all.
+    /// </summary>
+    private static async Task<(double Duration, long Size)> RepackAsync(
+        string uploadPath, MediaItem item, StorageClients storage, BlobStorageService blobs, FFmpegProcess ffmpeg, long size, CancellationToken ct)
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"poredomedia-repack-{item.Id}.webm");
+        try
+        {
+            var link = storage.CreateReadLink(uploadPath, TimeSpan.FromMinutes(10));
+            if (await ffmpeg.RunAsync($"-v error -i \"{link}\" -c copy -y \"{file}\"", item.Id, ct) != 0 || !File.Exists(file))
+                return (0, size);
+
+            var duration = await ffmpeg.DurationSecondsAsync(file, ct);
+            if (duration <= 0)
+                return (0, size);
+
+            await blobs.UploadFileAsync(uploadPath, file, item.ContentType, ct);
+            return (duration, new FileInfo(file).Length);
+        }
+        finally
+        {
+            try { File.Delete(file); } catch (IOException) { }
+        }
     }
 
     /// <summary>
@@ -260,6 +293,50 @@ public static class MediaEndpoints
         await media.GetAsync(UserId.From(http.User), id, ct) is { Status: MediaStatus.Ready }
             ? await delivery.ServeAsync(http, MediaBlobPaths.Thumbnail(id), ct: ct)
             : Results.NotFound();
+
+    /// <summary>Most items one ZIP holds.</summary>
+    private const int MaxZipItems = 50;
+
+    /// <summary>
+    /// Several of the user's items as one ZIP, written straight to the response. Nothing is
+    /// compressed again: pictures and video already are, and the hosting plan's CPU is scarce.
+    /// </summary>
+    private static async Task ZipAsync(string ids, HttpContext http, IMediaRepository media, BlobStorageService blobs, CancellationToken ct)
+    {
+        var owner = UserId.From(http.User);
+        var items = new List<MediaItem>();
+        foreach (var raw in ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().Take(MaxZipItems))
+        {
+            if (MediaId.TryParse(raw, null, out var id) && await media.GetAsync(owner, id, ct) is { Status: MediaStatus.Ready } item)
+                items.Add(item);
+        }
+
+        if (items.Count == 0)
+        {
+            http.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        // The archive writer still makes a few small synchronous writes (entry headers), even
+        // through its async methods, and the server refuses those unless told otherwise.
+        if (http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpBodyControlFeature>() is { } body)
+            body.AllowSynchronousIO = true;
+
+        http.Response.ContentType = "application/zip";
+        http.Response.Headers.ContentDisposition = "attachment; filename=\"poredomedia-gallery.zip\"";
+        await using var zip = await ZipArchive.CreateAsync(http.Response.Body, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, ct);
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            var name = DownloadName(item);
+            for (var n = 2; !used.Add(name); n++)
+                name = $"{Path.GetFileNameWithoutExtension(DownloadName(item))} ({n}){item.Extension}";
+
+            await using var entry = await zip.CreateEntry(name, CompressionLevel.NoCompression).OpenAsync(ct);
+            await using var blob = await blobs.OpenReadAsync(item.SourcePath, ct);
+            await blob.CopyToAsync(entry, ct);
+        }
+    }
 
     private static async Task<Results<Ok<MediaDto>, NotFound, ProblemHttpResult>> UpdateAsync(
         MediaId id, MediaUpdateRequest request, ClaimsPrincipal user, IMediaRepository media, CancellationToken ct)

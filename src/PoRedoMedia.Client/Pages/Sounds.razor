@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject SoundsApi Api
 @inject NotificationService Notifications
+@inject DialogService Dialogs
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -50,6 +51,11 @@
                             <RadzenButton Icon="@(_playing == sound.SoundId ? "graphic_eq" : "play_arrow")" Variant="Variant.Text" Size="ButtonSize.Small"
                                           aria-label="@($"Play {sound.DisplayName}")" Click="@(() => PlayAsync(sound))" />
                             @sound.DisplayName
+                            @if (sound.IsMine)
+                            {
+                                <RadzenButton Icon="delete" Variant="Variant.Text" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Disabled="@_busy.Contains(sound.SoundId)"
+                                              aria-label="@($"Delete {sound.DisplayName}")" title="Delete this upload" Click="@(() => DeleteAsync(sound))" />
+                            }
                         </span>
                     </Template>
                 </RadzenDataGridColumn>
@@ -127,8 +133,27 @@
         _sounds![_sounds.IndexOf(sound)] = new SoundAssetDto
         {
             SoundId = sound.SoundId, DisplayName = sound.DisplayName, DurationMs = sound.DurationMs,
-            ActionVectorTags = sound.ActionVectorTags, Attribution = sound.Attribution, IsFavorite = !sound.IsFavorite,
+            ActionVectorTags = sound.ActionVectorTags, Attribution = sound.Attribution, IsMine = sound.IsMine, IsFavorite = !sound.IsFavorite,
         };
+    }
+
+    private async Task DeleteAsync(SoundAssetDto sound)
+    {
+        var confirmed = await Dialogs.Confirm(
+            $"Delete \"{sound.DisplayName}\"? This cannot be undone.", "Delete",
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Keep" });
+        if (confirmed != true || !_busy.Add(sound.SoundId))
+            return;
+
+        var error = await Api.DeleteAsync(sound.SoundId);
+        _busy.Remove(sound.SoundId);
+        if (error is not null)
+        {
+            Notifications.Notify(NotificationSeverity.Error, "Could not delete that sound", error, 8000);
+            return;
+        }
+
+        _sounds!.Remove(sound);
     }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)

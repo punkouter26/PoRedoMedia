@@ -10,8 +10,8 @@
 <RadzenStack Gap="1rem">
     <div class="picker-drop" @ref="_zone">
         <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-m-0">Choose a photo or a video</RadzenText>
-        <RadzenText class="rz-m-0">Drop it here, paste it, pick a file, or use the camera.</RadzenText>
-        <RadzenText class="rz-m-0">JPG, PNG, WEBP or GIF up to 10 MB. MP4, MOV or WEBM up to 200 MB and 10 minutes.</RadzenText>
+        <RadzenText class="rz-m-0">Drop it here, paste it, pick a file, or use the camera for a photo or a video.</RadzenText>
+        <RadzenText class="rz-m-0">JPG, PNG, WEBP or GIF up to 10 MB. MP4, MOV or WEBM up to 200 MB and 1 minute.</RadzenText>
         <FilePick @ref="_file" Text="Choose file" Disabled="Busy" OnChange="UploadAsync" />
         @if (_hasCamera && !_cameraOn)
         {
@@ -20,8 +20,18 @@
         <video @ref="_camera" class="picker-camera" hidden="@(!_cameraOn)" playsinline muted aria-label="Camera preview"></video>
         @if (_cameraOn)
         {
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                <RadzenButton Text="Take the photo" Icon="camera" Click="TakePhotoAsync" />
+            @* The script writes the running time into this, so it is always there to be written to. *@
+            <span @ref="_clock" class="picker-rec" role="status" hidden="@(!_recording)"></span>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" Wrap="FlexWrap.Wrap" JustifyContent="JustifyContent.Center">
+                @if (_recording)
+                {
+                    <RadzenButton Text="Stop and use the video" Icon="stop_circle" ButtonStyle="ButtonStyle.Danger" Click="StopRecordingAsync" />
+                }
+                else
+                {
+                    <RadzenButton Text="Take the photo" Icon="camera" Click="TakePhotoAsync" />
+                    <RadzenButton Text="Record a video" Icon="videocam" Variant="Variant.Outlined" Click="StartRecordingAsync" />
+                }
                 <RadzenButton Text="Cancel" Variant="Variant.Outlined" Click="StopCameraAsync" />
             </RadzenStack>
         }
@@ -72,8 +82,10 @@
 
     private ElementReference _zone;
     private ElementReference _camera;
+    private ElementReference _clock;
     private bool _hasCamera;
     private bool _cameraOn;
+    private bool _recording;
     private bool _rendered;
 
     private bool Busy => _percent is not null || _status is not null;
@@ -110,10 +122,20 @@
         _cameraOn = false;
     }
 
+    private async Task StartRecordingAsync()
+    {
+        _recording = await JS.InvokeAsync<bool>("poMedia.startRecording", _camera, _file!.Element, _clock);
+        _error = _recording ? null : "This browser cannot record video here. Record one with your camera app and choose the file instead.";
+    }
+
+    // The clip arrives through the file input, as a photo does, and the upload starts from there.
+    // The script also stops by itself at the length limit, so the buttons are reset in UploadAsync.
+    private async Task StopRecordingAsync() => await JS.InvokeVoidAsync("poMedia.stopRecording", _camera);
+
     private async Task StopCameraAsync()
     {
         await JS.InvokeVoidAsync("poMedia.stopCamera", _camera);
-        _cameraOn = false;
+        (_cameraOn, _recording) = (false, false);
     }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
@@ -122,8 +144,17 @@
         if (Busy)
             return;
 
-        (_percent, _error) = (0, null);
         var input = _file!.Element;
+        // Read from the file's own header, so a clip that is too long is refused before it is sent.
+        // The server measures again after the upload; the slack is the one it allows.
+        if (await JS.InvokeAsync<double>("poMedia.videoSeconds", input) > 62)
+        {
+            (_error, _cameraOn, _recording) = ("Videos can be up to 1 minute long. Shorten it, then choose it again.", false, false);
+            await JS.InvokeVoidAsync("poMedia.clearFile", input);
+            return;
+        }
+
+        (_percent, _error, _cameraOn, _recording) = (0, null, false, false);
         var (media, error) = await Uploader.UploadAsync(input, e.File.Name, e.File.Size, percent =>
         {
             _percent = percent;

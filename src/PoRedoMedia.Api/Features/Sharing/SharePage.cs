@@ -7,7 +7,8 @@ namespace PoRedoMedia.Api.Features.Sharing;
 internal static class SharePage
 {
     /// <summary>A self-contained page: link previewers and visitors never load the app itself.</summary>
-    public static string Render(MediaItem item, string url)
+    /// <param name="remixUrl">Where a signed-in visitor starts a remix of it; null when it cannot be remixed.</param>
+    public static string Render(MediaItem item, string url, int views, int remixes, string? remixUrl)
     {
         var encode = HtmlEncoder.Default;
         var title = encode.Encode(item.Title);
@@ -19,6 +20,10 @@ internal static class SharePage
         };
         if (item.Text is not null)
             body += $"<pre>{encode.Encode(item.Text)}</pre>";
+
+        body += $"<p>{views} {(views == 1 ? "view" : "views")}{(remixUrl is null ? "" : $" · {remixes} {(remixes == 1 ? "remix" : "remixes")}")}</p>";
+        if (remixUrl is not null)
+            body += $"""<p><a href="{remixUrl}">Remix it with your own clip</a></p>""";
 
         var preview = item.Kind == MediaKind.Audio ? "" : $"""<meta property="og:image" content="{url}/{(item.Kind == MediaKind.Image ? "content" : "thumb")}">""";
         if (item.Kind == MediaKind.Video)

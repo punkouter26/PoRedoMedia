@@ -3,6 +3,8 @@ using PoRedoMedia.Shared.Models;
 namespace PoRedoMedia.Api.Features.Render;
 
 /// <summary>One render: the source, where the output goes, and the cues to lay over it.</summary>
+/// <param name="TrimStartSeconds">Where in the source the result starts. Cue and subtitle times count from here.</param>
+/// <param name="TrimSeconds">How much of the source is kept from there; null = to the end.</param>
 public sealed record RenderJob(
     MediaId MediaId,
     string SourceBlobPath,
@@ -10,7 +12,9 @@ public sealed record RenderJob(
     bool AggressiveVisuals,
     IReadOnlyList<RenderVisualEntry> Cues,
     string? AspectRatio = null,
-    IReadOnlyList<TranscriptSegmentDto>? Subtitles = null);
+    IReadOnlyList<TranscriptSegmentDto>? Subtitles = null,
+    double TrimStartSeconds = 0,
+    double? TrimSeconds = null);
 
 /// <summary>A cue as the renderer sees it: its sound, and the look around it.</summary>
 /// <param name="SoundPath">

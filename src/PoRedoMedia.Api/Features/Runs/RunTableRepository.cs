@@ -22,6 +22,7 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
             ["Error"] = run.Error,
             ["OutputIds"] = string.Join(',', run.OutputIds),
             ["Notes"] = JsonSerializer.Serialize(run.Notes),
+            ["Log"] = JsonSerializer.Serialize(run.Log),
             ["CreatedAt"] = run.CreatedAt,
         }, TableUpdateMode.Replace, ct);
 
@@ -63,6 +64,7 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
         Error = row.GetString("Error"),
         OutputIds = [.. Split(row.GetString("OutputIds")).Select(o => MediaId.Parse(o, null))],
         Notes = JsonSerializer.Deserialize<List<string>>(row.GetString("Notes") ?? "[]") ?? [],
+        Log = JsonSerializer.Deserialize<List<string>>(row.GetString("Log") ?? "[]") ?? [],
         CreatedAt = row.GetDateTimeOffset("CreatedAt") ?? default,
     };
 

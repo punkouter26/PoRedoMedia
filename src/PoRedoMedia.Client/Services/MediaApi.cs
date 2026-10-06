@@ -47,14 +47,28 @@ public sealed class MediaApi(HttpClient http)
         return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
     }
 
-    /// <summary>The item's public link. Asking again returns the same one.</summary>
-    public async Task<(string? Url, string? Error)> ShareAsync(Guid id)
+    /// <summary>
+    /// The item's public link. Asking again returns the same one. <paramref name="feed"/> posts it
+    /// to the feed or takes it off; null leaves that as it is.
+    /// </summary>
+    public async Task<(ShareLinkDto? Link, string? Error)> ShareAsync(Guid id, bool? feed = null)
     {
-        using var response = await http.PostAsync($"api/media/{id}/share", null);
+        using var response = await http.PostAsync($"api/media/{id}/share{(feed is { } on ? $"?feed={(on ? "true" : "false")}" : "")}", null);
         return response.IsSuccessStatusCode
-            ? ((await response.Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto))?.Url, null)
+            ? (await response.Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto), null)
             : (null, await ReasonAsync(response));
     }
+
+    /// <summary>Makes the video's GIF if it has none yet, which uses one run. Returns the reason when it could not.</summary>
+    public async Task<string?> MakeGifAsync(Guid id)
+    {
+        using var response = await http.PostAsync($"api/media/{id}/gif", null);
+        return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
+    }
+
+    /// <summary>What users have posted to the feed: trending first, or newest first.</summary>
+    public async Task<List<FeedItemDto>> FeedAsync(bool newest) =>
+        await http.GetFromJsonAsync($"api/feed{(newest ? "?sort=new" : "")}", WireJson.Default.ListFeedItemDto) ?? [];
 
     public async Task<string?> StopSharingAsync(Guid id)
     {

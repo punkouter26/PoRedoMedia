@@ -26,6 +26,7 @@ public sealed class MediaTableRepository(StorageClients storage) : IMediaReposit
             ["ShareToken"] = item.ShareToken,
             ["CreatedAt"] = item.CreatedAt,
             ["Text"] = item.Text,
+            ["Detail"] = item.Detail,
         }, TableUpdateMode.Replace, ct);
 
     public async Task<MediaItem?> GetAsync(UserId owner, MediaId id, CancellationToken ct = default)
@@ -79,5 +80,6 @@ public sealed class MediaTableRepository(StorageClients storage) : IMediaReposit
         ShareToken = row.GetString("ShareToken"),
         CreatedAt = row.GetDateTimeOffset("CreatedAt") ?? row.Timestamp ?? default,
         Text = row.GetString("Text"),
+        Detail = row.GetString("Detail"),
     };
 }

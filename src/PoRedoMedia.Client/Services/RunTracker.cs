@@ -12,6 +12,12 @@ public sealed class TrackedRun(RunDto run)
     public double Percent { get; internal set; } = run.Status == RunStatus.Complete ? 100 : 0;
     public string Message { get; internal set; } = run.Error ?? "Waiting to start";
     public List<MediaDto> Outputs { get; } = [];
+
+    /// <summary>
+    /// The run's progress lines, oldest first: what the AI found and decided along the way. Lines
+    /// arrive live, and the stored run fills in any that were sent before the page was listening.
+    /// </summary>
+    public List<string> Log { get; } = [.. run.Log ?? []];
     public IReadOnlyList<string> Notes { get; internal set; } = run.Notes;
     public bool Finished => Status is RunStatus.Complete or RunStatus.Failed;
 
@@ -27,6 +33,9 @@ public sealed class RunTracker(RunApi runs, MediaApi media) : IAsyncDisposable
 {
     /// <summary>How many past runs the tray lists.</summary>
     private const int Recent = 8;
+
+    /// <summary>Most log lines kept for one run.</summary>
+    private const int MaxLog = 500;
 
     private readonly List<TrackedRun> _runs = [];
     private Task? _loaded;
@@ -44,7 +53,7 @@ public sealed class RunTracker(RunApi runs, MediaApi media) : IAsyncDisposable
     public event Action<TrackedRun>? Finished;
 
     /// <summary>Reads the recent runs once and picks up any that are still going.</summary>
-    public Task LoadAsync() => _loaded ??= LoadCoreAsync();
+    public Task LoadAsync() => _loaded is { IsFaulted: false } ? _loaded : _loaded = LoadCoreAsync();
 
     private async Task LoadCoreAsync()
     {
@@ -80,7 +89,15 @@ public sealed class RunTracker(RunApi runs, MediaApi media) : IAsyncDisposable
     /// <summary>The run with this id, with its results loaded, or null when it is not the user's.</summary>
     public async Task<TrackedRun?> FindAsync(Guid id)
     {
-        await LoadAsync();
+        try
+        {
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            // The recent runs could not be read; the one asked for still can be.
+        }
+
         var tracked = _runs.FirstOrDefault(r => r.Run.Id == id);
         if (tracked is null)
         {
@@ -104,7 +121,9 @@ public sealed class RunTracker(RunApi runs, MediaApi media) : IAsyncDisposable
     {
         try
         {
-            tracked.Subscription = await runs.FollowAsync(tracked.Run.Id, p => OnProgressAsync(tracked, p), () => ResyncAsync(tracked));
+            tracked.Subscription = await runs.FollowAsync(tracked.Run.Id, p => OnProgressAsync(tracked, p), () => ResyncAsync(tracked),
+                // The connection is gone for good (a locked phone, a server restart): ask instead.
+                () => PollAsync(tracked));
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
         {
@@ -138,6 +157,8 @@ public sealed class RunTracker(RunApi runs, MediaApi media) : IAsyncDisposable
         }
 
         (tracked.Status, tracked.Step, tracked.Percent, tracked.Message) = (progress.Status, progress.Step, progress.Percent, progress.Message);
+        if (tracked.Log.Count < MaxLog && tracked.Log.LastOrDefault() != progress.Message)
+            tracked.Log.Add(progress.Message);
         if (progress.Output is { } output && tracked.Outputs.All(o => o.Id != output.Id))
             tracked.Outputs.Add(output);
         Changed?.Invoke();
@@ -163,6 +184,12 @@ public sealed class RunTracker(RunApi runs, MediaApi media) : IAsyncDisposable
 
         tracked.Run = current;
         tracked.Notes = current.Notes;
+        if (current.Log is { } stored && stored.Length >= tracked.Log.Count)
+        {
+            tracked.Log.Clear();
+            tracked.Log.AddRange(stored);
+        }
+
         tracked.Step = current.CurrentStep;
         if (current.Error is not null)
             tracked.Message = current.Error;

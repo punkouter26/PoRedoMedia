@@ -72,3 +72,38 @@
         animation: none;
     }
 }
+
+.run-log summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+/* column-reverse keeps the scroll pinned to the bottom as lines arrive, with no script. */
+.run-log-lines {
+    display: flex;
+    flex-direction: column-reverse;
+    max-height: 14rem;
+    overflow: auto;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--po-line);
+    border-radius: var(--po-radius-sm);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.82rem;
+}
+
+.run-log-lines ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.run-log-lines li {
+    padding: 0.1rem 0;
+    overflow-wrap: anywhere;
+}
+
+.run-log-cue {
+    color: var(--rz-primary);
+    font-weight: 600;
+}

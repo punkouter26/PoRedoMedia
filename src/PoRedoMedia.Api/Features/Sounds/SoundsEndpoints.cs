@@ -27,6 +27,7 @@ public static class SoundsEndpoints
             .DisableAntiforgery()
             .RequireRateLimiting(UploadRateLimit.Policy);
         group.MapGet("/{soundId:guid}/stream", StreamAsync);
+        group.MapDelete("/{soundId:guid}", DeleteAsync);
         return routes;
     }
 
@@ -42,7 +43,7 @@ public static class SoundsEndpoints
         return TypedResults.Ok((await repository.LoadAllAsync(ct)).VisibleTo(owner)
             .OrderByDescending(s => favorites.Contains(s.SoundId))
             .ThenBy(s => s.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .Select(s => ToDto(s, favorites.Contains(s.SoundId)))
+            .Select(s => ToDto(s, favorites.Contains(s.SoundId), owner))
             .ToList());
     }
 
@@ -100,7 +101,7 @@ public static class SoundsEndpoints
 
         await tagger.TagAsync(asset, SoundVocabulary.Tags(library.VisibleTo(owner)), ct);
         await repository.AddSoundAsync(asset, ct);
-        return TypedResults.Created($"/api/sounds/{soundId}/stream", ToDto(asset, false));
+        return TypedResults.Created($"/api/sounds/{soundId}/stream", ToDto(asset, false, owner));
     }
 
     private static async Task<IResult> StreamAsync(
@@ -108,6 +109,19 @@ public static class SoundsEndpoints
         (await repository.LoadAllAsync(ct)).VisibleTo(UserId.From(http.User)).FirstOrDefault(s => s.SoundId == soundId) is { } sound
             ? await delivery.ServeAsync(http, sound.BlobPath, ct: ct)
             : Results.NotFound();
+
+    /// <summary>Removes one of the caller's own uploads. The shared library cannot be deleted from here.</summary>
+    private static async Task<Results<NoContent, NotFound>> DeleteAsync(
+        SoundId soundId, ClaimsPrincipal user, ISoundAssetRepository repository, BlobStorageService blobs, CancellationToken ct)
+    {
+        var owner = UserId.From(user);
+        if ((await repository.LoadAllAsync(ct)).FirstOrDefault(s => s.SoundId == soundId && s.Owner == owner.Key) is not { } sound)
+            return TypedResults.NotFound();
+
+        await blobs.DeletePrefixAsync(sound.BlobPath, ct);
+        await repository.DeleteSoundAsync(soundId, ct);
+        return TypedResults.NoContent();
+    }
 
     private static string? ContentTypeFor(string extension) => extension switch
     {
@@ -125,8 +139,9 @@ public static class SoundsEndpoints
             || (d[..4].SequenceEqual("RIFF"u8) && d.Slice(8, 4).SequenceEqual("WAVE"u8))
             || d[..4].SequenceEqual("OggS"u8));
 
-    private static SoundAssetDto ToDto(SoundAsset s, bool favorite) => new()
+    private static SoundAssetDto ToDto(SoundAsset s, bool favorite, UserId caller) => new()
     {
+        IsMine = s.Owner == caller.Key,
         SoundId = s.SoundId.Value,
         DisplayName = s.DisplayName,
         DurationMs = s.DurationMs,

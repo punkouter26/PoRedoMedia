@@ -24,6 +24,22 @@
                     </Items>
                 </RadzenSelectBar>
             }
+            @if (Duration is > 3)
+            {
+                <div class="trim" role="group" aria-label="Trim">
+                    <span>Trim · @Seconds(TrimStart) – @Seconds(TrimEnd) (@Seconds(TrimEnd - TrimStart))</span>
+                    <label>
+                        <span>Start</span>
+                        <input type="range" min="0" max="@Invariant(Duration.Value)" step="0.5" value="@Invariant(TrimStart)" aria-label="Trim start"
+                               @oninput="@(e => SetTrim(Parse(e.Value) ?? 0, TrimEnd, movedStart: true))" />
+                    </label>
+                    <label>
+                        <span>End</span>
+                        <input type="range" min="0" max="@Invariant(Duration.Value)" step="0.5" value="@Invariant(TrimEnd)" aria-label="Trim end"
+                               @oninput="@(e => SetTrim(TrimStart, Parse(e.Value) ?? Duration.Value, movedStart: false))" />
+                    </label>
+                </div>
+            }
             <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.VideoAspect) is { Length: > 0 } aspect ? aspect : "original")"
                              Change="@((string v) => Set(RunOptions.VideoAspect, v))" aria-label="Shape of the result">
                 <Items>
@@ -178,6 +194,9 @@
     /// <summary>Voices the server can perform the video roast in.</summary>
     [Parameter] public IReadOnlyList<string> RoastVoices { get; set; } = [];
 
+    /// <summary>Length of the picked video in seconds. The trim sliders show when it is known and long enough.</summary>
+    [Parameter] public double? Duration { get; set; }
+
     /// <summary>Raised when an option changes, so the page can update what depends on it (the cost).</summary>
     [Parameter] public EventCallback Changed { get; set; }
 
@@ -230,6 +249,44 @@
         for (var i = 0; i < _bulk.Count; i++)
             if (_bulkTicked[i] && _bulk[i].Trim().Length > 0)
                 Options[RunOptions.BulkPrompt(slot++)] = _bulk[i];
+    }
+
+    private double TrimStart => Math.Clamp(Parse(Get(RunOptions.VideoTrimStart)) ?? 0, 0, Duration ?? 0);
+
+    private double TrimEnd => Math.Clamp(Parse(Get(RunOptions.VideoTrimEnd)) ?? Duration ?? 0, 0, Duration ?? 0);
+
+    private static double? Parse(object? value) =>
+        double.TryParse(value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : null;
+
+    private static string Invariant(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Seconds(double value) => $"{value:0.#}s";
+
+    /// <summary>Keeps the two ends at least a second apart by pushing the one that was not moved.</summary>
+    private Task SetTrim(double start, double end, bool movedStart)
+    {
+        var length = Duration ?? 0;
+        if (end - start < 1)
+        {
+            if (movedStart)
+                (start, end) = (Math.Min(start, length - 1), Math.Min(start, length - 1) + 1);
+            else
+                (start, end) = (Math.Max(end, 1) - 1, Math.Max(end, 1));
+        }
+
+        // The whole video is the absence of a trim, so nothing rides along with the run for it.
+        if (start <= 0 && end >= length)
+        {
+            Options.Remove(RunOptions.VideoTrimStart);
+            Options.Remove(RunOptions.VideoTrimEnd);
+        }
+        else
+        {
+            Options[RunOptions.VideoTrimStart] = Invariant(start);
+            Options[RunOptions.VideoTrimEnd] = Invariant(end);
+        }
+
+        return Changed.InvokeAsync();
     }
 
     private string Mode => Get(RunOptions.MemeMode) is { Length: > 0 } mode ? mode : RunOptions.MemeModeAi;

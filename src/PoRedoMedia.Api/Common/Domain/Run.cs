@@ -19,9 +19,15 @@ public sealed record Run
     /// <summary>Things the user should know that did not fail the run, such as a fallback that was used.</summary>
     public IReadOnlyList<string> Notes { get; init; } = [];
 
+    /// <summary>
+    /// The progress lines the run has reported, oldest first: what the AI found and decided. Kept
+    /// with the run because a page that subscribes a moment late would otherwise never see them.
+    /// </summary>
+    public IReadOnlyList<string> Log { get; init; } = [];
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public RunDto ToDto() => new(
         Id.Value, SourceId.Value, [.. Functions], Status, CurrentStep, Error,
-        [.. OutputIds.Select(o => o.Value)], [.. Notes], CreatedAt, new(Options));
+        [.. OutputIds.Select(o => o.Value)], [.. Notes], CreatedAt, new(Options), [.. Log]);
 }

@@ -76,6 +76,12 @@ public sealed class SoundAssetTableRepository : ISoundAssetRepository
         InvalidateCache();
     }
 
+    public async Task DeleteSoundAsync(SoundId soundId, CancellationToken cancellationToken = default)
+    {
+        await _factory.Table(TableName).DeleteEntityAsync(PartitionKey, soundId.ToString(), cancellationToken: cancellationToken);
+        InvalidateCache();
+    }
+
     /// <remarks>Fire-and-forget: eviction is not ordered work.</remarks>
     private void InvalidateCache() => _ = _cache.RemoveAsync(CacheKey).AsTask();
 }

@@ -82,6 +82,9 @@
         else
             Notifications.Notify(NotificationSeverity.Error, "Run failed", run.Message, 8000);
         await JS.InvokeVoidAsync("poSfx.play", run.Status == RunStatus.Complete ? "success" : "fail");
+        await JS.InvokeVoidAsync(
+            "poMedia.notifyDone", run.Status == RunStatus.Complete ? "✓ Your run is ready" : "⚠ Your run failed",
+            run.Status == RunStatus.Complete ? $"{what} is in your gallery." : run.Message);
     });
 
     private static string Icon(TrackedRun run) => run.Status switch
@@ -119,6 +122,7 @@
             }
 
             await JS.InvokeVoidAsync("poSfx.play", "start");
+            await JS.InvokeVoidAsync("poMedia.askNotify");
             View(Tracker.Track(started));
         }
         finally

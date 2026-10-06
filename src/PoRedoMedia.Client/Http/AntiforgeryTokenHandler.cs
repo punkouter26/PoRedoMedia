@@ -11,8 +11,9 @@ namespace PoRedoMedia.Client.Http;
 /// <remarks>
 /// A 400 on a write is retried once with a fresh token, and that retry is load-bearing: the token
 /// is bound to the caller's identity, so one fetched before sign-in stops validating after it.
-/// The first signed-in write of a session normally takes this path. One retry only, so a request
-/// that is genuinely malformed still surfaces its 400.
+/// The first signed-in write of a session normally takes this path. Only a 400 that says the token
+/// was refused is retried: any other 400 is the endpoint's own answer, and sending the request
+/// again would replace its reason with whatever the second attempt finds.
 /// </remarks>
 public sealed partial class AntiforgeryTokenHandler(Func<HttpClient> tokenClientFactory) : DelegatingHandler
 {
@@ -33,7 +34,7 @@ public sealed partial class AntiforgeryTokenHandler(Func<HttpClient> tokenClient
 
         await StampAsync(request, forceRefresh: false, cancellationToken);
         var response = await base.SendAsync(request, cancellationToken);
-        if (response.StatusCode != HttpStatusCode.BadRequest)
+        if (response.StatusCode != HttpStatusCode.BadRequest || !await IsTokenRefusalAsync(response, cancellationToken))
             return response;
 
         response.Dispose();
@@ -49,6 +50,14 @@ public sealed partial class AntiforgeryTokenHandler(Func<HttpClient> tokenClient
 
         await StampAsync(retry, forceRefresh: true, cancellationToken);
         return await base.SendAsync(retry, cancellationToken);
+    }
+
+    /// <summary>The server's antiforgery filter titles its refusal with these words.</summary>
+    private static async Task<bool> IsTokenRefusalAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        // Buffered, so the caller can still read the body of a 400 that is not retried.
+        await response.Content.LoadIntoBufferAsync(ct);
+        return (await response.Content.ReadAsStringAsync(ct)).Contains("Invalid antiforgery token", StringComparison.Ordinal);
     }
 
     private async Task StampAsync(HttpRequestMessage request, bool forceRefresh, CancellationToken ct)

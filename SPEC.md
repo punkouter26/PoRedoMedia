@@ -18,7 +18,7 @@ one workflow. No new AI function is added in this round.
 tick *Restyle* and *Meme caption* → Run → progress shows each step → the captioned image appears
 and is saved to the gallery.
 
-**J2 — Meme a video.** Create → drop a video (≤ 10 min) → tick *Meme-ify*, *Insult roast* (pick a
+**J2 — Meme a video.** Create → drop a video (≤ 1 min) → tick *Meme-ify*, *Insult roast* (pick a
 voice) and *Auto-captions* → Run → one render → the finished MP4 plays and is saved. SRT is
 downloadable when captions were on.
 
@@ -26,7 +26,8 @@ downloadable when captions were on.
 8-second clip is saved → *Use as source* again → tick *Meme-ify* → Run.
 
 **J4 — Bulk.** Create → drop a photo → tick *Bulk styles* (other functions become unavailable) →
-Run → up to 10 variations stream into a compare board → save the ones to keep.
+Run → up to 10 variations appear as they are made and are all saved to the gallery; the unwanted
+ones are deleted there. (The compare board and "save the ones to keep" were never built.)
 
 **J5 — Share.** Gallery → open an item → Share → copy the `/v/{token}` link. An anonymous visitor
 opens it and sees the image or video. The owner can revoke the link.
@@ -232,7 +233,7 @@ public static class QuotaEndpoints
 
 ## 9. Out of scope
 
-Public feed, trending and remix · Cue Studio and re-render · GIF export · migrating data from the
+Cue Studio and re-render · migrating data from the
 old apps · retiring the old apps · iOS · new AI functions · real-time collaboration · Bicep or
 container hosting · a paid App Service plan.
 
@@ -240,15 +241,15 @@ container hosting · a paid App Service plan.
 
 | Case | Behaviour |
 |---|---|
-| Unsupported file type, image too large, video > 10 min | Rejected before upload completes, with the limit stated |
+| Unsupported file type, image too large, video > 1 min | Rejected before upload completes, with the limit stated |
 | Invalid function stack | 400, nothing runs, no quota spent |
 | Daily quota spent | 429 with a message and the reset time; Run is disabled |
 | Provider key missing | That function is shown as unavailable with the reason; others still work |
 | One image step fails mid-chain | Run ends as failed at that step; outputs already produced are kept and labelled partial |
 | Video roast fails | The video still renders without it, and the result says so |
 | Whisper not configured | Auto-captions is not offered |
-| Bulk: some of the 10 fail | The successful ones are shown; failed slots can be retried individually |
-| Veo job times out | Run fails with a retry action; the first two retries are free |
+| Bulk: some of the 10 fail | The successful ones are shown and saved. There is no per-slot retry: run it again with only the missing styles ticked |
+| A run fails or is cancelled | Results already made are kept. A run that made nothing gives its credit back and says so. This covers a Veo timeout, so its retry is free |
 | Server restarts mid-run | Housekeeping marks the run interrupted; retry is free |
 | Two runs on the same source at once | The second gets 409 |
 | Local model fails or the device is unsupported | The error is shown as is; no cloud fallback |
@@ -290,7 +291,7 @@ container hosting · a paid App Service plan.
 | Q2 | Resolved by default: 10 runs per day; every run costs 1 | Change on request |
 | Q3 | Are the model ids in §3 still live? `gemini-2.5-flash` was retired under PoRedoImage once | Verify each before its slice is built; report any that changed |
 | Q4 | Is there a Whisper deployment for captions? PoMemeVideo ships with it empty | Captions slice is built and tested against mocks; offered only when configured |
-| Q5 | Source limits: max image size and max video size | 10 MB image; 10 min and 200 MB video |
+| Q5 | Source limits: max image size and max video size | 10 MB image; 1 min and 200 MB video (lowered from 10 min on 2026-10-05) |
 | Q6 | Rap roast on an image yields audio beside the image. Should it be muxed into a video instead? | Keep as audio with the image, as PoRedoImage does |
 | Q7 | Retention: 30 days for unpinned items, as PoMemeVideo does? | Yes |
 | Q8 | App name and resource group in Azure, and the Entra app registration | `app-poredomedia` in RG `PoRedoMedia`; a new registration, created when deploy is approved |
@@ -308,6 +309,8 @@ Rules added by the Phase 5 review:
 - Public share pages hand out 15-minute read links.
 
 Found and not fixed (each needs a decision or is low value):
+- Fixed 2026-10-05: the session cookie is `SameSite=Lax`. It was `Strict`, which browsers withhold from the
+  redirect that follows the return from Microsoft, so every Microsoft sign-in landed back on the login page.
 - Fixed 2026-10-05: sign-out is a POST with the antiforgery token. It ends this app's session only; the Microsoft session is left alone.
 - `AzureAd:TenantId` is `common`, so any Microsoft account can sign in until `Auth:AllowedEmails` is set (added 2026-10-05; empty by default).
 - Confirming a video upload still transcribes it without spending a credit (bounded by the upload rate limit).
@@ -315,7 +318,8 @@ Found and not fixed (each needs a decision or is low value):
 - Fixed 2026-10-05: storage clients are created once per table and container.
 - Blob CORS rules are replaced at each start: the storage account must not be shared with another app.
 - More than one app instance would make housekeeping fail runs another instance is executing.
-- Removed 2026-10-05: the unused video trim parameters.
+- Removed 2026-10-05: the unused video trim parameters. Brought back the same day as a working
+  trim: see "Features brought back from the old apps".
 
 ## Azure resources (2026-10-05)
 
@@ -376,3 +380,64 @@ Considered and not done:
 - A content security policy for the app pages: the on-device models load from two CDNs and need
   testing against one before it can be enforced.
 - Moving `ConfigEndpoint` into a slice: it reads every slice, which only the composition root may.
+
+## Features brought back from the old apps (2026-10-05)
+
+Eight things the old apps had were added back on request. The feed, remix and GIF export had been
+out of scope (§9) and no longer are; Cue Studio still is.
+
+- **Trim.** Two sliders on Create set `Video.trimStart` and `Video.trimEnd`. The render seeks the
+  source, and labels, speech and loudness are shifted to count from the trimmed start. A value
+  that cannot be read or is out of range trims less; it never fails the run.
+- **Run log.** Every progress line is kept on the run (`Log`, at most 12,000 characters) and shown
+  under the steps: speech heard, moments found, each cue (`HIT #n`) and each roast joke.
+- **Roast stage.** A lyric line plays the track from there; a slider shifts the highlighting by up
+  to 3 seconds; "What the AI saw" shows the scene the roast was written from (`MediaItem.Detail`,
+  a new optional column); the roast can be recorded in the browser as a WebM video, meme cut or
+  classic.
+- **Notifications.** Starting a run asks for permission once. A run that ends while the tab is
+  hidden raises a system notification and alternates the tab title.
+- **Feed and remix.** Sharing has a switch that also posts the item to `/feed`, which every
+  signed-in user can open (Trending or New, 60 items). The share page counts views. A Meme-ify
+  result keeps its cues (`script.json`), and "Remix" re-times them onto another user's video
+  (`Memeify.remix` = the share token) without calling the director. No anonymous route was added.
+- **Exports.** `GET /api/media/{id}/gif` makes a looping GIF of the first 8 seconds; the first
+  request costs one run credit and the file is kept. `GET /api/media/{id}/roast-audio` returns a
+  video's roast as a sound file.
+- **Gallery.** A right-click menu on each card, copy a picture to the clipboard, and one ZIP
+  (`GET /api/media/zip?ids=`, up to 50 items, stored uncompressed) for a multi-item download.
+
+- **Camera video.** The camera panel on Create records a video as well as taking a photo: up to
+  1 minute, with the microphone when it is allowed. A WebM that arrives with no length in its
+  header, as a browser recording does, is repacked at confirm (streams copied, not re-encoded) so
+  it can be measured and scrubbed.
+
+Not done: clickable tag chips. Gallery items in this app carry no tags, so there is nothing to
+filter by; the search already covers titles, origin and text.
+
+Storage: `Media.Detail`, `Runs.Log` and five properties on a share link (`OnFeed`, `Author`,
+`SharedAt`, `Views`, `Remixes`) are new and optional, so existing rows read as before.
+
+## Edge-case round (2026-10-06)
+
+Ten issues from a review of rare workflows, fixed with these decisions:
+
+- **Refused uploads keep their reason.** The client resends a write only when the 400 is the
+  antiforgery refusal. A video longer than a minute is refused in the browser before it is sent.
+- **Runs do not stick on "running".** When the live connection closes for good the page asks for
+  the run every 3 seconds until it ends.
+- **Phone photos are turned upright** from their rotation tag whenever an image is processed or
+  given a thumbnail. The stored original is not rewritten.
+- **A failed run that made nothing is not charged**, and neither is a cancelled one.
+- **A run can be cancelled** (`DELETE /api/runs/{id}`, a button on Create). A queued run ends when
+  its turn comes, not at once. There is still one queue for the whole app and no queue position.
+- **The GIF is made by a POST** (`POST /api/media/{id}/gif`), one at a time per video; the GET
+  only serves it. Downloads are marked as downloads, so a refusal no longer replaces the page.
+- **Multi-item download** is refused in the page above 50 items or 1 GB.
+- **Expiry is shown, not changed.** A shared item still expires at 30 days unless pinned; the
+  details panel and the share dialog now say when. `/api/config` carries `retentionDays`.
+- **Gallery shortcuts** act only when focus is on the page or a card. Search and Escape work anywhere.
+- **A remix is carried by the run's options alone**; the banner follows them and its cancel removes it.
+
+Also: a file dropped during an upload is ignored; the gallery shows results of a run that ends
+while it is open; an uploaded sound can be deleted by its uploader (`DELETE /api/sounds/{id}`).

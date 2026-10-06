@@ -80,4 +80,10 @@ public interface IShareLinks
 {
     /// <summary>Turns a link off. The item it pointed at is untouched.</summary>
     Task RevokeAsync(string token, CancellationToken ct = default);
+
+    /// <summary>Whose item a link points at, or null when the link is unknown or turned off.</summary>
+    Task<(UserId Owner, MediaId Media)?> ResolveAsync(string token, CancellationToken ct = default);
+
+    /// <summary>Counts one more remix of the shared item.</summary>
+    Task CountRemixAsync(string token, CancellationToken ct = default);
 }

@@ -5,7 +5,7 @@ namespace PoRedoMedia.E2EAPI;
 public sealed class AuthFlowApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     [Fact]
-    public async Task Dev_login_issues_an_HttpOnly_strict_cookie_and_redirects_home()
+    public async Task Dev_login_issues_an_HttpOnly_lax_cookie_and_redirects_home()
     {
         var response = await factory.CreateNoRedirectClient().GetAsync("/dev-login?email=dev@example.com");
 
@@ -13,7 +13,7 @@ public sealed class AuthFlowApiTests(ApiFactory factory) : IClassFixture<ApiFact
         Assert.Equal("/", response.Headers.Location?.OriginalString);
         var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=lax", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
