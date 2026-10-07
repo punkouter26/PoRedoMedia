@@ -3,7 +3,7 @@ name: CI
 # The push/PR gate, and nothing else.
 #
 # One runner, no containers, no ffmpeg: a red build here always means the code is wrong. The
-# integration and API E2E suites run weekly and on demand from ci-full.yml.
+# integration and API E2E suites run locally. deploy.yml ships each green build.
 on:
   push:
     branches: [master]

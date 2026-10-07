@@ -1,6 +1,6 @@
 # Rules for agents working in this repository
 
-Project summary, scope and decisions: [SPEC.md](SPEC.md). Task list: [tasks/todo.md](tasks/todo.md).
+Task list: [tasks/todo.md](tasks/todo.md).
 Overall summary of the project: [DOCS/README.md](DOCS/README.md).
 
 ## Working rules

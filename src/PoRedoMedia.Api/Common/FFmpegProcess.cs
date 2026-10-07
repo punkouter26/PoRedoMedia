@@ -160,6 +160,12 @@ public sealed partial class FFmpegProcess
     }
 
     /// <summary>
+    /// The font the deploy workflow bundles beside the app, for hosts with no fonts installed
+    /// (the App Service .NET image). Absent on dev machines, where a system font is found first.
+    /// </summary>
+    internal static string BundledFontPath { get; } = Path.Combine(AppContext.BaseDirectory, "fonts", "DejaVuSans-Bold.ttf");
+
+    /// <summary>
     /// Restores the Unix executable bit on the bundled binaries. ZIP deployment is not a reliable
     /// carrier for file modes — Kudu's extraction can drop them — and a non-executable ffmpeg
     /// surfaces only at Process.Start as a bare "Permission denied" with no hint at the cause.

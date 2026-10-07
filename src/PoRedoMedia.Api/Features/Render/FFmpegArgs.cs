@@ -360,6 +360,8 @@ internal static class FFmpegArgs
             return ":fontfile='C\\:/Windows/Fonts/arial.ttf'";
         if (File.Exists("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
             return ":fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'";
+        if (File.Exists(FFmpegProcess.BundledFontPath))
+            return $":fontfile='{FFmpegProcess.BundledFontPath.Replace('\\', '/').Replace(":", "\\:")}'";
         return string.Empty;
     }
 }

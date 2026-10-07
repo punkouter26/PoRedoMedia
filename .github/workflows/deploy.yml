@@ -1,0 +1,138 @@
+name: Deploy
+
+# Runs once CI has passed on master, and deploys exactly the commit CI tested.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-poredomedia-master
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME || 'app-poredomedia' }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'PoRedoMedia' }}
+  # Statically linked ffmpeg, bundled into the publish output so the app ships as code on the F1
+  # plan rather than as a container.
+  #
+  # Must be the **gpl** variant: the render pipeline encodes with libx264, which the lgpl builds
+  # omit. Must be the non-`shared` archive: only the static build's binaries can be lifted out of
+  # the tarball on their own.
+  #
+  # `latest` + `n8.1-latest` are BtbN's rolling names and the only ones safe to reference: dated
+  # `autobuild-*` tags are pruned after about two weeks. A checksum pin is therefore impossible;
+  # the verification below is behavioural instead.
+  FFMPEG_TAG: latest
+  FFMPEG_ARCHIVE: ffmpeg-n8.1-latest-linux64-gpl-8.1
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0 # MinVer reads the version from tags
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      # Framework-dependent on purpose: App Service supplies the DOTNETCORE|10.0 runtime.
+      - name: Publish
+        run: dotnet publish src/PoRedoMedia.Api -c Release -o publish
+
+      - name: Bundle and verify ffmpeg
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o ffmpeg.tar.xz \
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_TAG}/${FFMPEG_ARCHIVE}.tar.xz"
+          sha256sum ffmpeg.tar.xz   # recorded in the log so a bad build can be identified afterwards
+
+          # FFmpegProcess looks for exactly this directory next to the app assembly.
+          mkdir -p publish/ffmpeg
+          tar -xJf ffmpeg.tar.xz --strip-components=2 -C publish/ffmpeg \
+            "${FFMPEG_ARCHIVE}/bin/ffmpeg" "${FFMPEG_ARCHIVE}/bin/ffprobe"
+          chmod +x publish/ffmpeg/ffmpeg publish/ffmpeg/ffprobe
+
+          publish/ffmpeg/ffmpeg -version | head -1
+          publish/ffmpeg/ffprobe -version | head -1
+          publish/ffmpeg/ffmpeg -hide_banner -encoders | grep -q libx264 \
+            || { echo "::error::bundled ffmpeg lacks libx264 (wrong build variant)"; exit 1; }
+
+      # The App Service .NET image is not known to carry any font, and both the meme renderer and
+      # ffmpeg's drawtext need one. FFmpegProcess.BundledFontPath is this file.
+      - name: Bundle a font
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+          mkdir -p publish/fonts
+          cp /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf publish/fonts/
+
+      # An encoder listed is not an encoder that works, and a font present is not a font drawtext
+      # can open. Encode one captioned frame with the bundled binaries and the bundled font, so a
+      # bad archive fails here rather than on the first render in production.
+      - name: Check ffmpeg and font
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish/ffmpeg/ffmpeg -hide_banner -loglevel error \
+            -f lavfi -i testsrc=size=64x64:rate=1 \
+            -vf "drawtext=text='OK':fontfile='publish/fonts/DejaVuSans-Bold.ttf':fontsize=12" \
+            -frames:v 1 -c:v libx264 -y smoke.mp4
+          [ "$(publish/ffmpeg/ffprobe -v error -select_streams v:0 \
+                 -show_entries stream=codec_name -of csv=p=0 smoke.mp4)" = "h264" ] \
+            || { echo "::error::ffprobe did not read back an h264 stream"; exit 1; }
+          rm -f smoke.mp4
+          du -sh publish
+
+      # Keeps the execute bit on the bundled ffmpeg.
+      - name: Package
+        run: python3 scripts/package.py publish package.zip
+
+      # Secretless OIDC login via the federated credential on the PoShared deployment app
+      # registration (subject: refs/heads/master).
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # No WEBSITE_RUN_FROM_PACKAGE: the read-only mount would block the startup chmod fallback in
+      # FFmpegProcess.
+      #
+      # --clean true: a merge-style deploy would leave assemblies from earlier builds behind.
+      # --async true: synchronous mode waits out the container recycle and gives up at 10 minutes,
+      # which an F1 cold start can exceed. The health gate below is the real verification.
+      - name: Deploy package
+        run: >
+          az webapp deploy --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME"
+          --src-path package.zip --type zip --clean true --async true
+
+      - name: Health gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEALTH_URL="https://${WEBAPP_NAME}.azurewebsites.net/health/live"
+          # The old instance answers 200 until the recycle starts; give it time to begin.
+          sleep 60
+          # 60 x 15s = 15 min: F1 has no Always On and the recycle is slow.
+          for attempt in {1..60}; do
+            status_code="$(curl -sS -o /dev/null -w "%{http_code}" "${HEALTH_URL}" || true)"
+            echo "Attempt ${attempt}/60: HTTP ${status_code}"
+            [ "${status_code}" = "200" ] && { echo "Healthy."; exit 0; }
+            sleep 15
+          done
+          az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --query '{state:state, linuxFxVersion:siteConfig.linuxFxVersion}'
+          exit 1

@@ -2,7 +2,7 @@
 
 A private media studio. A signed-in user picks one image or one video, ticks the functions to
 apply, and runs them as one job. Results land in the gallery, where they can be downloaded, shared
-by link, or used as the source of the next run. Full detail: [SPEC.md](../SPEC.md).
+by link, or used as the source of the next run.
 
 ## Projects
 

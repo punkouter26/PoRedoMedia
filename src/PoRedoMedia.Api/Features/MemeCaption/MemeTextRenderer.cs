@@ -21,7 +21,9 @@ internal static class MemeTextRenderer
             return fontFamily;
         }
 
-        return SystemFonts.Families.First();
+        return File.Exists(FFmpegProcess.BundledFontPath)
+            ? new FontCollection().Add(FFmpegProcess.BundledFontPath, System.Globalization.CultureInfo.InvariantCulture)
+            : SystemFonts.Families.First();
     }
 
     public static void DrawText(
