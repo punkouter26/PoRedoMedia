@@ -249,19 +249,57 @@ Standard verification, unless a task says otherwise:
 
 ## M9 — CI and deploy (each needs your go-ahead)
 
-- [x] **T57 CI.** Files: `.github/workflows/ci.yml` (build, budgets, unit tests),
-  `.github/workflows/ci-full.yml` (integration, E2E API; manual). Port from `Meme`. Deps: T53.
-- [ ] **T58 Deploy workflow.** Files: `.github/workflows/deploy.yml` (publish, bundle and verify
-  ffmpeg, font check, zip deploy, health gate). Port from `Meme`. Deps: T57.
-- [ ] **T59 Azure and first deploy.** *(2026-10-05: resources, Entra registration, secrets, vault access and a first deploy are done and healthy; see SPEC "Azure resources". Open: a signed-in run on the deployed app, GitHub repo and push, deploy workflow T58.)* Resource group, web app on `asp-PoShared-f1`, storage account,
-  Entra registration, `PoRedoMedia--*` secrets in `kv-poshared`, managed identity policy, GitHub
-  variables, first deploy, tag `v0.1.0`. **Not started without explicit approval; each resource is
-  listed for you first.** Accept: `/health` healthy (success criterion 13). Deps: T58.
+- [x] **T57 CI.** Files: `.github/workflows/ci.yml` (build, budgets, unit tests). `ci-full.yml`
+  was removed on 2026-10-07: the integration and API E2E suites run locally. Deps: T53.
+- [x] **T58 Deploy workflow.** *(Done 2026-10-07.)* `.github/workflows/deploy.yml` runs after a
+  green CI on `master`: publish, bundle static ffmpeg and `DejaVuSans-Bold.ttf`, encode one
+  captioned h264 frame with both, `scripts/package.py`, zip deploy, health gate. The app falls back
+  to the bundled font (`FFmpegProcess.BundledFontPath`) when the host has none. Deps: T57.
+- [x] **T59 Azure and first deploy.** *(Done 2026-10-07, except the signed-in run below.)*
+  - Resource group `PoRedoMedia` (westus3): plan `asp-PoRedoMedia-f1` (Linux F1), web app
+    `app-poredomedia` (system identity, get/list on `kv-poshared`), storage `stporedomedia`, Entra
+    registration `PoRedoMedia`, vault secrets `PoRedoMedia--AzureAd--ClientId`,
+    `--AzureAd--ClientSecret`, `--Storage--ConnectionString`.
+  - Deploy identity: the PoShared deployment registration (`07bc75d9-…`, also used by PoMemeVideo)
+    has federated credential `github-poredomedia-master` and Contributor on the `PoRedoMedia`
+    resource group only. GitHub presents the subject with ids in it:
+    `repo:punkouter26@121304072/PoRedoMedia@1409377614:ref:refs/heads/master`.
+  - Repo variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`. Tag `v0.1.0` is on
+    the first manual deploy (`b16f615`).
+  - Open: no signed-in run has been made on the deployed app (Microsoft sign-in is interactive), so
+    a real render with the bundled ffmpeg and font is unproven there.
 
 ## M10 — Verify
 
-- [ ] **T60 Phase 5.** *(2026-10-05: full suite, security review, code review and dead-code pass done on the web app and fixed; see SPEC "Review outcomes". Still open: evidence per success criterion after deploy, and the items listed there as not fixed.)* Full suite; `/code-review`; `/security-review`; `/simplify`; re-run tests;
-  evidence for each of the 14 success criteria; recap with deferred items.
+- [ ] **T60 Phase 5.** Reviews (`/code-review`, `/security-review`, dead code) were done and fixed
+  on 2026-10-05 and have not been re-run over the two commits since. Evidence, 2026-10-07:
+
+  | # | Criterion | Evidence |
+  |---|---|---|
+  | 1 | 0 warnings, 0 errors | Release build clean locally and in CI run 0fa36f5 |
+  | 2 | Four tiers pass within budget | Unit 100/100, Integration 49/50, E2E API 7/25, E2E UI 12/25 (11 pass, on-device model test skipped without `E2E_LOCAL_AI=1`) |
+  | 3 | J1, J2, J4, J5 with mocks | `scripts/run-e2e.ps1` green |
+  | 4 | Stack matrix | `FunctionStackTests` |
+  | 5 | Each function against real providers | **Open**: no output files kept; `scripts/live-check.ps1` produces them and spends real credits |
+  | 6 | One ffmpeg render per stacked run | Its test is in the suites that passed today (not re-traced to a named test) |
+  | 7 | Deny by default, antiforgery | E2E API green; live site answers 401 to anonymous `/api/media` and `/api/runs` |
+  | 8 | Share page, 404 after revoke | Its test is in the suites that passed today (not re-traced to a named test) |
+  | 9 | 429 at the daily limit | Its test is in the suites that passed today (not re-traced to a named test) |
+  | 10 | Model picker and on-device model | Picker covered; the on-device test is the skipped one, so **not re-proven today** |
+  | 11 | PWA and webcam | E2E UI green; live `/manifest.webmanifest` 200 |
+  | 12 | Withdrawn | — |
+  | 13 | CI on push, deployed `/health` | CI and Deploy green on 0fa36f5; `/health/live` 200 after the workflow deploy |
+  | 14 | No secret in the repo | Security review of 2026-10-05; the workflow uses OIDC and stores no secret |
+
+  Deferred or not fixed (decisions still yours):
+  - Signed-in run on the deployed app; criterion 5 output files; criterion 10 on-device run.
+  - `AzureAd:TenantId` is `common`: any Microsoft account can sign in until `Auth:AllowedEmails` is set.
+  - Confirming a video upload transcribes it without spending a credit (bounded by the upload rate limit).
+  - Output blobs can be orphaned if the row write fails after the blob write.
+  - Blob CORS rules are replaced at each start: the storage account must not be shared.
+  - More than one app instance would make housekeeping fail runs another instance is executing.
+  - The health gate proves the site answers, not that the new build is the one answering.
+  - Workflow actions are pinned to Node 20 builds, which GitHub now warns about.
 
 ## Verification of the plan as a whole
 
