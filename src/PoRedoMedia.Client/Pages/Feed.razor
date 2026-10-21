@@ -1,15 +1,12 @@
-@page "/feed"
+@* What other users shared to the feed. Shown by the Library page, which owns the address /feed. *@
 @inject MediaApi Api
 @inject NavigationManager Navigation
 @inject NotificationService Notifications
 @inject IJSRuntime JS
 
-<PageTitle>Feed · PoRedoMedia</PageTitle>
-
 <RadzenStack Gap="0.75rem">
-    <div class="feed-bar">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Feed</RadzenText>
-        <RadzenSelectBar TValue="string" Value="@(Sort == "new" ? "new" : "trending")" Change="SetSort" aria-label="Order">
+    <div class="po-page-bar">
+        <RadzenSelectBar TValue="string" Value="@(Sort == "new" ? "new" : "trending")" Change="SetSort" Size="ButtonSize.Small" aria-label="Order">
             <Items>
                 <RadzenSelectBarItem Text="Trending" Value="@("trending")" />
                 <RadzenSelectBarItem Text="New" Value="@("new")" />
@@ -28,7 +25,7 @@
     }
     else if (_items.Count == 0)
     {
-        <RadzenText>Nothing has been posted yet. Open something in your <RadzenLink Path="gallery" Text="gallery" />, share it, and switch on "post it to the feed".</RadzenText>
+        <RadzenText>Nothing has been posted yet. Open something in <RadzenLink Path="gallery" Text="My media" />, share it, and switch on "post it to the feed".</RadzenText>
     }
     else
     {
@@ -61,7 +58,7 @@
                     <div class="feed-actions">
                         @if (item.CanRemix && !item.Mine)
                         {
-                            <RadzenLink Path="@($"?remix={item.Token}")" Text="Remix" class="rz-button rz-button-sm rz-variant-filled rz-primary rz-shade-default" />
+                            <LinkButton Href="@($"?remix={item.Token}")" Text="Remix" Icon="auto_fix_high" Small="true" />
                         }
                         <RadzenButton Text="Copy link" Icon="link" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => CopyAsync(url))" />
                     </div>

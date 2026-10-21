@@ -15,7 +15,7 @@
 <PageTitle>Create · PoRedoMedia</PageTitle>
 
 <div class="create-page">
-    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0 rz-mb-4">Create</RadzenText>
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0 rz-mb-2">Create</RadzenText>
 
     @if (Remixing && _run is null)
     {
@@ -33,7 +33,11 @@
         }
         else
         {
-            <MediaPicker ValueChanged="PickAsync" TakeShared="@(Shared is not null)" />
+            @* Home: the drop zone and recent media, with today's allowance, runs and the feed beside them. *@
+            <div class="home">
+                <MediaPicker ValueChanged="PickAsync" TakeShared="@(Shared is not null)" />
+                <HomeOverview Quota="_quota" />
+            </div>
         }
     }
     else
@@ -50,38 +54,63 @@
             <RadzenCard class="create-functions po-glass">
                 @if (_run is null && _source is not null)
                 {
-                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
-                    <FunctionPicker Kind="_source.Kind" Value="_functions" ValueChanged="OnFunctionsChanged" Available="_available" />
-                    <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Duration="_source.DurationSeconds" Changed="StateHasChanged" />
-                    @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
+                    <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-mt-0 rz-mb-2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
+                    @if (RecipeNames.Count > 0)
                     {
-                        <RadzenFieldset Text="AI model" class="rz-mt-2">
-                            <RadzenFormField Text="What looks at the picture" class="po-fill">
-                                <RadzenDropDown TValue="string" Data="_visionOptions" ValueProperty="Id" TextProperty="Name"
-                                                Value="@(_options.GetValueOrDefault(RunOptions.VisionModel, ""))"
-                                                Change="@(v => _options[RunOptions.VisionModel] = v?.ToString() ?? "")" />
-                            </RadzenFormField>
-                            <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">
-                                @(_visionOptions.FirstOrDefault(o => o.Id == _options.GetValueOrDefault(RunOptions.VisionModel, ""))?.Hint)
-                            </RadzenText>
-                        </RadzenFieldset>
-                    }
-
-                    <details class="create-recipes">
-                        <summary>Recipes</summary>
-                        <div class="create-recipe-row">
-                            <RadzenDropDown TValue="string" Data="RecipeNames" Value="_recipe" Placeholder="Use a saved recipe" AllowClear="true"
-                                            Disabled="@(RecipeNames.Count == 0)" aria-label="Use a saved recipe" Change="@(v => ApplyRecipe(v?.ToString()))" class="po-grow" />
+                        @* Saved recipes, one tap each. *@
+                        <div class="create-recipes" role="group" aria-label="Saved recipes">
+                            <RadzenIcon Icon="bookmarks" aria-hidden="true" />
+                            @foreach (var name in RecipeNames)
+                            {
+                                var recipe = name;
+                                <RadzenButton Text="@recipe" Size="ButtonSize.Small" Variant="@(_recipe == recipe ? Variant.Filled : Variant.Outlined)"
+                                              aria-pressed="@(_recipe == recipe ? "true" : "false")" Click="@(() => ApplyRecipe(recipe))" class="create-recipe" />
+                            }
                             @if (_recipe is not null)
                             {
-                                <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" aria-label="@($"Delete the recipe {_recipe}")" Click="DeleteRecipeAsync" />
+                                <RadzenButton Icon="delete" Size="ButtonSize.Small" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger"
+                                              aria-label="@($"Delete the recipe {_recipe}")" title="Delete this recipe" Click="DeleteRecipeAsync" />
                             }
                         </div>
-                        <div class="create-recipe-row">
-                            <RadzenTextBox Value="@_recipeName" @oninput="@(e => _recipeName = e.Value?.ToString() ?? "")" MaxLength="40" Placeholder="Name what is ticked now" aria-label="Recipe name" class="po-grow" />
-                            <RadzenButton Text="Save" Variant="Variant.Outlined" Disabled="@(_functions.Count == 0 || string.IsNullOrWhiteSpace(_recipeName))" Click="SaveRecipeAsync" />
+                    }
+
+                    @* What to do on one side, how to do it on the other, once the screen is wide enough. *@
+                    <div class="create-compose">
+                        <div class="create-pick">
+                            <FunctionPicker Kind="_source.Kind" Value="_functions" ValueChanged="OnFunctionsChanged" Available="_available" />
                         </div>
-                    </details>
+                        <div class="create-options">
+                            <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Duration="_source.DurationSeconds" Changed="StateHasChanged" />
+                            @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
+                            {
+                                <RadzenFieldset Text="AI model" AllowCollapse="true" class="rz-mt-2">
+                                    @* The automatic choice is an empty value, which a floating label would sit on top of. *@
+                                    <RadzenFormField Text="What looks at the picture" AllowFloatingLabel="false" class="po-fill">
+                                        <RadzenDropDown TValue="string" Data="_visionOptions" ValueProperty="Id" TextProperty="Name"
+                                                        Value="@(_options.GetValueOrDefault(RunOptions.VisionModel, ""))"
+                                                        Change="@(v => _options[RunOptions.VisionModel] = v?.ToString() ?? "")" />
+                                    </RadzenFormField>
+                                    <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">
+                                        @(_visionOptions.FirstOrDefault(o => o.Id == _options.GetValueOrDefault(RunOptions.VisionModel, ""))?.Hint)
+                                    </RadzenText>
+                                </RadzenFieldset>
+                            }
+                            @if (_functions.Count > 0)
+                            {
+                                <details class="create-save">
+                                    <summary>Save these ticks as a recipe</summary>
+                                    <div class="create-recipe-row">
+                                        <RadzenTextBox Value="@_recipeName" @oninput="@(e => _recipeName = e.Value?.ToString() ?? "")" MaxLength="40" Placeholder="Name the recipe" aria-label="Recipe name" class="po-grow" />
+                                        <RadzenButton Text="Save" Variant="Variant.Outlined" Disabled="@string.IsNullOrWhiteSpace(_recipeName)" Click="SaveRecipeAsync" />
+                                    </div>
+                                </details>
+                            }
+                            else
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0 create-hint">Tick one or more functions. Their settings appear here.</RadzenText>
+                            }
+                        </div>
+                    </div>
 
                     @if (_localStatus is not null)
                     {
@@ -107,14 +136,9 @@
                             }
                             @QuotaLine
                         </div>
-                        @if (_quota is { Unlimited: false })
+                        @if (_quota is { Unlimited: false } quota)
                         {
-                            @* Radzen's circular bar drops its accessible name, so the dial is drawn here.
-                               The custom property carries the value; how it looks is in the stylesheet. *@
-                            <span class="create-dial" role="img" aria-label="@($"{_quota.Remaining} of {_quota.Limit} runs left today")"
-                                  style="--left: @((100.0 * _quota.Remaining / _quota.Limit).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%">
-                                <span aria-hidden="true">@_quota.Remaining</span>
-                            </span>
+                            <QuotaDial Quota="quota" />
                         }
                         <RadzenButton Text="Run" Icon="play_arrow" IsBusy="_starting" Click="RunAsync"
                                       Disabled="@(_functions.Count == 0 || _quota is { Unlimited: false, Remaining: 0 })" />
@@ -129,9 +153,11 @@
                         <RunProgress @key="_run.Run.Id" Run="_run" />
                         @if (!_run.Finished)
                         {
-                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" Wrap="FlexWrap.Wrap">
                                 <RadzenButton Text="@(_cancelling == _run.Run.Id ? "Stopping…" : "Cancel the run")" Icon="cancel" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger"
                                               Disabled="@(_cancelling == _run.Run.Id)" Click="CancelRunAsync" />
+                                @* The run goes on without this page; Runs in the header follows it. *@
+                                <RadzenButton Text="Start something else" Icon="add" Variant="Variant.Text" Click="StartOver" />
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">Results already made are kept. A run that made nothing is not charged.</RadzenText>
                             </RadzenStack>
                             @if (_problem is not null)
@@ -213,7 +239,7 @@
     private bool Remixing => _options.ContainsKey(RunOptions.VideoRemix) || (Remix is not null && _source is null);
 
     private RenderFragment? QuotaLine => _quota is { Unlimited: false }
-        ? @<RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_quota.Remaining of @_quota.Limit runs left today. A run costs one.</RadzenText>
+        ? @<RadzenText TextStyle="TextStyle.Caption" class="rz-m-0 create-quota">@_quota.Remaining of @_quota.Limit runs left today. A run costs one.</RadzenText>
         : null;
 
     /// <summary>Saved recipes that fit the picked media.</summary>

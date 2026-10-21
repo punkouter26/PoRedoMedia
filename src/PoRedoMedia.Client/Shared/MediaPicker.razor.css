@@ -3,7 +3,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
-    padding: 2.5rem 1rem;
+    padding: 1.75rem 1rem;
     text-align: center;
     border: 2px dashed var(--rz-base-500);
     border-radius: var(--po-radius);
@@ -17,10 +17,20 @@
     transform: scale(1.01);
 }
 
+/* One row that scrolls sideways, so recent media never pushes the page down. */
 .picker-recent {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 0.75rem;
+    grid-auto-flow: column;
+    grid-auto-columns: 132px;
+    gap: 0.6rem;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+}
+
+.picker-recent > * {
+    scroll-snap-align: start;
 }
 
 .picker-card {

@@ -2,6 +2,7 @@
 @inject MediaApi Api
 @inject AppConfigService Config
 @inject DialogService Dialogs
+@inject ContextMenuService Menus
 @inject NotificationService Notifications
 @inject IJSRuntime JS
 
@@ -45,43 +46,56 @@
             }
         </RadzenText>
 
-        <VersionTree Current="Media" Items="Family" Selected="Selected" />
-
+        @* One way forward, the everyday actions as icons, and the rest behind "More". *@
         <div class="panel-actions">
             @if (Media.Kind != MediaKind.Audio)
             {
-                <RadzenLink Path="@($"?source={Media.Id}")" Text="Use as source" class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default" />
+                <LinkButton Href="@($"?source={Media.Id}")" Text="Use as source" Icon="play_arrow" />
             }
-            @if (Before is not null)
-            {
-                <RadzenButton Text="Compare" Icon="compare" Variant="@(_comparing ? Variant.Filled : Variant.Outlined)" Click="ToggleCompare"
-                              title="Before and after, with a slider (C)" aria-pressed="@(_comparing ? "true" : "false")" />
-            }
-            <RadzenButton Text="Download" Icon="download" Variant="Variant.Outlined"
-                          Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
-            @if (Media.Kind == MediaKind.Image)
-            {
-                <RadzenButton Text="Copy" Icon="content_copy" Variant="Variant.Outlined" title="Copy the picture to the clipboard" Click="CopyImageAsync" />
-            }
-            @if (Media.Kind == MediaKind.Video)
-            {
-                <RadzenButton Text="GIF" Icon="gif_box" Variant="Variant.Outlined" title="A looping GIF of the first 8 seconds. Making it uses one run; after that it is free." Disabled="_busy" Click="GifAsync" />
-                @if (Media.Text is not null)
+            <span class="panel-icons">
+                @if (Before is not null)
                 {
-                    <RadzenButton Text="Roast audio" Icon="mic" Variant="Variant.Outlined" title="The insults alone, as a sound file"
-                                  Click="@(() => JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/roast-audio"))" />
+                    <RadzenButton Icon="compare" Variant="@(_comparing ? Variant.Filled : Variant.Text)" Click="ToggleCompare"
+                                  aria-label="Compare" title="Before and after, with a slider (C)" aria-pressed="@(_comparing ? "true" : "false")" />
                 }
-            }
-            <span class="panel-more">
+                <RadzenButton Icon="download" Variant="Variant.Text" aria-label="Download" title="Download"
+                              Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
+                <RadzenButton Icon="link" Variant="@(_link is not null || Media.Shared ? Variant.Filled : Variant.Text)" Disabled="_busy"
+                              aria-label="Share" title="Share by link" aria-expanded="@(_link is not null ? "true" : "false")" Click="ToggleShareAsync" />
                 <RadzenButton Icon="push_pin" Variant="@(Media.Pinned ? Variant.Filled : Variant.Text)" Disabled="_busy"
                               aria-label="@(Media.Pinned ? "Unpin" : "Pin")" title="@(Media.Pinned ? "Unpin: let it expire (P)" : "Pin: keep it past 30 days (P)")"
                               aria-pressed="@(Media.Pinned ? "true" : "false")" Click="TogglePinAsync" />
-                <RadzenButton Icon="link" Variant="@(Media.Shared ? Variant.Filled : Variant.Text)" Disabled="_busy"
-                              aria-label="Share" title="Share by link" Click="ShareAsync" />
                 <RadzenButton Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger" Disabled="_busy"
                               aria-label="Delete" title="Delete (Del)" Click="DeleteAsync" />
+                @if (MoreItems.Count > 0)
+                {
+                    <RadzenButton Icon="more_vert" Variant="Variant.Text" aria-label="More actions" title="More actions" aria-haspopup="menu" Click="OpenMore" />
+                }
             </span>
         </div>
+
+        @if (_link is not null)
+        {
+            <section class="panel-share" aria-label="Sharing">
+                <RadzenFormField Text="Anyone with this link can view it" class="po-fill">
+                    <RadzenTextBox Value="@_link.Url" ReadOnly="true" aria-label="Share link" />
+                </RadzenFormField>
+                @if (Expiry is { } expiry)
+                {
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">This item @expiry, and the link stops working with it. Pin the item to keep both.</RadzenText>
+                }
+                <div class="panel-feed">
+                    <RadzenSwitch Name="share-feed" Value="_link.Feed" Change="SetFeedAsync" />
+                    <RadzenLabel Component="share-feed" Text="Also post it to the feed, where every signed-in user can see it" />
+                </div>
+                <div class="panel-share-actions">
+                    <RadzenButton Text="Stop sharing" Size="ButtonSize.Small" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Disabled="_busy" Click="StopSharingAsync" />
+                    <RadzenButton Text="Copy" Icon="content_copy" Size="ButtonSize.Small" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", _link.Url))" />
+                </div>
+            </section>
+        }
+
+        <VersionTree Current="Media" Items="Family" Selected="Selected" />
     </RadzenStack>
 </RadzenCard>
 </aside>
@@ -100,6 +114,40 @@
     private string _title = "";
     private bool _busy;
     private bool _comparing;
+    private ShareLinkDto? _link;
+
+    /// <summary>The actions only some items have, offered in the "More" menu.</summary>
+    private List<ContextMenuItem> MoreItems
+    {
+        get
+        {
+            var items = new List<ContextMenuItem>();
+            if (Media.Kind == MediaKind.Image)
+                items.Add(new() { Text = "Copy the picture", Value = "copy", Icon = "content_copy" });
+            if (Media.Kind == MediaKind.Video)
+                items.Add(new() { Text = "Download a GIF (uses one run the first time)", Value = "gif", Icon = "gif_box", Disabled = _busy });
+            if (Media.Kind == MediaKind.Video && Media.Text is not null)
+                items.Add(new() { Text = "Download the roast audio", Value = "roast", Icon = "mic" });
+            return items;
+        }
+    }
+
+    private void OpenMore(MouseEventArgs e) => Menus.Open(e, MoreItems, args => InvokeAsync(async () =>
+    {
+        Menus.Close();
+        switch (args.Value as string)
+        {
+            case "copy":
+                await CopyImageAsync();
+                break;
+            case "gif":
+                await GifAsync();
+                break;
+            case "roast":
+                await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/roast-audio");
+                break;
+        }
+    }));
 
     /// <summary>The picture this one was made from, when both are pictures: what Compare shows it against.</summary>
     private MediaDto? Before => Media.Kind == MediaKind.Image && Media.ParentId is { } parent
@@ -176,9 +224,18 @@
         await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/gif");
     }
 
-    /// <summary>Makes the link (asking again returns the same one) and shows it with the way to turn it off.</summary>
-    private async Task ShareAsync()
+    /// <summary>
+    /// Opens the sharing section, making the link if there is none yet (asking again returns the
+    /// same one), or closes it. Closing it leaves the link working; Stop sharing ends it.
+    /// </summary>
+    private async Task ToggleShareAsync()
     {
+        if (_link is not null)
+        {
+            _link = null;
+            return;
+        }
+
         _busy = true;
         var (link, error) = await Api.ShareAsync(Media.Id);
         _busy = false;
@@ -188,42 +245,29 @@
             return;
         }
 
-        var url = link.Url;
-        var onFeed = link.Feed;
-
+        _link = link;
         if (!Media.Shared)
             await Changed.InvokeAsync(Media with { Shared = true });
-
-        await Dialogs.OpenAsync("Share by link", dialog =>
-            @<RadzenStack Gap="0.75rem">
-                <RadzenFormField Text="Anyone with this link can view it" class="po-fill">
-                    <RadzenTextBox Value="@url" ReadOnly="true" aria-label="Share link" />
-                </RadzenFormField>
-                @if (Expiry is { } expiry)
-                {
-                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">This item @expiry, and the link stops working with it. Pin the item to keep both.</RadzenText>
-                }
-                <div class="panel-feed">
-                    <RadzenSwitch Name="share-feed" Value="onFeed" Change="@(async on => onFeed = (await Api.ShareAsync(Media.Id, on)).Link?.Feed ?? onFeed)" />
-                    <RadzenLabel Component="share-feed" Text="Also post it to the feed, where every signed-in user can see it" />
-                </div>
-                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End">
-                    <RadzenButton Text="Stop sharing" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Click="@(() => StopSharingAsync(dialog))" />
-                    <RadzenButton Text="Copy" Icon="content_copy" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", url))" />
-                </RadzenStack>
-            </RadzenStack>,
-            new DialogOptions { Width = "min(34rem, calc(100vw - 1rem))" });
     }
 
-    private async Task StopSharingAsync(DialogService dialog)
+    private async Task SetFeedAsync(bool on)
     {
-        if (await Api.StopSharingAsync(Media.Id) is { } error)
+        if ((await Api.ShareAsync(Media.Id, on)).Link is { } link)
+            _link = link;
+    }
+
+    private async Task StopSharingAsync()
+    {
+        _busy = true;
+        var error = await Api.StopSharingAsync(Media.Id);
+        _busy = false;
+        if (error is not null)
         {
             Notifications.Notify(NotificationSeverity.Error, "Could not stop sharing", error, 8000);
             return;
         }
 
-        dialog.Close();
+        _link = null;
         await Changed.InvokeAsync(Media with { Shared = false });
     }
 

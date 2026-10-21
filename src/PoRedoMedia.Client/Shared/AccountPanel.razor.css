@@ -1,0 +1,29 @@
+.account-who {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.account-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.account-avatar {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--po-brand-a), var(--po-brand-b));
+    color: var(--po-ink-on-brand);
+    font-weight: 800;
+}
+
+.account-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 44px;
+}

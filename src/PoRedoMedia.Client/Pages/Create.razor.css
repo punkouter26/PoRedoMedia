@@ -1,6 +1,14 @@
+/* Home: the picker, with the overview beside it on wide screens and under it on narrow ones. */
+.home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    gap: 1rem;
+    align-items: start;
+}
+
 .create-split {
     display: grid;
-    grid-template-columns: minmax(260px, 2fr) minmax(360px, 3fr);
+    grid-template-columns: minmax(240px, 2fr) minmax(360px, 5fr);
     gap: 1rem;
     align-items: start;
 }
@@ -30,10 +38,41 @@
 }
 
 .create-recipes {
-    margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    color: var(--rz-text-secondary-color);
 }
 
-.create-recipes summary {
+.create-recipes ::deep .create-recipe {
+    text-transform: none;
+}
+
+/* The ticks, then their settings: side by side once there is room for both. */
+.create-compose {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    align-items: start;
+}
+
+.create-options ::deep .rz-fieldset:first-child {
+    margin-top: 0 !important;
+}
+
+.create-hint {
+    padding: 0.75rem;
+    border: 1px dashed var(--po-line);
+    border-radius: var(--po-radius-sm);
+}
+
+.create-save {
+    margin-top: 0.5rem;
+}
+
+.create-save summary {
     min-height: 44px;
     display: flex;
     align-items: center;
@@ -46,6 +85,12 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
+}
+
+@media (min-width: 1280px) {
+    .create-compose {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
 }
 
 /* The run bar stays in reach however long the options above it grow. */
@@ -64,6 +109,11 @@
     backdrop-filter: blur(12px);
 }
 
+/* The Run button keeps its shape; the summary beside it wraps instead. */
+.create-bar ::deep .rz-button {
+    flex-shrink: 0;
+}
+
 .create-summary {
     flex: 1 1 auto;
     min-width: 0;
@@ -72,33 +122,11 @@
     gap: 0.15rem;
 }
 
-/* Runs left today, as a ring that empties. */
-.create-dial {
-    --left: 100%;
-    flex-shrink: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: conic-gradient(var(--rz-primary) var(--left), var(--po-line) 0);
-    transition: --left 600ms;
-}
-
-.create-dial span {
-    width: 2.1rem;
-    height: 2.1rem;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: var(--rz-base-background-color);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 800px) {
+@media (max-width: 1024px) {
+    /* minmax(0, …): a wide child, such as the sideways strip of recent media, must not widen the column. */
+    .home,
     .create-split {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .create-split ::deep .create-preview {
@@ -107,5 +135,30 @@
 
     .create-split ::deep .create-preview .media-view {
         max-height: 34vh;
+    }
+}
+
+/* On a phone a picked picture is a thumbnail beside its name, not half the screen. */
+@media (max-width: 720px) {
+    .create-split ::deep .create-preview:has(img.media-view) {
+        display: grid;
+        grid-template-columns: 5.5rem minmax(0, 1fr);
+        align-items: center;
+        gap: 0.25rem 0.75rem;
+        padding: 0.6rem;
+    }
+
+    .create-split ::deep .create-preview img.media-view {
+        grid-row: span 2;
+        width: 5.5rem;
+        height: 4.25rem;
+        object-fit: cover;
+    }
+}
+
+/* On a phone the dial beside the Run button already says how many runs are left. */
+@media (max-width: 720px) {
+    .create-bar ::deep .create-quota {
+        display: none;
     }
 }

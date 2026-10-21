@@ -1,0 +1,60 @@
+@* Says when a run ends, once, whichever page is showing: a toast, a sound, confetti and a system
+   notification. Draws nothing itself; the layout holds exactly one. *@
+@implements IDisposable
+@inject RunTracker Tracker
+@inject NotificationService Notifications
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Tracker.Changed += OnChanged;
+        Tracker.Finished += OnFinished;
+        try
+        {
+            await Tracker.LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            // The runs list is a convenience; a failed read leaves it empty.
+        }
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        // The backdrop brightens and a soft pad plays while anything works, opening up as it progresses.
+        var working = Tracker.Runs.Where(r => !r.Finished).ToList();
+        await JS.InvokeVoidAsync("poFx.busy", working.Count > 0 ? 0.6 : 0, working.Count > 0 ? working.Average(r => r.Percent) : 0);
+    });
+
+    private void OnFinished(TrackedRun run) => InvokeAsync(async () =>
+    {
+        var what = string.Join(" + ", run.Run.Functions.Select(FunctionStack.Label));
+        // A run that is on screen already shows how it ended; the toast would only say it twice.
+        if (!Navigation.Uri.Contains($"run={run.Run.Id}", StringComparison.OrdinalIgnoreCase))
+        {
+            if (run.Status == RunStatus.Complete)
+                Notifications.Notify(NotificationSeverity.Success, "Run finished", $"{what} is in your gallery.", 6000);
+            else
+                Notifications.Notify(NotificationSeverity.Error, "Run failed", run.Message, 8000);
+        }
+
+        await JS.InvokeVoidAsync("poSfx.play", run.Status == RunStatus.Complete ? "success" : "fail");
+        if (run.Status == RunStatus.Complete)
+        {
+            // Confetti in the colours of what the run made.
+            var picture = run.Outputs.LastOrDefault(o => o.Kind == MediaKind.Image)?.Url ?? run.Outputs.FirstOrDefault()?.ThumbUrl;
+            await JS.InvokeVoidAsync("poConfetti.burst", picture);
+        }
+        await JS.InvokeVoidAsync(
+            "poMedia.notifyDone", run.Status == RunStatus.Complete ? "✓ Your run is ready" : "⚠ Your run failed",
+            run.Status == RunStatus.Complete ? $"{what} is in your gallery." : run.Message);
+    });
+
+    public void Dispose()
+    {
+        Tracker.Changed -= OnChanged;
+        Tracker.Finished -= OnFinished;
+    }
+}

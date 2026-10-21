@@ -1,0 +1,124 @@
+@* Beside the drop zone on Create: today's allowance and spend, the latest runs, and what is
+   trending in the feed, so the home page answers "where am I at" without a trip elsewhere. *@
+@implements IDisposable
+@inject SessionCostService Cost
+@inject RunTracker Tracker
+@inject MediaApi Api
+
+<aside class="home-side" aria-label="Overview">
+    <section class="home-card" aria-labelledby="home-today">
+        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0" id="home-today">Today</RadzenText>
+        <div class="home-today">
+            @if (Quota is { Unlimited: false } quota)
+            {
+                <QuotaDial Quota="quota" />
+                <span class="home-today-text">
+                    <strong>@quota.Remaining of @quota.Limit runs left</strong>
+                    <span>A run costs one. More at @quota.ResetsAt.LocalDateTime.ToString("HH:mm").</span>
+                </span>
+            }
+            else
+            {
+                <span class="home-today-text"><strong>No daily limit on runs</strong></span>
+            }
+        </div>
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0" title="An estimate from list prices for the runs started in this tab. Not a bill.">
+            @(Cost.Total > 0 ? $"About ${Cost.Total:0.00} spent on AI in this tab." : "Nothing spent on AI in this tab yet.")
+        </RadzenText>
+    </section>
+
+    <section class="home-card" aria-labelledby="home-runs">
+        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0" id="home-runs">Recent runs</RadzenText>
+        @if (Tracker.Runs.Count == 0)
+        {
+            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">Nothing has been run yet. Pick something to start.</RadzenText>
+        }
+        else
+        {
+            <ul class="home-runs">
+                @foreach (var run in Tracker.Runs.Take(4))
+                {
+                    var what = string.Join(" + ", run.Run.Functions.Select(FunctionStack.Label));
+                    <li @key="run.Run.Id">
+                        <a href="@($"?run={run.Run.Id}")">
+                            <RadzenIcon Icon="@(run.Status switch { RunStatus.Complete => "check_circle", RunStatus.Failed => "error", _ => "progress_activity" })"
+                                        class="@($"home-run-{run.Status.ToString().ToLowerInvariant()}")" aria-hidden="true" />
+                            <span class="home-run-text">
+                                <strong>@what</strong>
+                                <span>@(run.Finished ? run.Status == RunStatus.Complete ? "Done" : "Failed" : run.Message) · @run.Run.CreatedAt.LocalDateTime.ToString("d MMM HH:mm")</span>
+                            </span>
+                        </a>
+                        @if (!run.Finished)
+                        {
+                            <RadzenProgressBar Value="run.Percent" Mode="@(run.Percent == 0 ? ProgressBarMode.Indeterminate : ProgressBarMode.Determinate)"
+                                               ShowValue="false" aria-label="@($"Progress of {what}")" class="home-run-progress" />
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="home-card" aria-labelledby="home-feed">
+        <div class="home-card-head">
+            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0" id="home-feed">Trending in the feed</RadzenText>
+            <RadzenLink Path="feed" Text="See all" />
+        </div>
+        @if (_trending is null)
+        {
+            <div class="po-skeleton home-feed-skeleton" role="status" aria-label="Loading"></div>
+        }
+        else if (_trending.Count == 0)
+        {
+            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">Nothing has been posted yet. Share something and post it to the feed.</RadzenText>
+        }
+        else
+        {
+            <div class="home-feed">
+                @foreach (var post in _trending)
+                {
+                    <a href="feed" class="home-feed-item" title="@post.Title">
+                        @if (post.Kind == MediaKind.Audio)
+                        {
+                            <span class="home-feed-audio" aria-hidden="true"><RadzenIcon Icon="music_note" /></span>
+                        }
+                        else
+                        {
+                            <img src="@($"v/{post.Token}/thumb")" alt="" loading="lazy" />
+                        }
+                        <span>@post.Title</span>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+</aside>
+
+@code {
+    [Parameter] public QuotaStatusDto? Quota { get; set; }
+
+    private List<FeedItemDto>? _trending;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Tracker.Changed += Refresh;
+        Cost.Changed += Refresh;
+        try
+        {
+            _trending = [.. (await Api.FeedAsync(newest: false)).Take(4)];
+        }
+        catch (HttpRequestException)
+        {
+            // A peek, not the feed: a failed read just shows nothing.
+            _trending = [];
+        }
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Tracker.Changed -= Refresh;
+        Cost.Changed -= Refresh;
+    }
+}

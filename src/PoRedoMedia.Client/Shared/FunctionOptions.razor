@@ -3,7 +3,7 @@
 
 @if (Functions.Any(f => FunctionStack.KindOf(f) == MediaKind.Video))
 {
-    <RadzenFieldset Text="Video" class="rz-mt-2">
+    <RadzenFieldset Text="Video" AllowCollapse="true" class="rz-mt-2">
         <RadzenStack Gap="0.75rem">
             @if (Functions.Contains(MediaFunction.Memeify))
             {
@@ -54,7 +54,7 @@
 
 @if (Functions.Contains(MediaFunction.BulkStyles))
 {
-    <RadzenFieldset Text="Bulk styles" class="rz-mt-2">
+    <RadzenFieldset Text="Bulk styles" AllowCollapse="true" class="rz-mt-2">
         <RadzenStack Gap="0.75rem">
             <RadzenText class="rz-m-0">Each ticked style makes one picture. Untick the ones you don't want.</RadzenText>
             @for (var i = 0; i < _bulk.Count; i++)
@@ -86,7 +86,7 @@
 
 @if (Functions.Contains(MediaFunction.Restyle))
 {
-    <RadzenFieldset Text="Restyle" class="rz-mt-2">
+    <RadzenFieldset Text="Restyle" AllowCollapse="true" class="rz-mt-2">
         <RadzenStack Gap="0.75rem">
             <RadzenFormField Text="Style">
                 <RadzenDropDown TValue="string" Data="StyleRecipeCatalog.All" ValueProperty="Id" TextProperty="Title"
@@ -106,7 +106,7 @@
 
 @if (Functions.Contains(MediaFunction.RapRoast))
 {
-    <RadzenFieldset Text="Rap roast" class="rz-mt-2">
+    <RadzenFieldset Text="Rap roast" AllowCollapse="true" class="rz-mt-2">
         <RadzenStack Gap="0.75rem">
             <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.RoastStyle) is { Length: > 0 } style ? style : "Trap")"
                              Change="@((string v) => Set(RunOptions.RoastStyle, v))" aria-label="How it is performed">
@@ -136,7 +136,7 @@
 
 @if (Functions.Contains(MediaFunction.PhotoToVideo))
 {
-    <RadzenFieldset Text="Photo to video" class="rz-mt-2">
+    <RadzenFieldset Text="Photo to video" AllowCollapse="true" class="rz-mt-2">
         <RadzenFormField Text="What should happen in the clip?" class="po-fill">
             <RadzenTextArea Value="@Get(RunOptions.VideoPrompt)" Rows="3" MaxLength="1200" aria-label="What should happen in the clip" Change="@(v => Set(RunOptions.VideoPrompt, v))" />
         </RadzenFormField>
@@ -146,7 +146,7 @@
 
 @if (Functions.Contains(MediaFunction.Upscale))
 {
-    <RadzenFieldset Text="Upscale" class="rz-mt-2">
+    <RadzenFieldset Text="Upscale" AllowCollapse="true" class="rz-mt-2">
         <RadzenStack Gap="0.75rem">
             <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.UpscaleSize) == "4K" ? "4K" : "2K")"
                              Change="@((string v) => Set(RunOptions.UpscaleSize, v))" aria-label="Size of the result">
@@ -162,7 +162,7 @@
 
 @if (Functions.Contains(MediaFunction.Cutout))
 {
-    <RadzenFieldset Text="Cutout" class="rz-mt-2">
+    <RadzenFieldset Text="Cutout" AllowCollapse="true" class="rz-mt-2">
         <div class="bulk-row">
             <RadzenSwitch Name="cutout-sticker" Value="@(Get(RunOptions.CutoutSticker) != "false")"
                           Change="@(on => Set(RunOptions.CutoutSticker, on ? "true" : "false"))" />
@@ -173,7 +173,7 @@
 
 @if (Functions.Contains(MediaFunction.MemeCaption))
 {
-    <RadzenFieldset Text="Meme caption" class="rz-mt-2">
+    <RadzenFieldset Text="Meme caption" AllowCollapse="true" class="rz-mt-2">
         <RadzenStack Gap="0.75rem">
             <RadzenSelectBar TValue="string" Value="@Mode" Change="@((string mode) => Set(RunOptions.MemeMode, mode))" aria-label="Where the text comes from">
                 <Items>

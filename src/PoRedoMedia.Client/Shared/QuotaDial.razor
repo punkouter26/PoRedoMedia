@@ -1,0 +1,11 @@
+@* Runs left today, as a ring that empties. Radzen's circular bar drops its accessible name, so
+   the dial is drawn here: the custom property carries the value, the stylesheet the look. *@
+
+<span class="po-dial" role="img" aria-label="@($"{Quota.Remaining} of {Quota.Limit} runs left today")"
+      style="--left: @((100.0 * Quota.Remaining / Quota.Limit).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%">
+    <span aria-hidden="true">@Quota.Remaining</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public QuotaStatusDto Quota { get; set; } = null!;
+}

@@ -16,6 +16,8 @@ public sealed class LoginUiTests : UiTestBase
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Create", Exact = true })).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await Assertions.Expect(page.GetByText("dev@localhost")).ToBeVisibleAsync();
 
+        // Sign out lives in the account drawer, with the look-and-sound settings.
+        await page.GetByRole(AriaRole.Button, new() { Name = "dev@localhost: account and settings" }).ClickAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Sign out" }).ClickAsync();
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Sign in" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
     }
@@ -38,6 +40,7 @@ public sealed class LoginUiTests : UiTestBase
 
         await page.GetByRole(AriaRole.Link, new() { Name = "Back to the app" }).ClickAsync();
 
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Gallery", Exact = true })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Library", Exact = true })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await Assertions.Expect(page.GetByRole(AriaRole.Link, new() { Name = "My media" })).ToHaveAttributeAsync("aria-current", "page");
     }
 }

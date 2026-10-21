@@ -1,0 +1,35 @@
+@* Opens the run center. Spins and counts while anything is running. *@
+@implements IDisposable
+@inject RunTracker Tracker
+@inject DialogService Dialogs
+
+<button type="button" class="@($"runs-button {Class} {(Tracker.Active > 0 ? "runs-busy" : "")}")" aria-label="@Label" title="@Label"
+        aria-haspopup="dialog" @onclick="OpenAsync">
+    <RadzenIcon Icon="@(Tracker.Active > 0 ? "sync" : "history")" aria-hidden="true" />
+    @if (ShowText)
+    {
+        <span>Runs</span>
+    }
+    @if (Tracker.Active > 0)
+    {
+        <span class="runs-count" aria-hidden="true">@Tracker.Active</span>
+    }
+</button>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>The word under the icon, for the phone tab bar.</summary>
+    [Parameter] public bool ShowText { get; set; }
+
+    private string Label => Tracker.Active > 0 ? $"Runs: {Tracker.Active} in progress" : "Recent runs";
+
+    protected override void OnInitialized() => Tracker.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    private Task OpenAsync() => Dialogs.OpenSideAsync<RunCenter>("Runs", [],
+        new SideDialogOptions { Position = DialogPosition.Right, Width = "min(26rem, 100vw)", CloseDialogOnOverlayClick = true, CssClass = "po-drawer" });
+
+    public void Dispose() => Tracker.Changed -= OnChanged;
+}

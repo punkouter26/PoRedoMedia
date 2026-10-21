@@ -1,6 +1,7 @@
 /* App-wide design tokens and the few rules every page shares. Component layout lives in the
    component's own .razor.css. Colours come from the Radzen theme variables, so the light and
-   dark themes both work without a second set of rules. */
+   dark themes both work without a second set of rules.
+   Breakpoints, the same in every stylesheet: phones up to 720px, one column up to 1024px. */
 
 :root {
     --po-radius: 14px;
@@ -34,11 +35,18 @@ body {
 }
 
 /* ── Type scale: one size per heading level, everywhere ─────────────────────────────── */
+/* Page titles sit in the page's command bar, so they are sized to share a row with it. */
 h1.rz-text-h4 {
-    font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.1rem);
+    font-size: clamp(1.35rem, 1.15rem + 0.6vw, 1.65rem);
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.15;
+}
+
+/* Navigation moves the focus to the page's heading for screen readers; it is not a control,
+   so it gets no focus ring. */
+h1:focus {
+    outline: none;
 }
 
 h2.rz-text-h6, h2.rz-text-subtitle1 {
@@ -119,7 +127,14 @@ html:not(.po-fx-decor) .sounds-spectro-cell {
 }
 
 .po-file-label {
+    position: relative;
     cursor: pointer;
+}
+
+/* The input inside has the focus; the label it looks like shows it. */
+.po-file-label:focus-within {
+    outline: 2px solid var(--rz-primary);
+    outline-offset: 2px;
 }
 
 .po-file-label[aria-disabled="true"] {
@@ -187,38 +202,245 @@ html:not(.po-fx-decor) .sounds-spectro-cell {
     }
 }
 
-/* ── Header popups (runs, settings): a panel under its button, closed by a click anywhere else. */
-.pop-anchor, .tray {
+/* ── Page command bar: title, search, filters and actions in one row that stays in view ── */
+.po-page-bar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem;
+    background: color-mix(in srgb, var(--rz-body-background-color) 86%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--po-line);
+}
+
+/* A search box with its magnifier inside. */
+.po-search {
     position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 14rem;
+    min-width: 0;
 }
 
-.pop-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 999;
-}
-
-.shell-popup {
+.po-search > .rzi {
     position: absolute;
-    top: calc(100% + 0.35rem);
-    right: 0;
-    z-index: 1000;
-    text-align: left;
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--po-line);
-    border-radius: var(--po-radius);
-    background: var(--rz-base-background-color);
-    color: var(--rz-text-color);
-    box-shadow: 0 12px 40px rgb(0 0 0 / 28%);
+    left: 0.6rem;
+    z-index: 1;
+    font-size: 1.2rem;
+    color: var(--rz-text-secondary-color);
+    pointer-events: none;
 }
 
-.tray-popup { width: min(26rem, calc(100vw - 1rem)); }
-.settings-popup { width: min(18rem, calc(100vw - 1rem)); }
+.po-search > .rz-textbox {
+    width: 100%;
+    padding-left: 2.2rem;
+}
 
 @media (max-width: 720px) {
-    .shell-popup {
-        position: fixed;
-        top: calc(3.25rem + var(--po-safe-top));
-        right: 0.5rem;
+    .po-page-bar {
+        margin: 0 -0.75rem;
+        padding: 0.5rem 0.75rem;
     }
+
+    .po-search {
+        flex: 1 1 10rem;
+        order: -2;
+    }
+
+    /* Kept for screen readers and speech input; the icon beside it says it on screen. */
+    .po-page-bar .po-phone-hide-text .rz-button-text,
+    .po-page-bar .po-phone-hide-text .po-file-text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .po-page-bar .po-phone-hide-text {
+        order: -1;
+        padding-inline: 0.7rem;
+    }
+}
+
+/* ── A link that looks like a button, drawn from the theme's own colours ───────────────── */
+.po-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border: 1px solid var(--rz-primary);
+    border-radius: var(--rz-button-border-radius, 4px);
+    /* The theme's own button lettering, so it sits beside Radzen's buttons without a seam. */
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: filter 120ms;
+}
+
+.po-link-btn.filled {
+    background: var(--rz-primary);
+    color: var(--rz-on-primary, #ffffff);
+}
+
+.po-link-btn.outlined {
+    background: transparent;
+    color: var(--rz-primary);
+}
+
+.po-link-btn.small {
+    min-height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 0.8rem;
+}
+
+.po-link-btn:hover {
+    filter: brightness(1.08);
+}
+
+.po-link-btn:focus-visible {
+    outline: 2px solid var(--rz-primary);
+    outline-offset: 2px;
+}
+
+.po-link-btn .rzi {
+    font-size: 1.15rem;
+}
+
+/* ── Side drawers (runs, account) ───────────────────────────────────────────────────── */
+.po-drawer .rz-dialog-side-content {
+    padding-top: 0.25rem;
+}
+
+/* ── Phone tab bar (Layout/MainLayout): the header carries the same links on wider screens. */
+.shell-footer {
+    display: none;
+}
+
+.runs-count {
+    position: absolute;
+    top: 4px;
+    right: 2px;
+    min-width: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 1rem;
+    background: var(--rz-danger);
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.1rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.runs-busy .rzi {
+    animation: runs-spin 1.4s linear infinite;
+}
+
+@keyframes runs-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 720px) {
+    .rz-layout .shell-footer {
+        display: block;
+        padding: 0 var(--po-safe-right) var(--po-safe-bottom) var(--po-safe-left);
+        border-top: 1px solid var(--po-line);
+        background: var(--rz-base-background-color);
+        color: var(--rz-text-color);
+    }
+
+    .shell-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .shell-tabs a,
+    .shell-tabs .runs-button {
+        position: relative;
+        min-height: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.1rem;
+        border: 0;
+        background: transparent;
+        color: var(--rz-text-secondary-color);
+        font: inherit;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .shell-tabs a.active {
+        color: var(--rz-primary);
+    }
+
+    .shell-tabs .rzi {
+        font-size: 1.4rem;
+    }
+
+    .shell-tabs .runs-count {
+        right: calc(50% - 1.4rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .runs-busy .rzi {
+        animation: none;
+    }
+}
+
+/* The mock-data notice (Shared/MockDataBanner): bright, so dark ink on it. */
+.po-mock-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.2rem 1rem;
+    background: var(--rz-warning);
+    color: var(--po-ink-on-bright);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.po-mock-strip .rzi {
+    font-size: 1rem;
+}
+
+/* ── Runs left today (Shared/QuotaDial) ───────────────────────────────────────────── */
+.po-dial {
+    --left: 100%;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: conic-gradient(var(--rz-primary) var(--left), var(--po-line) 0);
+    transition: --left 600ms;
+}
+
+.po-dial span {
+    width: 2.1rem;
+    height: 2.1rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--rz-base-background-color);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }

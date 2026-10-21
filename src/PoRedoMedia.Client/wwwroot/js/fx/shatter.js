@@ -169,7 +169,8 @@ window.poShatter = (() => {
 
     function onDown(e) {
         const card = e.target.closest?.('.gallery-card');
-        if (!card || e.button !== 0 || !window.poFx.enabled()) return;
+        // The tick box in the corner is for ticking, not for throwing.
+        if (!card || e.button !== 0 || e.target.closest('input') || !window.poFx.enabled()) return;
         drag = { card, id: card.dataset.id, x0: e.clientX, y0: e.clientY, x: 0, y: 0, vx: 0, vy: 0, t: performance.now(), on: false, pointer: e.pointerId, touch: e.pointerType === 'touch' };
     }
 

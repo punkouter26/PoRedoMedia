@@ -1,9 +1,10 @@
+/* Breakpoints, the same everywhere: phones up to 720px, a single column up to 1024px. */
+
 .shell-bar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem 1.5rem;
-    padding: 0.4rem 1rem;
+    gap: 1.5rem;
+    padding: 0.25rem 1rem;
     max-width: var(--po-shell-max);
     margin: 0 auto;
 }
@@ -27,24 +28,35 @@
     letter-spacing: -0.02em;
 }
 
-.shell-nav {
+.shell-bar ::deep .shell-nav {
     display: flex;
-    gap: 1.25rem;
+    gap: 0.25rem;
     flex-grow: 1;
 }
 
-.shell-nav ::deep a {
-    min-height: 44px;
+.shell-bar ::deep .shell-nav a {
+    min-height: 40px;
     display: inline-flex;
     align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
     color: inherit;
     text-decoration: none;
+    font-weight: 500;
 }
 
-.shell-nav ::deep a.active {
+.shell-bar ::deep .shell-nav a:hover {
+    background: rgb(255 255 255 / 12%);
+}
+
+.shell-bar ::deep .shell-nav a.active {
+    background: rgb(255 255 255 / 20%);
     font-weight: 700;
-    text-decoration: underline;
-    text-underline-offset: 6px;
+}
+
+.shell-bar ::deep .shell-nav .rzi {
+    font-size: 1.15rem;
 }
 
 .shell-tools {
@@ -54,18 +66,58 @@
     margin-left: auto;
 }
 
-.shell-tools ::deep .rz-button {
+/* The header's own buttons: plain, light on the brand gradient, 44px targets. */
+.shell-bar ::deep .runs-button,
+.shell-bar ::deep .shell-account {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
     color: inherit;
+    font: inherit;
+    cursor: pointer;
 }
 
-.shell-user {
-    margin: 0 0.5rem;
+.shell-bar ::deep .runs-button:hover,
+.shell-bar ::deep .shell-account:hover {
+    background: rgb(255 255 255 / 12%);
+}
+
+.shell-bar ::deep .runs-button:focus-visible,
+.shell-bar ::deep .shell-account:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.shell-bar ::deep .shell-avatar {
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--po-ink-on-brand);
+    color: var(--po-brand-a);
+    font-weight: 800;
+}
+
+.shell-bar ::deep .shell-account-name {
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .shell-main {
     max-width: var(--po-shell-max);
     margin: 0 auto;
-    padding: 1rem 1rem 2.5rem;
+    padding: 0.75rem 1rem 2.5rem;
 }
 
 /* Sits under any bottom sheet and never takes a tap. */
@@ -84,16 +136,22 @@
 
 @media (max-width: 720px) {
     .shell-bar {
-        padding: 0.25rem 0.5rem;
-        gap: 0 0.75rem;
+        padding: 0.15rem 0.5rem;
+        gap: 0.5rem;
     }
 
-    /* The name is in the sign-in page and the settings; the bar keeps to what is tapped. */
-    .shell-user {
+    .shell-bar ::deep .shell-nav,
+    .shell-bar ::deep .shell-runs,
+    .shell-bar ::deep .shell-account-name {
         display: none;
     }
 
     .shell-main {
-        padding: 0.75rem 0.75rem 2rem;
+        padding: 0.5rem 0.75rem 1.5rem;
+    }
+
+    /* Above the tab bar, still in the corner. */
+    .shell-build {
+        bottom: calc(3.75rem + var(--po-safe-bottom));
     }
 }

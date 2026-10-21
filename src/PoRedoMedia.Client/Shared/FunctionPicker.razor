@@ -1,32 +1,47 @@
-@* One checkbox per function valid for the picked media. What cannot be added to the current
+@* One tile per function valid for the picked media. What cannot be added to the current
    selection, or cannot run on this server, is disabled and says why. *@
 
-<RadzenStack Gap="0.25rem">
+<div class="function-grid" role="group" aria-label="Functions">
     @foreach (var function in FunctionStack.For(Kind))
     {
         var f = function;
         var available = Available.Contains(f);
         var ticked = Value.Contains(f);
         var disabled = !available || (!ticked && !FunctionStack.CanAdd(Value, f));
-        var name = $"fn-{f}";
-        <div class="function-row" data-fn="@f">
-            @* A native checkbox: Radzen's nests an input inside a role="checkbox" element, which
-               assistive technology reads as two controls with no name. *@
-            <input type="checkbox" id="@name" checked="@ticked" disabled="@disabled"
+        var describe = available ? FunctionStack.Describe(f) : "Not available on this server.";
+        @* The whole tile is the label, so a tap anywhere on it ticks. A native checkbox: Radzen's
+           nests an input inside a role="checkbox" element, which assistive technology reads as two
+           controls with no name. *@
+        <label class="function-tile @(ticked ? "on" : null) @(disabled ? "off" : null)" data-fn="@f" title="@describe">
+            <input type="checkbox" id="@($"fn-{f}")" checked="@ticked" disabled="@disabled"
                    @onchange="@(e => ToggleAsync(f, e.Value is true))" />
-            <label for="@name" class="function-label">
-                <strong>@FunctionStack.Label(f)</strong>
-                <span>@(available ? FunctionStack.Describe(f) : "Not available on this server.")</span>
-            </label>
-        </div>
+            <RadzenIcon Icon="@IconOf(f)" class="function-icon" aria-hidden="true" />
+            <strong>@FunctionStack.Label(f)</strong>
+            <span class="function-describe">@describe</span>
+        </label>
     }
-</RadzenStack>
+</div>
 
 @code {
     [Parameter, EditorRequired] public MediaKind Kind { get; set; }
     [Parameter, EditorRequired] public IReadOnlyList<MediaFunction> Value { get; set; } = [];
     [Parameter] public EventCallback<IReadOnlyList<MediaFunction>> ValueChanged { get; set; }
     [Parameter] public IReadOnlyCollection<MediaFunction> Available { get; set; } = Enum.GetValues<MediaFunction>();
+
+    public static string IconOf(MediaFunction function) => function switch
+    {
+        MediaFunction.Restyle => "palette",
+        MediaFunction.MemeCaption => "sentiment_very_satisfied",
+        MediaFunction.Upscale => "hd",
+        MediaFunction.Cutout => "content_cut",
+        MediaFunction.RapRoast => "mic",
+        MediaFunction.PhotoToVideo => "movie",
+        MediaFunction.BulkStyles => "auto_awesome_mosaic",
+        MediaFunction.Memeify => "celebration",
+        MediaFunction.VideoRoast => "record_voice_over",
+        MediaFunction.Captions => "closed_caption",
+        _ => "bolt",
+    };
 
     private Task ToggleAsync(MediaFunction function, bool on) =>
         ValueChanged.InvokeAsync(on ? FunctionStack.InRunOrder([.. Value, function]) : [.. Value.Where(v => v != function)]);

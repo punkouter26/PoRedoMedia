@@ -21,13 +21,13 @@ public sealed class SoundsUiTests : UiTestBase
     public async Task An_uploaded_sound_is_listed_can_be_starred_and_found_by_search()
     {
         var page = await SignedInPageAsync("/sounds");
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Sounds" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Library" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
         var name = $"e2e-{Guid.NewGuid():N}"[..14];
 
         await page.SetInputFilesAsync("input[type=file]", new FilePayload { Name = name + ".wav", MimeType = "audio/wav", Buffer = Wav() });
         await page.GetByPlaceholder("Search names and tags").FillAsync(name);
 
-        var row = page.GetByRole(AriaRole.Row).Filter(new() { HasText = name });
+        var row = page.GetByRole(AriaRole.Listitem).Filter(new() { HasText = name });
         await Assertions.Expect(row).ToHaveCountAsync(1, new() { Timeout = 30_000 });
         await row.GetByRole(AriaRole.Button, new() { Name = $"Star {name}" }).ClickAsync();
         await Assertions.Expect(row.GetByRole(AriaRole.Button, new() { Name = $"Unstar {name}" })).ToBeVisibleAsync();

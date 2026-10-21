@@ -2,9 +2,11 @@
 
 @if (_useMockAi)
 {
-    <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false" class="rz-m-0 po-alert-ink">
+    @* A thin strip rather than an alert: it is always there in tests, and must not cost the page a row. *@
+    <div class="po-mock-strip" role="status">
+        <RadzenIcon Icon="science" aria-hidden="true" />
         Using mock data. No AI provider is being called; results are placeholders.
-    </RadzenAlert>
+    </div>
 }
 
 @code {

@@ -39,14 +39,30 @@
     gap: 0.5rem;
 }
 
-.panel-more {
+.panel-icons {
     display: inline-flex;
-    gap: 0.15rem;
+    flex-wrap: wrap;
+    gap: 0.1rem;
     margin-left: auto;
 }
 
+.panel-share {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.75rem;
+    border: 1px solid var(--po-line);
+    border-radius: var(--po-radius-sm);
+}
+
+.panel-share-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
 /* On a narrow screen the details rise from the bottom as a sheet, over the grid. */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .media-panel {
         top: auto;
         bottom: 0;

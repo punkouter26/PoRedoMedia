@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI Consolidation</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; --fix: #b4235a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; --fix: #ff7aa8; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 75ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  h2 .tag.fix { background: var(--fix); }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair.phones { grid-template-columns: repeat(4, 1fr); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  td.good { color: var(--new); font-weight: 700; }
+  .note { font-size: 0.85rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; margin-top: 10px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } .pair.phones { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>UI consolidation: U1–U10</h1>
+  <p class="lede">Before and after, captured headless with Playwright at 1366×860 (desktop) and 390×844 (phone), Test
+    environment with mock AI, the same seeded user in both, on 2026-10-21. Effects are off in automated browsers, so
+    the spectrogram ribbons on Sounds do not show here. The orange strip is the mock-data notice, shown only with mock AI.</p>
+
+  <section>
+    <h2><span class="tag fix">Runtime</span>Defects found by inspecting the live routes</h2>
+    <ul class="changes">
+      <li><b>Focus box on every page title.</b> Navigation focuses the H1 for screen readers, and the browser drew a hard black outline around it (visible in every "before" shot). Headings now take focus without a ring.</li>
+      <li><b>Squashed Run button on phones.</b> The button shrank to a vertical "R U N" column next to a long summary. It now keeps its shape.</li>
+      <li><b>Icon styles that never applied.</b> Radzen 12 renders icons as <code>i.rzi</code>, so rules written for <code>.rz-icon</code> matched nothing: the run steps' green/red/spinning icons, the gallery badge icons. They work now.</li>
+      <li><b>AI-model label over its value.</b> "Automatic" is an empty value, so the floating label sat on top of it. The label is now fixed above the field.</li>
+      <li><b>Header on two rows on phones</b>, and <b>four toolbar rows</b> before the first gallery thumbnail.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="tag">U1</span>One account menu, and a tab bar on phones</h2>
+    <p class="what">Settings, the user's name and Sign out became one avatar button that opens a side drawer. On phones the navigation moves to a bottom tab bar (Create, Library, Runs), and the header is a single row.</p>
+    <div class="pair phones">
+      <figure><img src="261021-ui-consolidation/before-phone-3-gallery.png" alt="Before: phone header on two rows"><figcaption><b>Before</b>: the header wraps to two rows; 4 links + 3 tools.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-phone-3-gallery.png" alt="After: one-row header and bottom tab bar"><figcaption><b class="new">After</b>: brand + avatar; tabs at the bottom.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/before-phone-8-account.png" alt="Before: settings popup"><figcaption><b>Before</b>: settings popup; Sign out is a separate header button.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-phone-8-account.png" alt="After: account drawer"><figcaption><b class="new">After</b>: one drawer with Esc and focus handling.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U2</span>One command bar on the gallery</h2>
+    <p class="what">Search (with its icon inside), kind filter, sort as an icon menu and Add, in one sticky bar. The Select toggle is gone: each card has a tick box, and while anything is ticked the bar becomes the bulk-action bar.</p>
+    <div class="pair">
+      <figure><img src="261021-ui-consolidation/before-desktop-3-gallery.png" alt="Before: gallery desktop"><figcaption><b>Before</b>: six controls including a Select mode toggle and a sort dropdown.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-3-gallery.png" alt="After: gallery desktop"><figcaption><b class="new">After</b>: one bar that stays on screen while the grid scrolls.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U3</span>Library: My media, Sounds and Feed on one page</h2>
+    <p class="what">One page with three sections that keep their own addresses (/gallery, /sounds, /feed), so links and bookmarks still work. The main navigation drops from four links to two.</p>
+    <div class="pair">
+      <figure><img src="261021-ui-consolidation/before-desktop-6-feed.png" alt="Before: feed page"><figcaption><b>Before</b>: Feed is a fourth top-level page with its own layout.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-6-feed.png" alt="After: feed as a Library section"><figcaption><b class="new">After</b>: a Library section with the same command-bar layout as the others.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U4</span>Sounds as cards</h2>
+    <p class="what">The 5-column data grid became cards: play, name, length, star and delete in one row, tags below, spectrogram filling the width when effects are on. Paged at 24, with a sort menu.</p>
+    <div class="pair">
+      <figure><img src="261021-ui-consolidation/before-desktop-5-sounds.png" alt="Before: sounds data grid"><figcaption><b>Before</b>: 11 sounds visible, a wide empty band on the right.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-5-sounds.png" alt="After: sound cards"><figcaption><b class="new">After</b>: all 24 on the page fit the screen.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U5</span>Detail panel: one primary action, icons, and sharing inline</h2>
+    <p class="what">"Use as source" is the one primary button. Compare, Download, Share, Pin and Delete are icons, and Copy, GIF and Roast audio go in a ⋯ menu. Share opens a section inside the panel instead of a dialog on top of it.</p>
+    <div class="pair phones">
+      <figure><img src="261021-ui-consolidation/before-phone-4-item.png" alt="Before: phone detail sheet"><figcaption><b>Before</b>: the sheet starts under four toolbar rows.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-phone-4-item.png" alt="After: phone detail sheet"><figcaption><b class="new">After</b>: the actions are visible without scrolling the sheet.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/before-desktop-4-item.png" alt="Before: desktop panel"><figcaption><b>Before</b>: up to 9 buttons, wrapping.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-4-item.png" alt="After: desktop panel"><figcaption><b class="new">After</b>: 1 button, 5 icons and a menu.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U6</span>Function tiles and a two-column composer</h2>
+    <p class="what">Functions are icon tiles (the whole tile ticks). On wide screens their settings sit in a column beside them, and each settings group can be collapsed. Saved recipes are one-tap chips. While a run goes, "Start something else" leaves it running.</p>
+    <div class="pair">
+      <figure><img src="261021-ui-consolidation/before-desktop-2-compose.png" alt="Before: composer"><figcaption><b>Before</b>: a long checkbox list; the settings are below the fold.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-2-compose.png" alt="After: composer"><figcaption><b class="new">After</b>: tiles, settings and the Run bar all on one screen.</figcaption></figure>
+    </div>
+    <div class="pair phones" style="margin-top:14px">
+      <figure><img src="261021-ui-consolidation/before-phone-2-compose.png" alt="Before: phone composer"><figcaption><b>Before</b>: the preview takes half the screen; "R U N" is squashed.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-phone-2-compose.png" alt="After: phone composer"><figcaption><b class="new">After</b>: a thumbnail row; six tiles in view.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U7</span>A run center in place of the tray popup</h2>
+    <p class="what">A side drawer with live progress bars and View, Again and Cancel for every recent run. The end-of-run toast is skipped when that run is already on screen.</p>
+    <div class="pair">
+      <figure><img src="261021-ui-consolidation/before-desktop-7-runs.png" alt="Before: runs popup"><figcaption><b>Before</b>: a hand-built popup under the header icon.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-7-runs.png" alt="After: runs drawer"><figcaption><b class="new">After</b>: a Radzen side drawer; Esc and click-outside close it.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U8</span>Home overview</h2>
+    <p class="what">Create's start page shows today's runs left with the dial, what this tab has spent, the latest runs and a peek at the trending feed, beside the drop zone. Recent media is a single row that scrolls sideways.</p>
+    <div class="pair">
+      <figure><img src="261021-ui-consolidation/before-desktop-1-home.png" alt="Before: home"><figcaption><b>Before</b>: only the drop zone and a grid of recent media.</figcaption></figure>
+      <figure><img src="261021-ui-consolidation/after-desktop-1-home.png" alt="After: home overview"><figcaption><b class="new">After</b>: quota, runs and the feed together, without scrolling.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">U9</span>Design-system cleanup</h2>
+    <ul class="changes">
+      <li>The hand-built popups (<code>.shell-popup</code>, <code>.pop-scrim</code>) are replaced by Radzen side dialogs.</li>
+      <li>Links that borrowed Radzen's internal <code>rz-button</code> classes (Remix, Use as source, the file picker) now use one <code>LinkButton</code>/<code>.po-link-btn</code> style built from theme variables.</li>
+      <li>Breakpoints are unified to 720px (phone) and 1024px (single column); 800px and 900px are gone.</li>
+      <li>The mock-data alert is now a thin strip; page titles are smaller and share a row with their tabs.</li>
+      <li>The gallery tick box is a 24px target: the WCAG 2.2 scan caught the first version at 20.8px.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="tag">U10</span>Fitting the viewport</h2>
+    <p class="what">How far each view scrolls past the screen (pixels of extra scroll in the app body), measured by the same script before and after.</p>
+    <table>
+      <thead><tr><th>View</th><th>Desktop before</th><th>Desktop after</th><th>Phone before</th><th>Phone after</th></tr></thead>
+      <tbody>
+        <tr><td>Home</td><td>0</td><td class="good">0</td><td>738</td><td class="good">597</td></tr>
+        <tr><td>Compose</td><td>184</td><td class="good">0</td><td>763</td><td class="good">489</td></tr>
+        <tr><td>Gallery</td><td>0</td><td class="good">0</td><td>358</td><td class="good">241</td></tr>
+        <tr><td>Gallery item</td><td>0</td><td class="good">0</td><td>965</td><td class="good">806</td></tr>
+        <tr><td>Sounds</td><td>445</td><td class="good">0</td><td>670</td><td>1814</td></tr>
+        <tr><td>Feed</td><td>0</td><td class="good">0</td><td>746</td><td>747</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Home now holds three more panels and still fits on desktop. Phone Sounds is longer because each sound is a full card in one column. The old grid kept rows short by hiding columns behind a sideways scroll; the list is meant to scroll. The sticky command bars keep search and filters in reach while it does. Gallery and sound cards skip rendering off-screen with <code>content-visibility</code>.</p>
+  </section>
+</main>
+</body>
+</html>

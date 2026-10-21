@@ -1,0 +1,24 @@
+@* One button for everything about the user: name, look and sound, sign out. Opens a side drawer. *@
+@inject DialogService Dialogs
+
+@* The accessible name starts with the visible name, so speech input can say what is shown. *@
+<button type="button" class="shell-account" aria-label="@(Name is null ? "Settings" : $"{Name}: account and settings")" title="@(Name is null ? "Settings" : "Account and settings")"
+        aria-haspopup="dialog" @onclick="OpenAsync">
+    @if (Name is null)
+    {
+        <RadzenIcon Icon="tune" aria-hidden="true" />
+    }
+    else
+    {
+        <span class="shell-avatar" aria-hidden="true">@AccountPanel.Initial(Name)</span>
+        <span class="shell-account-name">@Name</span>
+    }
+</button>
+
+@code {
+    [Parameter] public string? Name { get; set; }
+
+    private Task OpenAsync() => Dialogs.OpenSideAsync<AccountPanel>(Name is null ? "Settings" : "Account",
+        new Dictionary<string, object?> { [nameof(AccountPanel.Name)] = Name },
+        new SideDialogOptions { Position = DialogPosition.Right, Width = "min(22rem, 100vw)", CloseDialogOnOverlayClick = true, CssClass = "po-drawer" });
+}

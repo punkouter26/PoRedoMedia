@@ -1,4 +1,4 @@
-// The sound library as a wall of living spectrograms: each sound's row shows a heat-map ribbon of
+// The sound library as a wall of living spectrograms: each sound's card shows a heat-map ribbon of
 // its frequencies over time (worked out in a worker, only for rows that are on screen, two at a
 // time). Hovering shows where a click would play from; a click plays from there. The sound that
 // is playing gets a glowing playhead, the part already heard lights up, and its ribbon pulses
@@ -101,7 +101,7 @@ window.poSpectro = (() => {
             return;
         }
         player._poSeek = fraction;
-        canvas.closest('tr')?.querySelector('button[aria-label^="Play"]')?.click();
+        canvas.closest('.sound-card')?.querySelector('button[aria-label^="Play"]')?.click();
     }
 
     // While something plays: its playhead moves and its ribbon pulses with its loudness.

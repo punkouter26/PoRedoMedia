@@ -81,8 +81,8 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
         await ScanAsync(page, "gallery");
 
         await page.GotoAsync(BaseUrl + "/sounds");
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Sounds" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
-        await page.WaitForSelectorAsync(".rz-data-grid");
+        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Library" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await page.WaitForSelectorAsync(".sounds-grid");
         await ScanAsync(page, "sounds");
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));

@@ -1,10 +1,11 @@
 @inherits LayoutComponentBase
 @using System.Reflection
 @inject NavigationManager Navigation
-@inject HttpClient Http
 
 <RadzenComponents />
 
+@* An app shell the height of the screen: only the body scrolls, so the header, the page's own
+   command bar and the phone tab bar stay where they are. *@
 <RadzenLayout>
     <RadzenHeader>
         <div class="shell-bar">
@@ -13,23 +14,17 @@
             </a>
             <AuthorizeView>
                 <Authorized>
-                    <nav class="shell-nav" aria-label="Main">
-                        <NavLink href="" Match="NavLinkMatch.All">Create</NavLink>
-                        <NavLink href="gallery">Gallery</NavLink>
-                        <NavLink href="feed">Feed</NavLink>
-                        <NavLink href="sounds">Sounds</NavLink>
-                    </nav>
+                    <ShellNav Label="Main" Class="shell-nav" />
                     <div class="shell-tools">
                         <SessionCostChip />
-                        <ActivityTray />
-                        <SettingsMenu />
-                        <span class="shell-user">@context.User.Identity?.Name</span>
-                        <RadzenButton Text="Sign out" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" IsBusy="_leaving" Click="SignOutAsync" />
+                        <RunsButton Class="shell-runs" />
+                        <AccountButton Name="@context.User.Identity?.Name" />
                     </div>
+                    <RunNotifier />
                 </Authorized>
                 <NotAuthorized>
                     <div class="shell-tools">
-                        <SettingsMenu />
+                        <AccountButton />
                     </div>
                 </NotAuthorized>
             </AuthorizeView>
@@ -50,6 +45,16 @@
             </ErrorBoundary>
         </main>
     </RadzenBody>
+    <AuthorizeView>
+        <Authorized>
+            @* Phones only: the stylesheet hides it on wider screens, where the header has room. *@
+            <RadzenFooter class="shell-footer">
+                <ShellNav Label="Main, at the bottom" Class="shell-tabs">
+                    <RunsButton Class="shell-tab-runs" ShowText="true" />
+                </ShellNav>
+            </RadzenFooter>
+        </Authorized>
+    </AuthorizeView>
 </RadzenLayout>
 
 <span class="shell-build" title="Build version">@BuildStamp</span>
@@ -61,24 +66,7 @@
         .FirstOrDefault(a => a.Key == "BuildStamp")?.Value;
 
     private ErrorBoundary? _boundary;
-    private bool _leaving;
 
     // A page that failed must not keep the next page from showing.
     protected override void OnParametersSet() => _boundary?.Recover();
-
-    // Sign-out is a POST with the antiforgery token; the page then leaves for /login itself.
-    private async Task SignOutAsync()
-    {
-        _leaving = true;
-        try
-        {
-            using var response = await Http.PostAsync("logout", null);
-        }
-        catch (HttpRequestException)
-        {
-            // Offline: the cookie stays, and /login will send a signed-in user back in.
-        }
-
-        Navigation.NavigateTo("login", forceLoad: true);
-    }
 }

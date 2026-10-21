@@ -1,0 +1,109 @@
+@* The account drawer: who is signed in, how the app looks and sounds in this browser, and sign out. *@
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<RadzenStack Gap="1rem" class="account-panel">
+    @if (Name is not null)
+    {
+        <div class="account-who">
+            <span class="account-avatar" aria-hidden="true">@Initial(Name)</span>
+            <span class="account-name">@Name</span>
+        </div>
+    }
+
+    <section aria-labelledby="account-look">
+        <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H2" class="rz-m-0 rz-mb-1" id="account-look">Look and sound</RadzenText>
+        <div class="account-row">
+            <RadzenSwitch Name="settings-dark" Value="_dark" Change="SetDarkAsync" />
+            <RadzenLabel Component="settings-dark" Text="Dark theme" />
+        </div>
+        <div class="account-row">
+            <RadzenSwitch Name="settings-fx" Value="_fx" Change="SetFxAsync" />
+            <RadzenLabel Component="settings-fx" Text="Visual effects" />
+        </div>
+        <div class="account-row">
+            <RadzenSwitch Name="settings-sounds" Value="_sounds" Change="SetSoundsAsync" />
+            <RadzenLabel Component="settings-sounds" Text="Interface sounds" />
+        </div>
+        <div class="account-row">
+            <RadzenLabel Component="settings-volume" Text="Volume" />
+            <RadzenSlider Name="settings-volume" TValue="int" Min="0" Max="100" Step="5" Value="_volume" Disabled="@(!_sounds)"
+                          Change="SetVolumeAsync" aria-label="Volume" class="po-grow" />
+        </div>
+    </section>
+
+    @if (Name is not null)
+    {
+        <RadzenButton Text="Sign out" Icon="logout" Variant="Variant.Outlined" IsBusy="_leaving" Click="SignOutAsync" class="po-fill" />
+    }
+</RadzenStack>
+
+@code {
+    /// <summary>The signed-in user's name; null on the sign-in page, where only the settings show.</summary>
+    [Parameter] public string? Name { get; set; }
+
+    private bool _dark;
+    private bool _fx = true;
+    private bool _sounds = true;
+    private int _volume = 50;
+    private bool _leaving;
+
+    public static string Initial(string name) => name.Length == 0 ? "?" : char.ToUpperInvariant(name[0]).ToString();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _dark = await JS.InvokeAsync<string>("poMedia.theme") == "dark";
+        _fx = await JS.InvokeAsync<bool>("poFx.enabled");
+        _sounds = !await JS.InvokeAsync<bool>("poSfx.muted");
+        _volume = (int)Math.Round(await JS.InvokeAsync<double>("poSfx.volume") * 100);
+        StateHasChanged();
+    }
+
+    private async Task SetDarkAsync(bool on)
+    {
+        _dark = on;
+        await JS.InvokeVoidAsync("poMedia.setTheme", on ? "dark" : "light");
+    }
+
+    /// <summary>Glass, particles, physics and the rest. Reduced motion turns them off whatever this says.</summary>
+    private async Task SetFxAsync(bool on)
+    {
+        _fx = on;
+        await JS.InvokeVoidAsync("poFx.setEnabled", on);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    private async Task SetSoundsAsync(bool on)
+    {
+        _sounds = on;
+        await JS.InvokeVoidAsync("poSfx.setMuted", !on);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    private async Task SetVolumeAsync(int value)
+    {
+        _volume = value;
+        await JS.InvokeVoidAsync("poSfx.setVolume", value / 100.0);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    // Sign-out is a POST with the antiforgery token; the page then leaves for /login itself.
+    private async Task SignOutAsync()
+    {
+        _leaving = true;
+        try
+        {
+            using var response = await Http.PostAsync("logout", null);
+        }
+        catch (HttpRequestException)
+        {
+            // Offline: the cookie stays, and /login will send a signed-in user back in.
+        }
+
+        Navigation.NavigateTo("login", forceLoad: true);
+    }
+}

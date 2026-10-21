@@ -18,8 +18,8 @@
     transition: transform 220ms var(--po-spring);
 }
 
-.run-step.done ::deep .rz-icon { color: var(--rz-success); }
-.run-step.failed ::deep .rz-icon { color: var(--rz-danger); }
+.run-step.done ::deep .rzi { color: var(--rz-success); }
+.run-step.failed ::deep .rzi { color: var(--rz-danger); }
 
 .run-step.now {
     border-color: var(--rz-primary);
@@ -27,7 +27,7 @@
     transform: scale(1.04);
 }
 
-.run-step.now ::deep .rz-icon {
+.run-step.now ::deep .rzi {
     color: var(--rz-primary);
     animation: run-spin 1.2s linear infinite;
 }
@@ -67,7 +67,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .run-step, .run-step.now ::deep .rz-icon {
+    .run-step, .run-step.now ::deep .rzi {
         transition: none;
         animation: none;
     }

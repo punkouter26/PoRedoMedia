@@ -1,10 +1,3 @@
-.sounds-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.75rem;
-}
-
 .sounds-toggle {
     display: flex;
     align-items: center;
@@ -12,18 +5,72 @@
     min-height: 44px;
 }
 
+.po-page-bar ::deep .sounds-sort {
+    text-transform: none;
+}
+
 .sounds-player {
     position: sticky;
-    top: 0.5rem;
+    top: 3.75rem;
     z-index: 3;
     width: 100%;
     height: 40px;
 }
 
-.sounds-name {
-    display: inline-flex;
+/* Cards that reflow from one column on a phone to as many as fit. */
+.sounds-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: 0.6rem;
+}
+
+.sound-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+    padding: 0.5rem 0.6rem 0.6rem;
+    border: 1px solid var(--po-line);
+    border-radius: var(--po-radius-sm);
+    background: var(--rz-base-background-color);
+    /* Off-screen cards cost nothing until they are scrolled to. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 7rem;
+}
+
+.sound-head {
+    display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.sound-head ::deep .sound-play {
+    flex-shrink: 0;
+    border-radius: 50%;
+}
+
+.sound-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.sound-length {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--rz-text-secondary-color);
+}
+
+.sound-head ::deep .sound-starred .rz-button-icon-left {
+    color: var(--rz-warning-dark, #b45309);
 }
 
 .sounds-tags {
@@ -32,22 +79,30 @@
     gap: 0.25rem;
 }
 
-.sounds-skeletons {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
+.sounds-skeleton {
+    height: 6rem;
 }
 
-.sounds-skeleton {
-    height: 2.5rem;
+.sounds-wall ::deep .sounds-pager {
+    margin-top: 0.75rem;
+}
+
+@media (max-width: 720px) {
+    .sounds-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sounds-player {
+        top: 6.5rem;
+    }
 }
 
 /* ── Spectrograms (js/fx/spectro.js) ────────────────────────────────────────────────── */
 ::deep .sounds-spectro {
     --beat: 0;
     display: block;
-    width: 11.5rem;
-    height: 30px;
+    width: 100%;
+    height: 34px;
     border-radius: 6px;
     background: #08061a;
     cursor: pointer;

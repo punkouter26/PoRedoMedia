@@ -1,4 +1,5 @@
-@page "/gallery"
+@* My media: the user's own uploads and results, with search, filters, bulk actions and the details
+   panel. Shown by the Library page, which owns the address /gallery. *@
 @implements IAsyncDisposable
 @inject MediaApi Api
 @inject RunTracker Tracker
@@ -8,35 +9,42 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<PageTitle>Gallery · PoRedoMedia</PageTitle>
-
 <RadzenStack Gap="0.75rem">
-    <div class="gallery-bar">
-        <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Gallery</RadzenText>
-        <RadzenSelectBar Value="_kind" TValue="string" Change="@(v => SetAsync(kind: v))" aria-label="Filter by kind">
-            <Items>
-                <RadzenSelectBarItem Text="All" Value="@("All")" />
-                <RadzenSelectBarItem Text="Images" Value="@("Image")" />
-                <RadzenSelectBarItem Text="Videos" Value="@("Video")" />
-                <RadzenSelectBarItem Text="Audio" Value="@("Audio")" />
-            </Items>
-        </RadzenSelectBar>
-        <RadzenTextBox Value="@_search" @oninput="@(e => SetAsync(search: e.Value?.ToString() ?? ""))" data-po-search
-                       Placeholder="Search titles and words" aria-label="Search titles and words" title="Search (/)" class="po-grow" />
-        <RadzenDropDown TValue="string" Data="Sorts" Value="_sort" Change="@(v => SetAsync(sort: v?.ToString()))" aria-label="Sort by" class="gallery-sort" />
-        <RadzenToggleButton Text="Select" Icon="checklist" Variant="Variant.Outlined" Value="_selecting" Change="ToggleSelecting" />
-        <RadzenButton Text="Add media" Icon="add" Click="AddAsync" />
-    </div>
-
-    @if (_selecting)
+    @* One bar: what is shown, or, once anything is ticked, what to do with the ticked items. *@
+    @if (Picking)
     {
-        <div class="gallery-bulk" role="toolbar" aria-label="Actions for the selected items">
-            <RadzenText class="rz-m-0" aria-live="polite">@_picked.Count selected</RadzenText>
-            <RadzenButton Text="Pin" Icon="push_pin" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="@(_picked.Count == 0 || _working)" Click="@(() => PinPickedAsync(true))" />
-            <RadzenButton Text="Unpin" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="@(_picked.Count == 0 || _working)" Click="@(() => PinPickedAsync(false))" />
-            <RadzenButton Text="Download" Icon="download" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="@(_picked.Count == 0 || _working)" Click="DownloadPickedAsync" />
-            <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Disabled="@(_picked.Count == 0 || _working)" Click="DeletePickedAsync" />
+        <div class="po-page-bar gallery-bulk" role="toolbar" aria-label="Actions for the selected items">
+            <RadzenButton Icon="close" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" aria-label="Clear the selection" title="Clear the selection (Esc)"
+                          Click="@(() => _picked = [])" />
+            <RadzenText class="rz-m-0 gallery-bulk-count" aria-live="polite">@_picked.Count selected</RadzenText>
             <RadzenButton Text="Select all" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => _picked = [.. Visible.Select(m => m.Id)])" />
+            <span class="gallery-bulk-actions">
+                <RadzenButton Text="Pin" Icon="push_pin" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="_working" Click="@(() => PinPickedAsync(true))" />
+                <RadzenButton Text="Unpin" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="_working" Click="@(() => PinPickedAsync(false))" />
+                <RadzenButton Text="Download" Icon="download" Size="ButtonSize.Small" Variant="Variant.Outlined" Disabled="_working" Click="DownloadPickedAsync" />
+                <RadzenButton Text="Delete" Icon="delete" Size="ButtonSize.Small" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Disabled="_working" Click="DeletePickedAsync" />
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="po-page-bar">
+            <div class="po-search">
+                <RadzenIcon Icon="search" aria-hidden="true" />
+                <RadzenTextBox Value="@_search" @oninput="@(e => SetAsync(search: e.Value?.ToString() ?? ""))" data-po-search
+                               Placeholder="Search titles and words" aria-label="Search titles and words" title="Search (/)" />
+            </div>
+            <RadzenSelectBar Value="_kind" TValue="string" Change="@(v => SetAsync(kind: v))" Size="ButtonSize.Small" aria-label="Filter by kind" class="gallery-kinds">
+                <Items>
+                    <RadzenSelectBarItem Text="All" Value="@("All")" />
+                    <RadzenSelectBarItem Text="Images" Value="@("Image")" />
+                    <RadzenSelectBarItem Text="Videos" Value="@("Video")" />
+                    <RadzenSelectBarItem Text="Audio" Value="@("Audio")" />
+                </Items>
+            </RadzenSelectBar>
+            <RadzenButton Icon="sort" Text="@_sort" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base" aria-label="@($"Sort: {_sort}")" title="Sort"
+                          aria-haspopup="menu" Click="OpenSortMenu" class="gallery-sort" />
+            <RadzenButton Text="Add media" Icon="add" Click="AddAsync" class="gallery-add po-phone-hide-text" />
         </div>
     }
 
@@ -55,36 +63,41 @@
     }
     else
     {
-        <div class="gallery-split @(Selected is not null ? "has-panel" : "")">
+        <div class="gallery-split @(Selected is not null ? "has-panel" : "") @(Picking ? "picking" : "")">
             <div class="gallery-grid">
                 @foreach (var media in Visible)
                 {
                     var item = media;
-                    var on = _selecting ? _picked.Contains(item.Id) : item.Id == _selectedId;
-                    <button type="button" class="gallery-card @(on ? "selected" : "")" data-id="@item.Id" @key="item.Id"
-                            aria-pressed="@(on ? "true" : "false")" @onclick="@(() => ClickAsync(item))"
-                            @oncontextmenu="@(e => OpenMenu(e, item))" @oncontextmenu:preventDefault>
-                        @if (item.Kind == MediaKind.Audio)
-                        {
-                            <span class="gallery-thumb gallery-audio" aria-hidden="true"><RadzenIcon Icon="music_note" /></span>
-                        }
-                        else
-                        {
-                            <img class="gallery-thumb" src="@item.ThumbUrl" alt="" loading="lazy" />
-                        }
-                        <span class="gallery-title">@item.Title</span>
-                        <span class="gallery-meta">
-                            <RadzenBadge Text="@item.Kind.ToString()" BadgeStyle="BadgeStyle.Base" Shade="Shade.Darker" />
-                            @if (item.Pinned)
+                    var picked = _picked.Contains(item.Id);
+                    var on = Picking ? picked : item.Id == _selectedId;
+                    <div class="gallery-card @(on ? "selected" : "")" data-id="@item.Id" @key="item.Id">
+                        <button type="button" class="gallery-open" aria-pressed="@(on ? "true" : "false")" @onclick="@(() => ClickAsync(item))"
+                                @oncontextmenu="@(e => OpenMenu(e, item))" @oncontextmenu:preventDefault>
+                            @if (item.Kind == MediaKind.Audio)
                             {
-                                <RadzenIcon Icon="push_pin" title="Pinned" aria-label="Pinned" />
+                                <span class="gallery-thumb gallery-audio" aria-hidden="true"><RadzenIcon Icon="music_note" /></span>
                             }
-                            @if (item.Shared)
+                            else
                             {
-                                <RadzenIcon Icon="link" title="Shared by link" aria-label="Shared by link" />
+                                <img class="gallery-thumb" src="@item.ThumbUrl" alt="" loading="lazy" />
                             }
-                        </span>
-                    </button>
+                            <span class="gallery-title">@item.Title</span>
+                            <span class="gallery-meta">
+                                <RadzenBadge Text="@item.Kind.ToString()" BadgeStyle="BadgeStyle.Base" Shade="Shade.Darker" />
+                                @if (item.Pinned)
+                                {
+                                    <RadzenIcon Icon="push_pin" title="Pinned" aria-label="Pinned" />
+                                }
+                                @if (item.Shared)
+                                {
+                                    <RadzenIcon Icon="link" title="Shared by link" aria-label="Shared by link" />
+                                }
+                            </span>
+                        </button>
+                        @* Ticking starts a selection; while there is one, a click on a card ticks it too. *@
+                        <input type="checkbox" class="gallery-pick" checked="@picked" aria-label="@($"Select {item.Title}")"
+                               @onchange="@(() => TogglePick(item.Id))" />
+                    </div>
                 }
             </div>
             @if (Selected is { } selected)
@@ -116,14 +129,16 @@
     private string _search = "";
     private string _sort = "Newest";
     private Guid? _selectedId;
-    private bool _selecting;
     private bool _working;
     private HashSet<Guid> _picked = [];
     private MediaPanel? _panel;
     private DotNetObjectReference<Gallery>? _self;
     private string _magnet = "";
 
-    private MediaDto? Selected => _selecting ? null : _items?.FirstOrDefault(m => m.Id == _selectedId);
+    /// <summary>True while any card is ticked: clicks tick, and the bar shows the bulk actions.</summary>
+    private bool Picking => _picked.Count > 0;
+
+    private MediaDto? Selected => Picking ? null : _items?.FirstOrDefault(m => m.Id == _selectedId);
 
     private IEnumerable<MediaDto> Visible => Order(Filter(_items ?? [], _kind, _search), _sort);
 
@@ -157,7 +172,7 @@
         }
 
         // The picked cards lean together, so a bulk action's selection reads as one group.
-        var picked = _selecting ? _picked.Select(id => id.ToString()).Order().ToArray() : [];
+        var picked = _picked.Select(id => id.ToString()).Order().ToArray();
         var signature = string.Join(',', picked);
         if (signature != _magnet)
         {
@@ -187,7 +202,6 @@
     /// <summary>Changes one part of the view and writes the whole of it to the address.</summary>
     private Task SetAsync(string? kind = null, string? search = null, string? sort = null, Guid? selected = null, bool clearSelected = false)
     {
-
         (_kind, _search, _sort) = (kind ?? _kind, search ?? _search, sort ?? _sort);
         _selectedId = clearSelected ? null : selected ?? _selectedId;
         Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
@@ -202,15 +216,27 @@
 
     private Task ClickAsync(MediaDto item)
     {
-        if (!_selecting)
+        if (!Picking)
             return SetAsync(selected: item.Id);
 
-        if (!_picked.Remove(item.Id))
-            _picked.Add(item.Id);
+        TogglePick(item.Id);
         return Task.CompletedTask;
     }
 
-    private void ToggleSelecting(bool on) => (_selecting, _picked) = (on, []);
+    private void TogglePick(Guid id)
+    {
+        if (!_picked.Remove(id))
+            _picked.Add(id);
+    }
+
+    private void OpenSortMenu(MouseEventArgs e) =>
+        Menus.Open(e, [.. Sorts.Select(s => new ContextMenuItem { Text = s, Value = s, Icon = s == _sort ? "check" : "" })],
+            args => InvokeAsync(async () =>
+            {
+                Menus.Close();
+                await SetAsync(sort: args.Value as string);
+                StateHasChanged();
+            }));
 
     /// <summary>Opens the same picker Create uses, so the gallery takes drops, pastes and the camera too.</summary>
     private async Task AddAsync()
@@ -286,7 +312,7 @@
         switch (action)
         {
             case "open":
-                (_selecting, _picked) = (false, []);
+                _picked = [];
                 await SetAsync(selected: item.Id);
                 break;
             case "source":
@@ -306,8 +332,11 @@
                     OnChanged(updated);
                 break;
             case "delete":
+                // Only this card is deleted; a selection being built, or none, is put back afterwards.
+                var kept = _picked;
                 _picked = [item.Id];
                 await DeletePickedAsync();
+                _picked = [.. kept.Where(k => k != item.Id)];
                 if (_selectedId == item.Id && _items!.All(m => m.Id != item.Id))
                     await SetAsync(clearSelected: true);
                 break;
@@ -366,8 +395,8 @@
                 await MoveAsync(visible[Math.Max(0, at - 1)]);
                 break;
             case "Escape":
-                if (_selecting)
-                    ToggleSelecting(false);
+                if (Picking)
+                    _picked = [];
                 else
                     await SetAsync(clearSelected: true);
                 break;
