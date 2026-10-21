@@ -29,7 +29,12 @@ if (args.Length > 0 && args[0] == "seed-sounds")
     return await SeedSoundsCommand.RunAsync(args[1..], seedConfiguration);
 }
 
-var builder = WebApplication.CreateBuilder(args);
+// CLI verb: dotnet run --project src/PoRedoMedia.Api -- eval-ai [--dir <folder>] [--count 10] [--ollama <model>]
+// Scores the AI's meme captions per variant and writes an HTML report, using the app's own
+// configuration and services; the web host is built but never started.
+string[]? evalArgs = args.Length > 0 && args[0] == "eval-ai" ? args[1..] : null;
+
+var builder = WebApplication.CreateBuilder(evalArgs is null ? args : []);
 
 // The static web assets manifest is wired automatically only in Development. Test runs from
 // build output too, and without this every asset answers empty and the WASM app never boots.
@@ -78,6 +83,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
 });
 
 var app = builder.Build();
+
+if (evalArgs is not null)
+    return await PoRedoMedia.Api.Features.Eval.EvalAiCommand.RunAsync(app.Services, evalArgs);
 
 if (!app.Environment.IsDevOrTest())
 {

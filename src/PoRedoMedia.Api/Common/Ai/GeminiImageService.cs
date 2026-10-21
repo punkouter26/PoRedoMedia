@@ -21,6 +21,12 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
         "with a different camera lens perspective", "with a subtle stylistic reinterpretation",
     ];
 
+    /// <summary>
+    /// Pictures drawn at once across the whole process. Image runs execute side by side, and each
+    /// Bulk styles run draws several at a time; past this the provider answers 429.
+    /// </summary>
+    private static readonly SemaphoreSlim Drawing = new(4);
+
     private readonly string _model = configuration[ConfigKeys.GoogleImageModel] is { Length: > 0 } model ? model : "gemini-2.5-flash-image";
 
     // The flash model draws at about 1K only; the pro model takes an output size.
@@ -77,7 +83,8 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
         request.Headers.Add("x-goog-api-key", configuration[ConfigKeys.GoogleApiKey]);
         request.Content = JsonContent.Create(body, options: OmitNulls);
 
-        using var response = await http.CreateClient(GeminiVisionService.HttpClientName).SendAsync(request, ct);
+        await Drawing.WaitAsync(ct);
+        using var response = await SendGatedAsync(request, ct);
         if ((int)response.StatusCode == 429)
             throw new RunStepException("The image model is busy right now. Wait a minute and try again.");
         if (!response.IsSuccessStatusCode)
@@ -85,6 +92,21 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
 
         using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
         return Read(json.RootElement);
+    }
+
+    private async Task<HttpResponseMessage> SendGatedAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        try
+        {
+            var response = await http.CreateClient(GeminiVisionService.HttpClientName).SendAsync(request, ct);
+            // Buffered inside the gate, so the slot is held for the whole transfer and no longer.
+            await response.Content.LoadIntoBufferAsync(ct);
+            return response;
+        }
+        finally
+        {
+            Drawing.Release();
+        }
     }
 
     /// <summary>The image in a response, or a failure the user can read when the model declined.</summary>

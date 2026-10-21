@@ -38,6 +38,16 @@ public interface IAiVisionService
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Watches a whole video, sound included, in one call: an alternative to labelling sampled frames
+/// that sees motion between frames and hears what happens (a crash, a scream, a laugh).
+/// </summary>
+public interface IClipVision
+{
+    /// <summary>The clip's moments in source time. Throws when the provider cannot watch it; the caller falls back to frames.</summary>
+    Task<SceneLabel[]> AnalyseAsync(MediaItem video, IReadOnlyCollection<string> tagVocabulary, CancellationToken cancellationToken = default);
+}
+
 public interface IDirectorService
 {
     /// <summary>

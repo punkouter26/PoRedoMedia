@@ -24,7 +24,7 @@ public sealed class VideoRunStep(
     BlobStorageService blobs, IMediaRepository media, StorageClients storage, ISoundAssetRepository sounds,
     ISoundFavoritesRepository favoriteSounds, ISemanticMatchingService matching, IShareLinks links, IConfiguration configuration,
     IHostEnvironment environment, ILogger<VideoRunStep> logger,
-    IDirectorService? director = null, IVideoRoast? roast = null, IAiVisionService? vision = null) : IRunStep
+    IDirectorService? director = null, IVideoRoast? roast = null, IAiVisionService? vision = null, IClipVision? clipVision = null) : IRunStep
 {
     /// <summary>Most frames sampled here from a video that arrived without any.</summary>
     private const int MaxSampledFrames = 40;
@@ -228,15 +228,34 @@ public sealed class VideoRunStep(
     }
 
     /// <summary>
-    /// Frame labels stored at upload; else vision on the stored frames, which are sampled here
-    /// when the browser sent none (a clip this app made, or an upload from another client); else
-    /// none, and placement goes by time.
+    /// Labels stored earlier; else the whole clip watched at once, where that is configured; else
+    /// vision on the stored frames, which are sampled here when the browser sent none (a clip this
+    /// app made, or an upload from another client); else none, and placement goes by time.
     /// </summary>
     private async Task<SceneLabel[]> LabelsAsync(RunContext context, CancellationToken ct)
     {
         var stored = await VisionStore.LoadLabelsAsync(blobs, context.Source.Id, ct);
         if (stored.Length > 0)
             return stored;
+
+        if (clipVision is not null)
+        {
+            try
+            {
+                await context.ReportAsync("Watching the whole video");
+                var library = (await sounds.LoadAllAsync(ct)).VisibleTo(context.Run.Owner);
+                var watched = await clipVision.AnalyseAsync(context.Source, SoundVocabulary.Tags(library), ct);
+                if (watched.Length > 0)
+                {
+                    await VisionStore.SaveLabelsAsync(blobs, context.Source.Id, watched, ct);
+                    return watched;
+                }
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Whole-clip vision failed for {MediaId}; labelling frames instead", context.Source.Id);
+            }
+        }
 
         if (vision is null)
         {

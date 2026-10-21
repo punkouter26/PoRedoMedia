@@ -10,7 +10,7 @@ namespace PoRedoMedia.Api.Features.MemeCaption;
 /// </summary>
 public sealed class MemeCaptionStep(
     IVisionServiceRouter vision, ICaptionWriter writer, MemeTemplateService templates,
-    BlobStorageService blobs, MediaOutputs outputs) : IRunStep
+    BlobStorageService blobs, MediaOutputs outputs, AiReadStore reads) : IRunStep
 {
     public IReadOnlySet<MediaFunction> Handles { get; } = new HashSet<MediaFunction> { MediaFunction.MemeCaption };
 
@@ -39,7 +39,7 @@ public sealed class MemeCaptionStep(
 
             default:
                 await context.ReportAsync("Looking at the picture");
-                var seen = await vision.SeeAsync(context, image, ct);
+                var seen = await vision.SeeAsync(context, image, ct, reads);
                 if (seen.FallbackReason is not null)
                     context.AddNote(seen.FallbackReason);
                 await context.ReportAsync("Writing the caption");

@@ -12,6 +12,9 @@ public static class AiCatalog
     /// <summary>The vision model that runs in the user's browser. Its weights download on first use.</summary>
     public const string BrowserVision = AiProviderIds.BrowserPrefix + "florence2-base";
 
+    /// <summary>The background remover that runs in the user's browser (BiRefNet lite, MIT licence).</summary>
+    public const string BrowserCutout = AiProviderIds.BrowserPrefix + "birefnet-lite";
+
     private static readonly AiModelOption[] Vision =
     [
         new(AiProviderIds.GeminiVision, "Google Gemini", "Real sentences, about 2 seconds"),
@@ -48,10 +51,11 @@ public static class AiCatalog
             {
                 MediaFunction.Restyle => (local ? 0 : prices.TextUsd) + prices.ImageUsd,
                 MediaFunction.MemeCaption => options.GetValueOrDefault(RunOptions.MemeMode, RunOptions.MemeModeAi) == RunOptions.MemeModeAi ? look + prices.TextUsd : 0,
-                MediaFunction.RapRoast => look + 2 * prices.TextUsd + prices.MusicUsd,
+                // One call reads the picture and writes the bars; a refused song costs a second draft.
+                MediaFunction.RapRoast => look + prices.TextUsd + prices.MusicUsd,
                 MediaFunction.PhotoToVideo => prices.VideoUsd,
                 MediaFunction.Upscale => prices.UpscaleUsd * (options.GetValueOrDefault(RunOptions.UpscaleSize) == "4K" ? 2 : 1),
-                MediaFunction.Cutout => prices.CutoutUsd,
+                MediaFunction.Cutout => options.GetValueOrDefault(RunOptions.CutoutModel) == BrowserCutout ? 0 : prices.CutoutUsd,
                 MediaFunction.BulkStyles => prices.ImageUsd * Math.Max(1, options.Keys.Count(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))),
                 MediaFunction.Memeify => prices.VisionUsd + prices.TextUsd,
                 MediaFunction.VideoRoast => 2 * prices.TextUsd,

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using OpenAI;
 using OpenAI.Audio;
 using OpenAI.Chat;
+using PoRedoMedia.Api.Common.Ai;
 
 namespace PoRedoMedia.Api.Common;
 
@@ -21,10 +22,6 @@ namespace PoRedoMedia.Api.Common;
 /// </remarks>
 public sealed partial class AiFoundryClient
 {
-    [LoggerMessage(Level = LogLevel.Information,
-        Message = "AI usage: Stage={AiStage} Deployment={AiDeployment} Session={AiSessionId} InputTokens={InputTokens} CachedInputTokens={CachedInputTokens} OutputTokens={OutputTokens} ElapsedMs={ElapsedMs} EstimatedCostUsd={EstimatedCostUsd}")]
-    private partial void LogUsage(string aiStage, string aiDeployment, string aiSessionId, int inputTokens, int cachedInputTokens, int outputTokens, long elapsedMs, decimal? estimatedCostUsd);
-
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Deployment {AiDeployment} rejected a strict JSON schema; falling back to JSON-object mode for it from now on.")]
     private partial void LogSchemaUnsupported(Exception ex, string aiDeployment);
@@ -52,10 +49,11 @@ public sealed partial class AiFoundryClient
     /// <summary>Deployments that rejected an output-token cap; they are called without one.</summary>
     private readonly ConcurrentDictionary<string, byte> _noOutputCap = new(StringComparer.OrdinalIgnoreCase);
 
-    public AiFoundryClient(IConfiguration config, IHostEnvironment environment, ILogger<AiFoundryClient> logger)
+    public AiFoundryClient(IConfiguration config, IHostEnvironment environment, ILogger<AiFoundryClient> logger, AiMeter meter)
     {
         _config = config;
         _logger = logger;
+        Meter = meter;
 
         var endpoint = Setting(config, "AiFoundry:Endpoint");
         var key = Setting(config, "AiFoundry:Key");
@@ -71,6 +69,9 @@ public sealed partial class AiFoundryClient
     }
 
     public bool IsConfigured => _standard is not null;
+
+    /// <summary>Where every Foundry call's usage and cost is recorded, including the calls made around this client.</summary>
+    public AiMeter Meter { get; }
 
     /// <summary>
     /// The chat deployment the director and every other text call use (<c>AiFoundry:Deployment</c>).
@@ -137,41 +138,19 @@ public sealed partial class AiFoundryClient
         }
 
         sw.Stop();
-        RecordUsage(call.Stage, call.Deployment, call.MediaId, result.Value.Usage, sw.ElapsedMilliseconds);
+        RecordUsage(call.Stage, call.Deployment, result.Value.Usage, sw.ElapsedMilliseconds);
         if (result.Value.FinishReason == ChatFinishReason.Length)
             LogTruncated(call.Stage, call.Deployment, call.MaxOutputTokens);
         return result.Value.Content.Count > 0 ? result.Value.Content[0].Text.Trim() : string.Empty;
     }
 
-    /// <summary>Logs one call's token usage, with a cost estimate when prices are configured.</summary>
-    public void RecordUsage(string stage, string deployment, MediaId? mediaId, ChatTokenUsage? usage, long elapsedMs)
+    /// <summary>Records one call's token usage and estimated cost with the meter.</summary>
+    public void RecordUsage(string stage, string deployment, ChatTokenUsage? usage, long elapsedMs)
     {
         if (usage is null)
             return;
 
-        var cached = usage.InputTokenDetails?.CachedTokenCount ?? 0;
-        LogUsage(stage, deployment, mediaId?.ToString() ?? "-", usage.InputTokenCount, cached,
-            usage.OutputTokenCount, elapsedMs,
-            EstimateCostUsd(deployment, usage.InputTokenCount, cached, usage.OutputTokenCount));
-    }
-
-    /// <summary>
-    /// USD from <c>AiFoundry:Pricing:{deployment}</c> (per million tokens: <c>Input</c>,
-    /// <c>CachedInput</c>, <c>Output</c>). Null when the deployment has no prices configured —
-    /// prices change too often to hard-code, and a wrong number is worse than none.
-    /// </summary>
-    internal decimal? EstimateCostUsd(string deployment, int inputTokens, int cachedInputTokens, int outputTokens)
-    {
-        var section = _config.GetSection($"AiFoundry:Pricing:{deployment}");
-        var input = section.GetValue<decimal?>("Input");
-        var output = section.GetValue<decimal?>("Output");
-        if (input is null || output is null)
-            return null;
-
-        var cachedPrice = section.GetValue<decimal?>("CachedInput") ?? input.Value;
-        var uncached = Math.Max(0, inputTokens - cachedInputTokens);
-        return Math.Round(
-            (uncached * input.Value + cachedInputTokens * cachedPrice + outputTokens * output.Value) / 1_000_000m, 6);
+        Meter.RecordTokens(stage, deployment, usage.InputTokenCount, usage.InputTokenDetails?.CachedTokenCount ?? 0, usage.OutputTokenCount, elapsedMs);
     }
 
     private static ChatCompletionOptions BuildOptions(AiCall call, bool strict, float? temperature, int? maxOutputTokens)

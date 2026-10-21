@@ -1,11 +1,14 @@
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.Cutout;
 using PoRedoMedia.Api.Features.MemeCaption;
+using PoRedoMedia.Api.Features.Memeify;
 using PoRedoMedia.Shared;
 using SkiaSharp;
 
@@ -24,6 +27,22 @@ public sealed class ImageAiTests
             Seen.AddRange(messages);
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)));
         }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
+    }
+
+    /// <summary>Answers each call with the next reply, then repeats the last.</summary>
+    private sealed class ScriptedChat(params string[] replies) : IChatClient
+    {
+        private int _next;
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, replies[Math.Min(_next++, replies.Length - 1)])));
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
@@ -82,13 +101,34 @@ public sealed class ImageAiTests
     }
 
     [Fact]
-    public void Gemini_text_is_taken_from_the_first_candidate_and_is_empty_when_there_is_none()
+    public void Gemini_answers_are_read_text_usage_and_whole_clip_moments_alike()
     {
         using var answered = JsonDocument.Parse("""{"candidates":[{"content":{"parts":[{"text":"hello"}]}}]}""");
         using var blocked = JsonDocument.Parse("""{"promptFeedback":{"blockReason":"SAFETY"}}""");
 
         Assert.Equal("hello", GeminiVisionService.Text(answered.RootElement));
         Assert.Equal("", GeminiVisionService.Text(blocked.RootElement));
+
+        // What a call cost is read off the answer and the address it went to.
+        Assert.Equal("gemini-flash-lite-latest", AiMeterHandler.ModelOf("/v1beta/models/gemini-flash-lite-latest:generateContent"));
+        Assert.Equal((120, 20, 35), AiMeterHandler.GeminiUsage(Encoding.UTF8.GetBytes(
+            """{"usageMetadata":{"promptTokenCount":120,"cachedContentTokenCount":20,"candidatesTokenCount":30,"thoughtsTokenCount":5}}""")));
+        Assert.Equal((0, 0, 0), AiMeterHandler.GeminiUsage(Encoding.UTF8.GetBytes("not json")));
+
+        // Whole-clip moments stay inside the clip, in time order, with tags only from the vocabulary.
+        var labels = GeminiClipVisionService.Parse(
+            """
+            {"moments":[
+              {"seconds":7.5,"label":"crowd gasps","energy":1.4,"tags":["shock","made-up"],"subjectX":0.5,"subjectY":null},
+              {"seconds":1.25,"label":"man slips on ice","energy":0.9,"tags":["fail"]},
+              {"seconds":12,"label":"after the end","energy":0.5,"tags":[]},
+              {"seconds":3,"label":"  ","energy":0.5,"tags":[]}
+            ]}
+            """,
+            new HashSet<string>(["fail", "shock"], StringComparer.OrdinalIgnoreCase), durationSeconds: 10);
+        Assert.Equal(["man slips on ice", "crowd gasps"], labels.Select(l => l.Label));
+        Assert.Equal([1.25, 7.5], labels.Select(l => l.TimestampSeconds));
+        Assert.Equal((1.0, "shock", 0.5, (double?)null), (labels[1].Energy, Assert.Single(labels[1].Tags), labels[1].SubjectX, labels[1].SubjectY));
     }
 
     [Fact]
@@ -120,7 +160,7 @@ public sealed class ImageAiTests
     }
 
     [Fact]
-    public async Task The_caption_writer_sends_the_description_and_refuses_an_empty_caption()
+    public async Task The_caption_writer_sends_the_description_refuses_an_empty_caption_and_keeps_the_judges_pick()
     {
         var chat = new StubChat("""{"top":"When the box arrives","bottom":"And the cat approves"}""");
 
@@ -129,6 +169,16 @@ public sealed class ImageAiTests
         Assert.Equal(new MemeCaptionText("When the box arrives", "And the cat approves"), caption);
         Assert.Contains(chat.Seen, m => m.Role == ChatRole.User && m.Text.Contains("A cat in a box") && m.Text.Contains("cat, box"));
         await Assert.ThrowsAsync<RunStepException>(() => new ChatCaptionWriter(new StubChat("""{"top":"","bottom":""}""")).WriteAsync("x", []));
+
+        // With a judge, several drafts are written and the best scored one is kept.
+        var drafts = new ScriptedChat(
+            """{"captions":[{"top":"a","bottom":"1"},{"top":"b","bottom":"2"},{"top":"","bottom":""}]}""",
+            """{"scores":[{"draft":0,"score":3},{"draft":1,"score":9}]}""");
+        Assert.Equal(new MemeCaptionText("b", "2"), await new ChatCaptionWriter(drafts, new AiJudge(drafts, NullLogger<AiJudge>.Instance)).WriteAsync("x", []));
+
+        // A judge that gives no scores keeps the first draft rather than failing the caption.
+        var broken = new ScriptedChat("""{"captions":[{"top":"a","bottom":"1"},{"top":"b","bottom":"2"}]}""", "I refuse.");
+        Assert.Equal(new MemeCaptionText("a", "1"), await new ChatCaptionWriter(broken, new AiJudge(broken, NullLogger<AiJudge>.Instance)).WriteAsync("x", []));
     }
 
     [Fact]

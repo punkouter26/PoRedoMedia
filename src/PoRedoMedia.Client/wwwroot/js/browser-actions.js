@@ -157,6 +157,46 @@ window.poMedia = {
         }
     },
 
+    // Lifts the subject of a picture off its background with a model running in this browser,
+    // and puts the transparent PNG where the next Cutout run on the picture will find it. Resolves
+    // to null on success, or a reason the page can show.
+    async cutoutOnDevice(imageUrl, uploadUrl, status) {
+        let worker;
+        try {
+            const blob = await (await fetch(imageUrl)).blob();
+            const webgpu = !!(navigator.gpu && await navigator.gpu.requestAdapter().catch(() => null));
+            worker = new Worker('/js/local-ai/cutout-worker.js', { type: 'module' });
+            const result = await new Promise((resolve, reject) => {
+                worker.onmessage = (e) => {
+                    if (e.data.type === 'status') status.invokeMethodAsync('Report', e.data.percent ?? -1);
+                    else if (e.data.type === 'complete') resolve(e.data);
+                    else reject(new Error(e.data.reason));
+                };
+                worker.onerror = (e) => reject(new Error(e.message));
+                worker.postMessage({ blob, webgpu });
+            });
+
+            // The mask becomes the alpha of the original pixels, at the picture's own size.
+            const bitmap = await createImageBitmap(blob);
+            const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+            const context = canvas.getContext('2d');
+            context.drawImage(bitmap, 0, 0);
+            const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height);
+            const step = result.channels || 1;
+            for (let i = 0; i < bitmap.width * bitmap.height; i++) pixels.data[i * 4 + 3] = result.mask[i * step];
+            context.putImageData(pixels, 0, 0);
+            const png = await canvas.convertToBlob({ type: 'image/png' });
+
+            const put = await fetch(uploadUrl, { method: 'PUT', body: png, headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': 'image/png' } });
+            return put.ok ? null : 'The cutout made on your device could not be sent.';
+        } catch (err) {
+            console.warn('[poMedia] On-device cutout failed:', err?.message ?? err);
+            return 'The on-device cutout failed: ' + (err?.message ?? err);
+        } finally {
+            worker?.terminate();
+        }
+    },
+
     // Drop, paste and the camera all hand their file to the picker's own file input, so one
     // upload path serves every way of choosing media.
     setFile(input, file) {

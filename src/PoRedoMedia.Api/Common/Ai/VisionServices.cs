@@ -181,10 +181,19 @@ public sealed class CachingVisionService(IVisionService inner, HybridCache cache
 {
     private static readonly HybridCacheEntryOptions Entry = new() { Expiration = TimeSpan.FromHours(6) };
 
-    public async Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default) =>
-        await cache.GetOrCreateAsync(
+    public async Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default)
+    {
+        // The cache runs the factory outside this flow; the call still belongs to this run's bill.
+        var tally = AiMeter.Tally;
+        return await cache.GetOrCreateAsync(
             $"vision:{scope}:{Convert.ToHexString(SHA256.HashData(image))}",
-            async token => await inner.AnalyzeAsync(image, token), Entry, cancellationToken: ct);
+            async token =>
+            {
+                AiMeter.Join(tally);
+                return await inner.AnalyzeAsync(image, token);
+            },
+            Entry, cancellationToken: ct);
+    }
 }
 
 /// <summary>
@@ -219,8 +228,24 @@ public static class VisionInput
     /// otherwise the picked provider's. With a device description the server never looks at the
     /// picture, so choosing the free on-device model can never cost a provider call.
     /// </summary>
-    public static async Task<VisionResult> SeeAsync(this IVisionServiceRouter router, RunContext context, byte[] image, CancellationToken ct) =>
-        UserText.Clean(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionDescription), 2000) is { } onDevice
-            ? new VisionResult(onDevice, [], 1)
-            : await router.Resolve(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionModel)).AnalyzeAsync(image, ct);
+    /// <remarks>
+    /// With <paramref name="reads"/>, a provider's answer about the current picture is kept with it,
+    /// so another run on the same picture with the same provider asks nothing. A degraded answer
+    /// (tags in place of a caption) is not kept, so the next run tries again.
+    /// </remarks>
+    public static async Task<VisionResult> SeeAsync(
+        this IVisionServiceRouter router, RunContext context, byte[] image, CancellationToken ct, AiReadStore? reads = null)
+    {
+        if (UserText.Clean(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionDescription), 2000) is { } onDevice)
+            return new VisionResult(onDevice, [], 1);
+
+        var model = context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionModel);
+        var provider = router.Resolve(model);
+        if (reads is null)
+            return await provider.AnalyzeAsync(image, ct);
+
+        var name = "vision-" + string.Concat((model ?? "default").Select(c => char.IsLetterOrDigit(c) || c == '-' ? c : '_'));
+        return await reads.GetOrReadAsync(
+            context.Current.Id, name, () => provider.AnalyzeAsync(image, ct), seen => seen.FallbackReason is null && seen.Description.Length > 0, ct);
+    }
 }

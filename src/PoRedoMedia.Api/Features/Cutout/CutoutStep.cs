@@ -16,12 +16,23 @@ public sealed class CutoutStep(IBackgroundRemover remover, BlobStorageService bl
 
     public IReadOnlySet<MediaFunction> Handles { get; } = new HashSet<MediaFunction> { MediaFunction.Cutout };
 
+    /// <summary>Largest cutout accepted from a device.</summary>
+    private const int MaxDeviceBytes = 30 * 1024 * 1024;
+
     public async Task ExecuteAsync(RunContext context, CancellationToken ct)
     {
-        var image = ImageBytes.ToJpeg(await blobs.ReadAllBytesAsync(context.Current.SourcePath, ct), MaxEdge);
+        byte[] cut;
+        if (context.Option(RunOptions.CutoutModel) == AiCatalog.BrowserCutout)
+        {
+            cut = await FromDeviceAsync(context, ct);
+        }
+        else
+        {
+            var image = ImageBytes.ToJpeg(await blobs.ReadAllBytesAsync(context.Current.SourcePath, ct), MaxEdge);
+            await context.ReportAsync("Lifting the subject off its background");
+            cut = await remover.RemoveAsync(image, "image/jpeg", ct);
+        }
 
-        await context.ReportAsync("Lifting the subject off its background");
-        var cut = await remover.RemoveAsync(image, "image/jpeg", ct);
         if (!Sticker.HasSubject(cut))
             throw new RunStepException("No subject was found to cut out. A clear subject in front of its background works best.");
 
@@ -35,6 +46,36 @@ public sealed class CutoutStep(IBackgroundRemover remover, BlobStorageService bl
         var sticker = await outputs.SaveAsync(
             context.Current, MediaFunction.Cutout, MediaKind.Image, Sticker.Make(cut), "image/webp", ".webp", ct, title: "Sticker");
         await context.AddOutputAsync(sticker);
+    }
+
+    /// <summary>
+    /// The cutout the user's device made before the run, checked like an upload: it must be a PNG
+    /// of the picture's own shape. It was made from the source, so it only stands when no earlier
+    /// step has changed the picture; running the paid remover instead would be a charge the user
+    /// did not choose.
+    /// </summary>
+    private async Task<byte[]> FromDeviceAsync(RunContext context, CancellationToken ct)
+    {
+        if (context.Current.Id != context.Source.Id)
+            throw new RunStepException("An on-device cutout works only when it is the first change to the picture. Pick the server's remover for this stack.");
+
+        var path = MediaAnalysisPaths.DeviceCutout(context.Source.Id.Value);
+        if (!await blobs.ExistsAsync(path, ct))
+            throw new RunStepException("The cutout made on your device did not arrive. Try again.");
+
+        await context.ReportAsync("Using the cutout made on your device");
+        var cut = await blobs.ReadAllBytesAsync(path, ct);
+        await blobs.DeletePrefixAsync(path, ct);
+
+        var source = ImageBytes.Identify(await blobs.ReadAllBytesAsync(context.Source.SourcePath, ct));
+        if (cut.Length > MaxDeviceBytes || cut.Length < 8 || cut[0] != 0x89 || cut[1] != (byte)'P'
+            || ImageBytes.Identify(cut) is not { } size || source is not { } original
+            || Math.Abs((double)size.Width / size.Height - (double)original.Width / original.Height) > 0.02)
+        {
+            throw new RunStepException("The cutout made on your device could not be used. Try again, or pick the server's remover.");
+        }
+
+        return cut;
     }
 }
 

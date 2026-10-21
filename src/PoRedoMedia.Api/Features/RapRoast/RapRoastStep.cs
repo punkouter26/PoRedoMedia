@@ -12,7 +12,7 @@ namespace PoRedoMedia.Api.Features.RapRoast;
 public sealed class RapRoastStep(
     IVisionServiceRouter visionRouter, ISceneDetailProvider sceneDetails, SceneDescriber sceneDescriber,
     RoastLyricsWriter lyricsWriter, IMusicGenerationService music, BlobStorageService blobs, MediaOutputs outputs,
-    ILogger<RapRoastStep> logger) : IRunStep
+    AiReadStore reads, ILogger<RapRoastStep> logger) : IRunStep
 {
     internal const int MaxMusicAttempts = 2;
 
@@ -26,17 +26,40 @@ public sealed class RapRoastStep(
         var explicitLanguage = context.Option(RunOptions.RoastExplicit) == "true";
 
         await context.ReportAsync("Studying the picture");
-        var (baseDescription, tags, details) = await AnalyseAsync(context, image, ct);
-        var scene = await sceneDescriber.DescribeAsync(image, baseDescription, tags, details, ct);
+        RoastLyrics? lyrics = null;
+        var (scene, tags) = await StoredSceneAsync(context, ct);
+        if (scene is null)
+        {
+            var (baseDescription, seenTags, details) = await AnalyseAsync(context, image, ct);
+            tags = seenTags;
+
+            // One call reads the picture and writes the first draft. Only when it fails does the
+            // roast take the two-call path, which can fall back one stage at a time.
+            if (await lyricsWriter.ReadAndWriteAsync(image, tags, details, style, intensity, explicitLanguage, ct) is { } both)
+            {
+                scene = SceneDescriber.FromSnapshot(both.Scene, details, both.Lyrics.ElapsedMs);
+                lyrics = both.Lyrics;
+            }
+            else
+            {
+                if (baseDescription is null && await SeeQuietlyAsync(context, image, ct) is { } seen)
+                    (baseDescription, tags) = (seen.Description, tags.Count > 0 ? tags : seen.Tags);
+                scene = await sceneDescriber.DescribeAsync(image, baseDescription ?? "No description available", tags, details, ct);
+            }
+
+            if (scene.Detailed)
+                await reads.SaveAsync(context.Current.Id, StoredSceneName, new StoredScene(scene, tags), ct);
+        }
+
         if (scene.FallbackReason is not null)
             context.AddNote(scene.FallbackReason);
 
-        RoastLyrics? lyrics = null;
         MusicGenerationResult? track = null;
         for (var attempt = 1; attempt <= MaxMusicAttempts; attempt++)
         {
             await context.ReportAsync(attempt == 1 ? "Writing the roast" : "Softening the roast");
-            lyrics = await lyricsWriter.WriteAsync(scene.Text, tags, style, intensity, softened: attempt > 1, explicitLanguage, ct);
+            if (attempt > 1 || lyrics is null)
+                lyrics = await lyricsWriter.WriteAsync(scene.Text, tags, style, intensity, softened: attempt > 1, explicitLanguage, ct);
 
             await context.ReportAsync("Performing it");
             track = await music.GenerateAsync(lyrics.Text, StylePrompt(style), ct);
@@ -65,11 +88,31 @@ public sealed class RapRoastStep(
         await context.AddOutputAsync(item);
     }
 
-    /// <summary>One combined call when the detail provider can do it; otherwise vision and detail side by side.</summary>
-    private async Task<(string Description, IReadOnlyList<string> Tags, SceneDetails Details)> AnalyseAsync(
+    private const string StoredSceneName = "roast-scene";
+
+    /// <summary>A detailed read of the picture, kept with it so roasting it again only rewrites the bars.</summary>
+    private sealed record StoredScene(SceneDescription Scene, IReadOnlyList<string> Tags);
+
+    private async Task<(SceneDescription? Scene, IReadOnlyList<string> Tags)> StoredSceneAsync(RunContext context, CancellationToken ct)
+    {
+        // A description from the user's device, or a picked vision model, is their call for this run.
+        if (context.Option(RunOptions.VisionModel) is not null || context.Option(RunOptions.VisionDescription) is not null)
+            return (null, []);
+
+        var stored = await reads.GetAsync<StoredScene>(context.Current.Id, StoredSceneName, ct);
+        return stored is { Scene.Detailed: true } ? (stored.Scene, stored.Tags) : (null, []);
+    }
+
+    /// <summary>
+    /// The hard facts read off the picture, and a description when a provider gives one for free
+    /// alongside them. With no picked model, a vision model is not asked here: the roast's own
+    /// call looks at the picture, and a second look would be paid for twice.
+    /// </summary>
+    private async Task<(string? Description, IReadOnlyList<string> Tags, SceneDetails Details)> AnalyseAsync(
         RunContext context, byte[] image, CancellationToken ct)
     {
-        if (context.Option(RunOptions.VisionModel) is null && context.Option(RunOptions.VisionDescription) is null && sceneDetails is ICombinedVisionAnalyzer { SupportsCombinedAnalysis: true } combined)
+        var picked = context.Option(RunOptions.VisionModel) is not null || context.Option(RunOptions.VisionDescription) is not null;
+        if (!picked && sceneDetails is ICombinedVisionAnalyzer { SupportsCombinedAnalysis: true } combined)
         {
             try
             {
@@ -82,10 +125,27 @@ public sealed class RapRoastStep(
             }
         }
 
-        var seeing = visionRouter.SeeAsync(context, image, ct);
+        if (!picked)
+            return (null, [], await SafeDetailsAsync(image, ct));
+
+        var seeing = visionRouter.SeeAsync(context, image, ct, reads);
         var reading = SafeDetailsAsync(image, ct);
         await Task.WhenAll(seeing, reading);
         return ((await seeing).Description, (await seeing).Tags, await reading);
+    }
+
+    /// <summary>A plain description for the two-call path, when nothing gave one yet; null when no provider could.</summary>
+    private async Task<VisionResult?> SeeQuietlyAsync(RunContext context, byte[] image, CancellationToken ct)
+    {
+        try
+        {
+            return await visionRouter.SeeAsync(context, image, ct, reads);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "No plain description of the picture could be had");
+            return null;
+        }
     }
 
     private async Task<SceneDetails> SafeDetailsAsync(byte[] image, CancellationToken ct)

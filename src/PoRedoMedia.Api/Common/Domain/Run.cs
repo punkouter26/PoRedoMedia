@@ -33,6 +33,9 @@ public sealed record Run
 
     public required DateTimeOffset CreatedAt { get; init; }
 
+    /// <summary>The estimated AI spend of the run's last attempt, in USD; null until it ends.</summary>
+    public decimal? AiCostUsd { get; init; }
+
     public RunDto ToDto() => new(
         Id.Value, SourceId.Value, [.. Functions], Status, CurrentStep, Error,
         [.. OutputIds.Select(o => o.Value)], [.. Notes], CreatedAt, new(Options), [.. Log]);

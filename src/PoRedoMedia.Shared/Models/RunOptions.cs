@@ -34,6 +34,12 @@ public static class RunOptions
     /// <summary>"false" skips the sticker. Absent = make one.</summary>
     public const string CutoutSticker = "Cutout.sticker";
 
+    /// <summary>
+    /// <see cref="AiCatalog.BrowserCutout"/> when the cutout was made on the user's device and sent
+    /// before the run (<c>POST /api/media/{id}/device-cutout</c>). Absent = the server's remover.
+    /// </summary>
+    public const string CutoutModel = "Cutout.model";
+
     /// <summary>A <c>RapStyle</c> name. Absent = Trap.</summary>
     public const string RoastStyle = "RapRoast.style";
 

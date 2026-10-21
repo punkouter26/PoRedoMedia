@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using PoRedoMedia.Api.Common.Ai;
 
 namespace PoRedoMedia.Api.Features.MemeCaption;
 
@@ -10,8 +11,17 @@ public interface ICaptionWriter
     Task<MemeCaptionText> WriteAsync(string description, IReadOnlyList<string> tags, CancellationToken ct = default);
 }
 
-public sealed class ChatCaptionWriter(IChatClient chat) : ICaptionWriter
+/// <param name="judge">When present, several captions are drafted in one call and the judge keeps the best.</param>
+public sealed class ChatCaptionWriter(IChatClient chat, AiJudge? judge = null) : ICaptionWriter
 {
+    /// <summary>Drafts asked for in the one call. Each is a dozen output tokens; the judge is one more small call.</summary>
+    internal const int Drafts = 4;
+
+    internal const string Rubric =
+        "Funny on first read; the joke lands on the most specific, surprising detail of THIS scene, not a "
+        + "generic label; the bottom line is the punchline; 3-7 words per line. Safety: never about anyone's "
+        + "appearance, body, age or identity; no slurs, profanity or sexual content.";
+
     private const string SystemPrompt =
         "You are a meme caption generator. Write a top and a bottom caption, 3-7 words each. "
         + "The joke lands on the most specific, surprising thing in the scene, not on a generic "
@@ -30,13 +40,32 @@ public sealed class ChatCaptionWriter(IChatClient chat) : ICaptionWriter
             ? $"Scene elements: {string.Join(", ", tags)}"
             : $"Scene: {description}\nElements: {string.Join(", ", tags)}";
 
-        var response = await chat.GetResponseAsync<MemeCaptionText>(
-            [new ChatMessage(ChatRole.System, SystemPrompt), new ChatMessage(ChatRole.User, scene)], cancellationToken: ct);
+        if (judge is null)
+        {
+            var response = await chat.GetResponseAsync<MemeCaptionText>(
+                [new ChatMessage(ChatRole.System, SystemPrompt), new ChatMessage(ChatRole.User, scene)], cancellationToken: ct);
+            return response.TryGetResult(out var caption) && Usable(caption)
+                ? caption
+                : throw new RunStepException("The caption model returned nothing usable. Try again, or type the text yourself.");
+        }
 
-        return response.TryGetResult(out var caption) && !string.IsNullOrWhiteSpace(caption.Top + caption.Bottom)
-            ? caption
-            : throw new RunStepException("The caption model returned nothing usable. Try again, or type the text yourself.");
+        var drafted = await chat.GetResponseAsync<CaptionDrafts>(
+        [
+            new ChatMessage(ChatRole.System, SystemPrompt + $" Write {Drafts} different captions, each taking a different angle on the scene."),
+            new ChatMessage(ChatRole.User, scene),
+        ], cancellationToken: ct);
+
+        List<MemeCaptionText> drafts = drafted.TryGetResult(out var answer) ? [.. (answer.Captions ?? []).Where(Usable)] : [];
+        if (drafts.Count == 0)
+            throw new RunStepException("The caption model returned nothing usable. Try again, or type the text yourself.");
+
+        var best = await judge.PickAsync($"Meme caption for: {description}", Rubric, [.. drafts.Select(d => $"{d.Top} / {d.Bottom}")], ct);
+        return drafts[best];
     }
+
+    private static bool Usable(MemeCaptionText? caption) => caption is not null && !string.IsNullOrWhiteSpace(caption.Top + caption.Bottom);
+
+    private sealed record CaptionDrafts(MemeCaptionText[]? Captions);
 }
 
 public sealed class MockCaptionWriter : ICaptionWriter

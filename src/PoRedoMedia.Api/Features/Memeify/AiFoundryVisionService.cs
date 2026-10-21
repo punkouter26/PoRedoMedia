@@ -55,7 +55,7 @@ public sealed partial class AiFoundryVisionService : IAiVisionService
             "subjectY":{"type":["number","null"]}}}}}}
         """;
 
-    private const string SystemPrompt =
+    internal const string SystemPrompt =
         """
         You are a meme director's eyes. For every video frame you are shown, return one entry:
         - frame: the frame number given before the image.
@@ -77,7 +77,7 @@ public sealed partial class AiFoundryVisionService : IAiVisionService
     private const int MaxOutputTokens = 2_500;
 
     /// <summary>Most frequent library tags offered to the model; keeps the prompt bounded.</summary>
-    private const int MaxVocabulary = 250;
+    internal const int MaxVocabulary = 250;
 
     private readonly AiFoundryClient _ai;
     private readonly string _deployment;

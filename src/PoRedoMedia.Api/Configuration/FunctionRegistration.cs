@@ -25,6 +25,9 @@ public static class FunctionRegistration
     /// </summary>
     public static IServiceCollection AddFunctions(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
+        services.AddSingleton<AiMeter>();
+        services.AddSingleton<AiReadStore>();
+        services.AddTransient<AiMeterHandler>();
         services.AddSingleton<MemeTemplateService>();
         services.AddSingleton<BulkPromptRepository>();
         services.AddHybridCache();
@@ -35,7 +38,7 @@ public static class FunctionRegistration
             o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(5);
             o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(4);
             o.Retry.MaxRetryAttempts = 2;
-        });
+        }).Services.AddHttpClient(GeminiVisionService.HttpClientName).AddHttpMessageHandler<AiMeterHandler>();
 
         // Each background removal is a submit, a few polls and a read; retry those, not the wait.
         services.AddHttpClient(HuggingFaceBackgroundRemover.HttpClientName).AddStandardResilienceHandler(o =>
@@ -43,10 +46,10 @@ public static class FunctionRegistration
             o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(60);
             o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
             o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(2);
-        });
+        }).Services.AddHttpClient(HuggingFaceBackgroundRemover.HttpClientName).AddHttpMessageHandler<AiMeterHandler>();
 
         // A Veo call can be slow, and retrying a job start would bill twice: long timeout, no retries.
-        services.AddHttpClient(VeoVideoService.HttpClientName, c => c.Timeout = TimeSpan.FromMinutes(15));
+        services.AddHttpClient(VeoVideoService.HttpClientName, c => c.Timeout = TimeSpan.FromMinutes(15)).AddHttpMessageHandler<AiMeterHandler>();
 
         AddVideo(services, configuration, environment);
 
@@ -86,7 +89,8 @@ public static class FunctionRegistration
 
         if (chat is not null)
         {
-            services.AddSingleton(chat);
+            services.AddSingleton(s => Instrument(chat, s, "chat"));
+            services.AddSingleton<AiJudge>();
             services.AddSingleton<ICaptionWriter, ChatCaptionWriter>();
             if (canSeeImages)
                 services.AddSingleton<IRunStep, MemeCaptionStep>();
@@ -112,7 +116,7 @@ public static class FunctionRegistration
             {
                 // The roast needs a performer (Lyria, on the Google key) and something that can see.
                 // Without a chat model it still runs, on its built-in lyrics, and says so.
-                services.AddSingleton<IChatCompletionService>(new ChatCompletions(chat));
+                services.AddSingleton<IChatCompletionService>(s => new ChatCompletions(chat is null ? null : s.GetRequiredService<IChatClient>()));
                 services.AddSingleton<ISceneDetailProvider, AzureSceneDetailService>();
                 services.AddSingleton<IMusicGenerationService, LyriaMusicService>();
                 AddRoast(services);
@@ -157,9 +161,21 @@ public static class FunctionRegistration
         {
             // Registered either way: it reports itself disabled when no speech deployment is set.
             services.AddSingleton<ITranscriptionService, AiFoundryTranscriptionService>();
-            if (AiFoundryClient.Setting(configuration, "AiFoundry:Endpoint") is not null)
-            {
+            var google = !string.IsNullOrWhiteSpace(configuration[ConfigKeys.GoogleApiKey]);
+            var foundry = AiFoundryClient.Setting(configuration, "AiFoundry:Endpoint") is not null;
+
+            // Gemini watches the whole clip, sound and all; sampled frames stay the fallback.
+            if (google && configuration.GetValue<bool?>(ConfigKeys.VisionWholeClip) != false)
+                services.AddSingleton<IClipVision, GeminiClipVisionService>();
+
+            // Frames: Foundry by default, Gemini when picked or when it is the only one there.
+            if (google && (configuration[ConfigKeys.VisionFrameProvider] == "gemini" || !foundry))
+                services.AddSingleton<IAiVisionService, GeminiFrameVisionService>();
+            else if (foundry)
                 services.AddSingleton<IAiVisionService, AiFoundryVisionService>();
+
+            if (foundry)
+            {
                 services.AddSingleton<IDirectorService, AiFoundryDirectorService>();
                 services.AddSingleton<IVideoRoast, RoastService>();
             }
@@ -184,12 +200,19 @@ public static class FunctionRegistration
         if (!string.IsNullOrWhiteSpace(configuration[ConfigKeys.GoogleApiKey]))
             Add(AiProviderIds.GeminiVision, new GeminiVisionService(configuration, services.GetRequiredService<IHttpClientFactory>()));
         if (ChatClients.AzureOpenAi(configuration) is { } azureChat)
-            Add(AiProviderIds.AzureOpenAiVision, new ChatVisionService(azureChat));
+            Add(AiProviderIds.AzureOpenAiVision, new ChatVisionService(Instrument(azureChat, services, "vision")));
         if (!string.IsNullOrWhiteSpace(configuration[ConfigKeys.ComputerVisionEndpoint]) && !string.IsNullOrWhiteSpace(configuration[ConfigKeys.ComputerVisionApiKey]))
             Add(AiProviderIds.AzureComputerVision, new AzureVisionService(configuration));
         if (environment.IsDevelopment() && configuration[ConfigKeys.OllamaVisionModel] is { Length: > 0 } ollamaVision)
-            Add(AiProviderIds.OllamaVision, new ChatVisionService(ChatClients.Ollama(configuration, ollamaVision)));
+            Add(AiProviderIds.OllamaVision, new ChatVisionService(Instrument(ChatClients.Ollama(configuration, ollamaVision), services, "vision")));
 
         return providers;
     }
+
+    /// <summary>A chat client with OpenTelemetry spans (gen_ai.*) and usage metering around it.</summary>
+    private static IChatClient Instrument(IChatClient chat, IServiceProvider services, string stage) =>
+        chat.AsBuilder()
+            .UseOpenTelemetry(services.GetService<ILoggerFactory>(), PoTelemetry.Name)
+            .Use(inner => new MeteredChatClient(inner, services.GetRequiredService<AiMeter>(), stage))
+            .Build(services);
 }

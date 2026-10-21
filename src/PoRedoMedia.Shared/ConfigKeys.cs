@@ -20,6 +20,9 @@ public static class ConfigKeys
     public const string MocksUseMockAi = "Mocks:UseMockAi";
     public const string StorageConnectionString = "Storage:ConnectionString";
     public const string RenderQuotaDailyLimit = "RenderQuota:DailyLimit";
+
+    /// <summary>Image runs (remote model waits, no render) executed at once. Video runs always go one at a time.</summary>
+    public const string RunsRemoteConcurrency = "Runs:RemoteConcurrency";
     public const string RetentionDays = "Retention:Days";
     public const string HousekeepingEnabled = "Housekeeping:Enabled";
 
@@ -38,6 +41,15 @@ public static class ConfigKeys
     public const string GoogleLyriaModel = "Google:LyriaModel";
     public const string GoogleVeoModel = "Google:VeoModel";
     public const string GoogleUpscaleModel = "Google:UpscaleModel";
+
+    /// <summary>The model that watches a whole video for Meme-ify. Empty = <see cref="GoogleVisionModel"/>.</summary>
+    public const string GoogleClipVisionModel = "Google:ClipVisionModel";
+
+    /// <summary>False keeps Meme-ify on labelling sampled frames even when Gemini could watch the whole clip.</summary>
+    public const string VisionWholeClip = "Vision:WholeClip";
+
+    /// <summary>Who labels sampled video frames: "foundry" or "gemini". Empty = Foundry when configured, else Gemini.</summary>
+    public const string VisionFrameProvider = "Vision:FrameProvider";
     public const string HuggingFaceApiKey = "HuggingFace:ApiKey";
     public const string VisionSecondOpinion = "Vision:SecondOpinion";
     public const string OllamaEndpoint = "Ollama:Endpoint";

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Security;
 using System.Text;
 using System.Text.Json;
+using PoRedoMedia.Api.Common.Ai;
 using OpenAI.Chat;
 using PoRedoMedia.Shared.Models;
 
@@ -49,7 +50,7 @@ public sealed partial class RoastService : IVideoRoast, IDisposable
     private const int MaxMoments = 40;
 
     private const string Schema = """
-        {"type":"object","properties":{"jokes":{"type":"array","items":{"type":"object","properties":{"moment":{"type":"integer"},"text":{"type":"string"}},"required":["moment","text"],"additionalProperties":false}}},"required":["jokes"],"additionalProperties":false}
+        {"type":"object","properties":{"jokes":{"type":"array","items":{"type":"object","properties":{"moment":{"type":"integer"},"text":{"type":"string"},"alternative":{"type":"string"}},"required":["moment","text","alternative"],"additionalProperties":false}}},"required":["jokes"],"additionalProperties":false}
         """;
 
     private const string SystemPrompt = """
@@ -62,7 +63,8 @@ public sealed partial class RoastService : IVideoRoast, IDisposable
 
         Each joke: one or two sentences, at most 14 words, written to be said aloud. No emoji, no hashtags, no stage directions, no quotation marks.
         Spread the jokes across the clip, in time order, at most one per moment. Skip moments with nothing to mock.
-        Answer {"jokes":[{"moment": <index of the moment>, "text": "<the joke>"}]}.
+        For every joke also write an alternative: a second, different joke for the same moment, from another angle.
+        Answer {"jokes":[{"moment": <index of the moment>, "text": "<the joke>", "alternative": "<another joke>"}]}.
         """;
 
     private const string ComicDelivery =
@@ -72,15 +74,20 @@ public sealed partial class RoastService : IVideoRoast, IDisposable
         "Aggressive old-school boom-bap diss track. One male rapper, vocals loud and clear up front, hard drums. About 25 seconds.";
 
     // One client for the service's lifetime; each call brings its own timeout.
-    private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private readonly HttpClient _http;
     private readonly AiFoundryClient _ai;
     private readonly IConfiguration _config;
     private readonly BlobStorageService _blobs;
     private readonly ILogger<RoastService> _logger;
 
-    public RoastService(AiFoundryClient ai, IConfiguration config, BlobStorageService blobs, ILogger<RoastService> logger)
+    private readonly AiJudge? _judge;
+
+    /// <param name="judge">When present, it picks between each joke and its alternative.</param>
+    public RoastService(AiFoundryClient ai, IConfiguration config, BlobStorageService blobs, ILogger<RoastService> logger, AiJudge? judge = null)
     {
         _ai = ai;
+        _judge = judge;
+        _http = new HttpClient(new AiMeterHandler(ai.Meter, config) { InnerHandler = new SocketsHttpHandler() }) { Timeout = Timeout.InfiniteTimeSpan };
         _config = config;
         _blobs = blobs;
         _logger = logger;
@@ -190,11 +197,44 @@ public sealed partial class RoastService : IVideoRoast, IDisposable
             },
             [new SystemChatMessage(SystemPrompt), new UserChatMessage(prompt.ToString())],
             ct);
-        return ReadJokes(raw, moments, max);
+        var jokes = ReadJokes(raw, moments, max);
+        return _judge is null ? [.. jokes.Select(j => (j.AtMs, j.Text))] : await PickJokesAsync(_judge, jokes, ct);
+    }
+
+    internal const string JokeRubric =
+        "Funniest, and most specific to its moment; at most 14 words; written to be said aloud. Profanity is "
+        + "expected. Safety: aims at what people DO, never at race, ethnicity, religion, gender, sexuality, "
+        + "disability or body size; no sexual remarks about a person; a child is never the target.";
+
+    /// <summary>Each joke or its alternative, whichever the judge scores higher. One judge call for the whole set.</summary>
+    private static async Task<List<(long AtMs, string Text)>> PickJokesAsync(
+        AiJudge judge, List<(long AtMs, string Text, string? Alternative, string Moment)> jokes, CancellationToken ct)
+    {
+        var drafts = jokes.SelectMany(j => j.Alternative is null ? [$"({j.Moment}) {j.Text}"] : new[] { $"({j.Moment}) {j.Text}", $"({j.Moment}) {j.Alternative}" }).ToList();
+        double[] scores;
+        try
+        {
+            scores = await judge.ScoreAsync("Roast jokes, each spoken over one moment of a video clip", JokeRubric, drafts, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return [.. jokes.Select(j => (j.AtMs, j.Text))];
+        }
+
+        var picked = new List<(long, string)>();
+        var i = 0;
+        foreach (var joke in jokes)
+        {
+            var first = scores[i++];
+            picked.Add(joke.Alternative is not null && scores[i++] > first ? (joke.AtMs, joke.Alternative) : (joke.AtMs, joke.Text));
+        }
+
+        return picked;
     }
 
     /// <summary>The jokes in the model's answer, each at its moment's time: one per moment, in time order.</summary>
-    internal static List<(long AtMs, string Text)> ReadJokes(string raw, IReadOnlyList<(double AtSeconds, string What)> moments, int max)
+    internal static List<(long AtMs, string Text, string? Alternative, string Moment)> ReadJokes(
+        string raw, IReadOnlyList<(double AtSeconds, string What)> moments, int max)
     {
         using var doc = JsonDocument.Parse(AiFoundryClient.StripCodeFence(raw));
         var array = doc.RootElement.ValueKind == JsonValueKind.Object
@@ -203,7 +243,7 @@ public sealed partial class RoastService : IVideoRoast, IDisposable
         if (array.ValueKind != JsonValueKind.Array)
             return [];
 
-        var byMoment = new SortedDictionary<double, string>();
+        var byMoment = new SortedDictionary<double, (string Text, string? Alternative, string Moment)>();
         foreach (var joke in array.EnumerateArray())
         {
             if (joke.ValueKind != JsonValueKind.Object
@@ -215,10 +255,13 @@ public sealed partial class RoastService : IVideoRoast, IDisposable
                 continue;
             }
 
-            byMoment.TryAdd(moments[index].AtSeconds, clean);
+            var alternative = joke.TryGetProperty("alternative", out var alt) && alt.ValueKind == JsonValueKind.String
+                ? UserText.Clean(alt.GetString(), MaxJokeLength)
+                : null;
+            byMoment.TryAdd(moments[index].AtSeconds, (clean, alternative, moments[index].What));
         }
 
-        return [.. byMoment.Take(max).Select(j => ((long)Math.Round(j.Key * 1000), j.Value))];
+        return [.. byMoment.Take(max).Select(j => ((long)Math.Round(j.Key * 1000), j.Value.Text, j.Value.Alternative, j.Value.Moment))];
     }
 
     /// <summary>

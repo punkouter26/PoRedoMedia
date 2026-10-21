@@ -10,8 +10,14 @@ namespace PoRedoMedia.UnitTests;
 public sealed class RoastServiceTests
 {
     [Fact]
-    public void Schedule_KeepsJokesApartInsideTheClipAndUnderThirtySeconds()
+    public void Jokes_AreReadWithTheirAlternativesAndScheduledApartInsideTheClipAndUnderThirtySeconds()
     {
+        // Each joke carries its alternative and its moment, for the judge to pick between.
+        var jokes = RoastService.ReadJokes(
+            """{"jokes":[{"moment":1,"text":"Second joke","alternative":"Second, sharper"},{"moment":0,"text":"First joke","alternative":""}]}""",
+            [(1.0, "seen: man slips"), (4.0, "said: watch this")], max: 5);
+        Assert.Equal([(1000L, "First joke", (string?)null, "seen: man slips"), (4000L, "Second joke", "Second, sharper", "said: watch this")], jokes);
+
         // A 40 s clip. Each clip: (its moment, how long it plays).
         var placed = RoastService.Schedule(
             [

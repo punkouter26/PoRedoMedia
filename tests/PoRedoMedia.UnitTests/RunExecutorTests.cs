@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using PoRedoMedia.Api.Common;
+using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.Runs;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
@@ -38,8 +39,13 @@ public sealed class RunExecutorTests
         });
 
     [Fact]
-    public async Task Steps_run_in_the_fixed_order_and_each_works_on_the_previous_result()
+    public async Task Steps_run_in_the_fixed_order_each_works_on_the_previous_result_and_their_AI_spend_is_added_up()
     {
+        var meter = new AiMeter(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AiPricing:Models:nano:Input"] = "1", ["AiPricing:Models:nano:CachedInput"] = "0.1", ["AiPricing:Models:nano:Output"] = "4",
+            ["AiPricing:TextUsd"] = "0.002", ["AiPricing:ImageUsd"] = "0.04",
+        }).Build(), NullLogger<AiMeter>.Instance);
         var source = NewMedia();
         MediaItem? seenByCaption = null, seenByVideo = null;
         var restyled = NewMedia(origin: "Restyle");
@@ -47,15 +53,27 @@ public sealed class RunExecutorTests
         var executor = Executor(
             Step(PhotoToVideo, c => { seenByVideo = c.Current; return c.AddOutputAsync(NewMedia(MediaKind.Video, "PhotoToVideo")); }),
             Step(MemeCaption, c => { seenByCaption = c.Current; return c.AddOutputAsync(captioned, becomesCurrent: true); }),
-            Step(Restyle, c => c.AddOutputAsync(restyled, becomesCurrent: true)));
+            Step(Restyle, c =>
+            {
+                // Token prices from the model table, cached input at its own price; a flat price per call otherwise.
+                Assert.Equal(1.0m, meter.RecordTokens("restyle", "nano", 1_000_000, 0, 0, 10));
+                Assert.Equal(0.1m + 4m, meter.RecordTokens("restyle", "nano", 1_000_000, 1_000_000, 1_000_000, 10));
+                Assert.Equal(0.002m, meter.RecordTokens("chat", "unpriced-model", 500, 0, 50, 10));
+                Assert.Equal(0.08m, meter.RecordCall("image", "gemini-image", "ImageUsd", 10, units: 2));
+                Assert.Null(meter.RecordCall("speech", "tts", "NoSuchPrice", 10));
+                return c.AddOutputAsync(restyled, becomesCurrent: true);
+            }));
 
         await executor.ExecuteAsync(NewRun(source, PhotoToVideo, MemeCaption, Restyle), default);
+        Assert.Null(AiMeter.Tally);
 
         Assert.Equal(["Restyle", "MemeCaption", "PhotoToVideo"], _calls);
         Assert.Equal(restyled.Id, seenByCaption!.Id);
         Assert.Equal(captioned.Id, seenByVideo!.Id);
         var run = Assert.Single(_runs.All);
         Assert.Equal((RunStatus.Complete, 3, null), (run.Status, run.OutputIds.Count, run.Error));
+        Assert.Equal(5.182m, run.AiCostUsd);
+        Assert.Contains(run.Log, l => l.Contains("5 call(s), 1 unpriced", StringComparison.Ordinal));
         Assert.Equal(RunStatus.Complete, _notifier.Events[^1].Status);
         Assert.Equal(3, _notifier.Events.Count(e => e.Output is not null));
     }
@@ -143,6 +161,11 @@ public sealed class RunExecutorTests
         Assert.True(dispatcher.TryReserve(MediaId.New()));
         dispatcher.Release(source);
         Assert.True(dispatcher.TryReserve(source));
+
+        // A video run takes the one render slot; an image run waits on a remote model in the other lane.
+        Assert.True(RunDispatcher.Renders([Memeify]));
+        Assert.True(RunDispatcher.Renders([Captions, VideoRoast]));
+        Assert.False(RunDispatcher.Renders([PhotoToVideo, BulkStyles]));
 
         // One owner queueing many runs does not hold up another; each owner keeps their own order.
         using var queue = new FairRunQueue();

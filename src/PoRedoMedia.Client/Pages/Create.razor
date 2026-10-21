@@ -197,7 +197,7 @@
     private static readonly string[] Remembered =
     [
         RunOptions.VisionModel, RunOptions.VideoAspect, RunOptions.VideoPersona, RunOptions.VideoRoastVoice,
-        RunOptions.RoastStyle, RunOptions.RoastIntensity, RunOptions.RoastExplicit, RunOptions.RestyleStyle, RunOptions.MemeMode,
+        RunOptions.RoastStyle, RunOptions.RoastIntensity, RunOptions.RoastExplicit, RunOptions.RestyleStyle, RunOptions.MemeMode, RunOptions.CutoutModel,
     ];
 
     /// <summary>A gallery item to start from, set by "Use as source".</summary>
@@ -387,6 +387,11 @@
             await JS.InvokeVoidAsync("poMedia.askNotify");
             if (AiCatalog.RunsInBrowser(_options.GetValueOrDefault(RunOptions.VisionModel)) && !await DescribeOnDeviceAsync())
                 return;
+            if (_functions.Contains(MediaFunction.Cutout) && _options.GetValueOrDefault(RunOptions.CutoutModel) == AiCatalog.BrowserCutout
+                && !await CutOutOnDeviceAsync())
+            {
+                return;
+            }
 
             var estimate = AiCatalog.EstimateCost(_functions, _options, _pricing);
             // Options of functions that were ticked and then unticked stay in the form; they are not sent.
@@ -444,6 +449,43 @@
         {
             _problem = "The picture could not be fetched for the on-device model.";
             return false;
+        }
+        finally
+        {
+            _localStatus = null;
+        }
+    }
+
+    /// <summary>
+    /// Lifts the subject off the picked image on this device and sends the PNG where the run's
+    /// Cutout step will find it. A failure stops the run, for the same reason as on-device vision.
+    /// </summary>
+    private async Task<bool> CutOutOnDeviceAsync()
+    {
+        if (_functions.Any(f => f is MediaFunction.Restyle or MediaFunction.MemeCaption or MediaFunction.Upscale))
+        {
+            _problem = "An on-device cutout works only when it is the first change to the picture. Pick the server's remover for this stack.";
+            return false;
+        }
+
+        try
+        {
+            _localStatus = "Getting ready to cut out on your device…";
+            StateHasChanged();
+            var (ticket, error) = await Media.DeviceCutoutLinkAsync(_source!.Id);
+            if (ticket is null)
+            {
+                _problem = error;
+                return false;
+            }
+
+            using var progress = DotNetObjectReference.Create(new BlobUploadService.ProgressSink(percent =>
+            {
+                _localStatus = percent >= 0 ? $"Getting the on-device cutout model ready: {percent}%" : "Cutting out on your device…";
+                InvokeAsync(StateHasChanged);
+            }));
+            _problem = await JS.InvokeAsync<string?>("poMedia.cutoutOnDevice", _source.Url, ticket.UploadUrl, progress);
+            return _problem is null;
         }
         finally
         {

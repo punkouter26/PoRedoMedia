@@ -1,6 +1,7 @@
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Shared.Enums;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace PoRedoMedia.Api.Features.RapRoast;
 
@@ -129,6 +130,58 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
         RoastIntensity.Roast => RoastIntensity.Gentle,
         _ => RoastIntensity.Gentle,
     };
+
+    /// <summary>The answer of <see cref="ReadAndWriteAsync"/>: the scene first, so the bars are written from what was read.</summary>
+    private static readonly string ReadAndWriteSchema =
+        """{"type":"object","additionalProperties":false,"required":["scene","lyrics"],"properties":{"scene":"""
+        + SceneDescriber.SceneSchema
+        + ""","lyrics":{"type":"string"}}}""";
+
+    /// <summary>
+    /// Reads the photo and writes the roast in one call: the scene first, as literal facts, then the
+    /// bars from it. One round trip instead of two, and the jokes come from the picture itself
+    /// rather than from a paragraph about it. Null when the call fails or either half is empty; the
+    /// caller then takes the two-call path, which degrades one stage at a time.
+    /// </summary>
+    public async Task<(SceneSnapshot Scene, RoastLyrics Lyrics)?> ReadAndWriteAsync(
+        byte[] image, IReadOnlyList<string> tags, SceneDetails details, RapStyle style, RoastIntensity intensity, bool explicitLanguage,
+        CancellationToken ct = default)
+    {
+        if (!chat.IsConfigured)
+            return null;
+
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var system =
+                "You do two jobs, in order, and reply with one JSON object.\n"
+                + "JOB 1, the `scene` field. " + SceneDescriber.SystemPrompt
+                + "\nJOB 2, the `lyrics` field: everything below describes what goes in it, and only in it. "
+                + "Write it from the scene you just read, aiming at its most specific details.\n"
+                + SystemPrompt(explicitLanguage, style);
+            var user = SceneDescriber.BuildUserPrompt(tags, details)
+                + $"\n\nTrack style: {StyleDescription(style)}\n{ToneDirection(intensity)}\n"
+                + "Fill in the scene, then write the verse and chorus from it.";
+
+            var result = await chat.CompleteAsync(system, user, image, ReadAndWriteSchema, ct);
+            using var doc = JsonDocument.Parse(AiFoundryClient.StripCodeFence(result.Content));
+            var scene = doc.RootElement.TryGetProperty("scene", out var s) ? SceneSnapshot.Parse(s.GetRawText()) : SceneSnapshot.Empty;
+            var lyrics = doc.RootElement.TryGetProperty("lyrics", out var l) && l.ValueKind == JsonValueKind.String ? Sanitize(l.GetString()!) : "";
+            if (!scene.HasSubstance || lyrics.Length == 0)
+            {
+                logger.LogWarning("One-call roast came back without a scene or lyrics; taking the two-call path.");
+                return null;
+            }
+
+            logger.LogInformation("Scene read and roast written in one call in {Elapsed}ms. Tokens={Tokens}", result.ElapsedMs, result.TokensUsed);
+            return (scene, new RoastLyrics(lyrics, Softened: false, sw.ElapsedMilliseconds));
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "One-call roast failed; taking the two-call path.");
+            return null;
+        }
+    }
 
     public async Task<RoastLyrics> WriteAsync(
         string imageDescription,

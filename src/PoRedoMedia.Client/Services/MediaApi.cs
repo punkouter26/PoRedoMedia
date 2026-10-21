@@ -25,6 +25,15 @@ public sealed class MediaApi(HttpClient http)
             : (null, await ReasonAsync(response));
     }
 
+    /// <summary>A link to put a cutout made on this device, for the next Cutout run on the picture.</summary>
+    public async Task<(UploadTicket? Ticket, string? Error)> DeviceCutoutLinkAsync(Guid id)
+    {
+        using var response = await http.PostAsync($"api/media/{id}/device-cutout", null);
+        return response.IsSuccessStatusCode
+            ? (await response.Content.ReadFromJsonAsync(WireJson.Default.UploadTicket), null)
+            : (null, await ReasonAsync(response));
+    }
+
     public async Task<(MediaDto? Media, string? Error)> ConfirmUploadAsync(Guid id)
     {
         using var response = await http.PostAsync($"api/media/{id}/confirm", null);

@@ -35,9 +35,12 @@ public sealed partial class AiFoundryTranscriptionService : ITranscriptionServic
     private readonly string _deployment;
     private readonly ILogger<AiFoundryTranscriptionService> _logger;
 
-    public AiFoundryTranscriptionService(IConfiguration config, ILogger<AiFoundryTranscriptionService> logger)
+    private readonly AiMeter? _meter;
+
+    public AiFoundryTranscriptionService(IConfiguration config, ILogger<AiFoundryTranscriptionService> logger, AiMeter? meter = null)
     {
         _logger = logger;
+        _meter = meter;
         _deployment = config["AiFoundry:TranscriptionDeployment"] ?? string.Empty;
         _key = AiFoundryClient.Setting(config, "AiFoundry:Key");
         if (AiFoundryClient.Setting(config, "AiFoundry:Endpoint") is { } endpoint && _key is not null && !string.IsNullOrWhiteSpace(_deployment))
@@ -68,6 +71,7 @@ public sealed partial class AiFoundryTranscriptionService : ITranscriptionServic
         using var json = JsonDocument.Parse(body);
         var (segments, seconds) = Read(json.RootElement);
         LogUsage(_deployment, seconds, segments.Count, sw.ElapsedMilliseconds);
+        _meter?.RecordCall("transcription", _deployment, "TranscriptionUsdPerMinute", sw.ElapsedMilliseconds, seconds / 60);
         return segments;
     }
 

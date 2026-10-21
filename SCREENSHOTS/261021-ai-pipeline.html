@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Pipeline Upgrade</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 75ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid.phones { grid-template-columns: repeat(3, minmax(0, 260px)); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  .note { font-size: 0.85rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; margin-top: 10px; }
+  @media (max-width: 760px) { .grid, .grid.phones { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI pipeline upgrade: the one visible change</h1>
+  <p class="lede">A1–A5 and A7–A10 change what happens on the server (lanes, metering, stored reads, one-call roast,
+    whole-clip vision, judged drafts, eval, Gemini frame vision). The only change on screen is A9: Cutout can now be made
+    on the user's own device for free. Captured headless with Playwright in the Test environment (mock AI), with the
+    code before the change on one port and after it on another, the same picture, Cutout ticked.</p>
+
+  <section>
+    <h2><span class="tag">A9</span>Cutout: Server or On device (free)</h2>
+    <p class="what">The Cutout options get a picker. "On device" runs BiRefNet lite (MIT licence) in the browser through
+      transformers.js, sends the transparent PNG to a signed link under the picture, and the run uses it. The estimate
+      drops to $0.00 for it.</p>
+    <div class="grid">
+      <figure><img src="261021-ai-pipeline/before-desktop-cutout.png" alt="Before: Cutout options hold only the sticker switch">
+        <figcaption><b>Before.</b> Only the sticker switch. Estimated cost $0.02 (server remover).</figcaption></figure>
+      <figure><img src="261021-ai-pipeline/after-desktop-cutout.png" alt="After: a Server / On device picker above the sticker switch">
+        <figcaption><b class="new">After, default.</b> New picker, Server is chosen: nothing else changes, cost is the same.</figcaption></figure>
+      <figure><img src="261021-ai-pipeline/after-desktop-cutout-device.png" alt="After: On device chosen, with its download note, cost $0.00">
+        <figcaption><b class="new">After, On device.</b> A note says what downloads and when it applies; the estimate becomes $0.00.</figcaption></figure>
+    </div>
+    <div class="grid phones" style="margin-top:14px">
+      <figure><img src="261021-ai-pipeline/before-phone-cutout.png" alt="Before on a phone">
+        <figcaption><b>Before</b> (390 px).</figcaption></figure>
+      <figure><img src="261021-ai-pipeline/after-phone-cutout.png" alt="After on a phone, Server chosen">
+        <figcaption><b class="new">After</b>, Server.</figcaption></figure>
+      <figure><img src="261021-ai-pipeline/after-phone-cutout-device.png" alt="After on a phone, On device chosen">
+        <figcaption><b class="new">After</b>, On device: the picker fits on one line.</figcaption></figure>
+    </div>
+    <ul class="changes">
+      <li>The choice is remembered with the other options (<code>Cutout.model</code>).</li>
+      <li>On device works only as the first change to the picture (before it, Restyle, Meme caption or Upscale would have
+        changed it); the page says so instead of quietly paying for the server remover.</li>
+      <li>A first capture showed the note running beside the picker on desktop and "SERVE R" breaking on a phone; the
+        options now stack like the Upscale ones and the label is shorter. These are the fixed captures.</li>
+    </ul>
+    <p class="note">Not visible here: on a device with WebGPU the on-device speech model for captions is now Whisper base
+      instead of tiny; without WebGPU it stays tiny.</p>
+  </section>
+</main>
+</body>
+</html>

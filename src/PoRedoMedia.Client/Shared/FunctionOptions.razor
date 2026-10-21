@@ -163,11 +163,24 @@
 @if (Functions.Contains(MediaFunction.Cutout))
 {
     <RadzenFieldset Text="Cutout" AllowCollapse="true" class="rz-mt-2">
-        <div class="bulk-row">
-            <RadzenSwitch Name="cutout-sticker" Value="@(Get(RunOptions.CutoutSticker) != "false")"
-                          Change="@(on => Set(RunOptions.CutoutSticker, on ? "true" : "false"))" />
-            <RadzenLabel Component="cutout-sticker" Text="Also make a 512 px sticker for WhatsApp or Telegram" />
-        </div>
+        <RadzenStack Gap="0.75rem">
+            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.CutoutModel) == AiCatalog.BrowserCutout ? AiCatalog.BrowserCutout : "")"
+                             Change="@((string v) => Set(RunOptions.CutoutModel, v))" aria-label="Where the cutout is made">
+                <Items>
+                    <RadzenSelectBarItem Text="Server" Value="@("")" />
+                    <RadzenSelectBarItem Text="On device (free)" Value="@AiCatalog.BrowserCutout" />
+                </Items>
+            </RadzenSelectBar>
+            @if (Get(RunOptions.CutoutModel) == AiCatalog.BrowserCutout)
+            {
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">Made in your browser: about 115 MB the first time (230 MB without a GPU), then free. Works only as the first change to the picture.</RadzenText>
+            }
+            <div class="bulk-row">
+                <RadzenSwitch Name="cutout-sticker" Value="@(Get(RunOptions.CutoutSticker) != "false")"
+                              Change="@(on => Set(RunOptions.CutoutSticker, on ? "true" : "false"))" />
+                <RadzenLabel Component="cutout-sticker" Text="Also make a 512 px sticker for WhatsApp or Telegram" />
+            </div>
+        </RadzenStack>
     </RadzenFieldset>
 }
 

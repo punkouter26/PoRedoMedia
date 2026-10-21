@@ -12,7 +12,7 @@ namespace PoRedoMedia.Api.Features.Restyle;
 /// </summary>
 public sealed class RestyleStep(
     ReproductionPromptWriter writer, IVisionServiceRouter vision, IImageGenerationService images,
-    BlobStorageService blobs, MediaOutputs outputs) : IRunStep
+    BlobStorageService blobs, MediaOutputs outputs, AiReadStore reads) : IRunStep
 {
     public IReadOnlySet<MediaFunction> Handles { get; } = new HashSet<MediaFunction> { MediaFunction.Restyle };
 
@@ -23,12 +23,14 @@ public sealed class RestyleStep(
         await context.ReportAsync("Studying the picture");
         // With a description from the user's device, that is the prompt: the detailed read is a
         // metered call, and they picked the model that costs nothing.
-        var prompt = UserText.Clean(context.Option(RunOptions.VisionDescription), 2000) ?? await writer.TryWriteAsync(image, ct);
+        var prompt = UserText.Clean(context.Option(RunOptions.VisionDescription), 2000)
+            ?? (await reads.GetOrReadAsync(
+                context.Current.Id, "reproduction-prompt", async () => new StoredText(await writer.TryWriteAsync(image, ct)), t => t.Text is not null, ct)).Text;
         if (prompt is null)
         {
             // The detailed read failed. A plain description still gives a usable picture, but the
             // user must know the result came from less.
-            var seen = await vision.SeeAsync(context, image, ct);
+            var seen = await vision.SeeAsync(context, image, ct, reads);
             prompt = $"{seen.Description}. Elements: {string.Join(", ", seen.Tags)}";
             context.AddNote("The detailed read of your picture failed, so the new image was drawn from a short description instead.");
         }
@@ -45,6 +47,9 @@ public sealed class RestyleStep(
         await context.AddOutputAsync(item, becomesCurrent: true);
     }
 }
+
+/// <summary>One stored piece of model-written text.</summary>
+public sealed record StoredText(string? Text);
 
 /// <summary>Has a chat model that can see write the words a text-to-image model needs to redraw a photograph.</summary>
 public sealed class ReproductionPromptWriter(IChatClient chat, ILogger<ReproductionPromptWriter> logger)

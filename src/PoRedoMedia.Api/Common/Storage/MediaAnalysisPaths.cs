@@ -46,6 +46,12 @@ public static class MediaAnalysisPaths
     /// <summary>The looping GIF made from a video the first time it is asked for.</summary>
     public static string Gif(Guid mediaId) => $"{Prefix(mediaId)}export.gif";
 
+    /// <summary>A model's read of the item's picture, kept so the next run on it is free (<see cref="AiReadStore"/>).</summary>
+    public static string AiRead(Guid mediaId, string name) => $"{Prefix(mediaId)}ai/{name}.json";
+
+    /// <summary>A cutout made on the user's device, waiting for the run that uses it. The run deletes it.</summary>
+    public static string DeviceCutout(Guid mediaId) => $"{Prefix(mediaId)}device/cutout.png";
+
     /// <summary>Every roast line back to back, as one sound file.</summary>
     public static string RoastAudio(Guid mediaId) => $"{Prefix(mediaId)}roast/roast.mp3";
 

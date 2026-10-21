@@ -27,7 +27,7 @@ public sealed class SceneDescriber(
     IConfiguration configuration,
     ILogger<SceneDescriber> logger)
 {
-    private const string SystemPrompt =
+    internal const string SystemPrompt =
         "You are a scene analyst feeding a comedy writer. Study the image and reply with MINIFIED "
         + "JSON only — no prose, no markdown fences, no commentary.\n"
         + "Schema: {\"outfit\":[\"specific garments with colour, fit and condition\"],"
@@ -42,7 +42,7 @@ public sealed class SceneDescriber(
         + "disability, or attractiveness, and never include them in any field. Do not write jokes.";
 
     /// <summary>Strict structured-output schema matching <see cref="SceneSnapshot.Parse"/>.</summary>
-    private const string SceneSchema = """
+    internal const string SceneSchema = """
         {"type":"object","additionalProperties":false,
          "required":["outfit","pose","expression","setting","props","text_in_image","most_incongruous_detail"],
          "properties":{
@@ -194,20 +194,7 @@ public sealed class SceneDescriber(
             var user = BuildUserPrompt(tags, details);
             var result = await chat.CompleteAsync(SystemPrompt, user, image, SceneSchema, ct);
 
-            var snapshot = SceneSnapshot.Parse(result.Content);
-
-            // OCR is authoritative for text. If the model missed lines the reader found, add them —
-            // and prefer the read values over anything the model claims to have seen.
-            if (details.TextLines.Count > 0)
-            {
-                snapshot = snapshot with
-                {
-                    TextInImage = [.. details.TextLines
-                        .Concat(snapshot.TextInImage)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .Take(12)],
-                };
-            }
+            var snapshot = WithOcr(SceneSnapshot.Parse(result.Content), details);
 
             logger.LogInformation(
                 "Scene extracted in {Elapsed}ms. Outfit={Outfit}, Props={Props}, Text={Text}, Tokens={Tokens}",
@@ -254,7 +241,23 @@ public sealed class SceneDescriber(
         }
     }
 
-    private static string BuildUserPrompt(IReadOnlyList<string> tags, SceneDetails details)
+    /// <summary>
+    /// OCR is authoritative for text. If the model missed lines the reader found, add them — and
+    /// prefer the read values over anything the model claims to have seen.
+    /// </summary>
+    internal static SceneSnapshot WithOcr(SceneSnapshot snapshot, SceneDetails details) =>
+        details.TextLines.Count == 0
+            ? snapshot
+            : snapshot with { TextInImage = [.. details.TextLines.Concat(snapshot.TextInImage).Distinct(StringComparer.OrdinalIgnoreCase).Take(12)] };
+
+    /// <summary>The scene a snapshot read from the picture describes, ready for the lyric writer.</summary>
+    public static SceneDescription FromSnapshot(SceneSnapshot snapshot, SceneDetails details, long elapsedMs)
+    {
+        snapshot = WithOcr(snapshot, details);
+        return new SceneDescription(snapshot.ToProse(), Detailed: true, snapshot, details, elapsedMs, FallbackReason: null);
+    }
+
+    internal static string BuildUserPrompt(IReadOnlyList<string> tags, SceneDetails details)
     {
         var parts = new List<string>();
 

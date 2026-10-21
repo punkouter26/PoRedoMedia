@@ -18,6 +18,7 @@ public static class MediaEndpoints
         group.MapPost("/{id}/confirm", ConfirmUploadAsync);
         group.MapPost("/{id}/frames", UploadFramesAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapPost("/{id}/transcript", SaveTranscriptAsync).RequireRateLimiting(UploadRateLimit.Policy);
+        group.MapPost("/{id}/device-cutout", DeviceCutoutLinkAsync).RequireRateLimiting(UploadRateLimit.Policy);
         group.MapGet("/", ListAsync);
         group.MapGet("/zip", ZipAsync);
         group.MapGet("/{id}", GetAsync);
@@ -53,6 +54,21 @@ public static class MediaEndpoints
         var expiresAt = DateTimeOffset.UtcNow.Add(UploadLinkLifetime);
         var link = await storage.CreateUploadLinkAsync(MediaBlobPaths.Upload(item.Id, item.Extension), expiresAt);
         return TypedResults.Ok(new UploadTicket(item.Id.Value, link.ToString(), expiresAt));
+    }
+
+    /// <summary>
+    /// A link to put a cutout the user's device made of this picture, for the next Cutout run on
+    /// it to use. Nothing is trusted from it until that run checks it.
+    /// </summary>
+    private static async Task<Results<Ok<UploadTicket>, NotFound>> DeviceCutoutLinkAsync(
+        MediaId id, ClaimsPrincipal user, IMediaRepository media, StorageClients storage, CancellationToken ct)
+    {
+        if (await media.GetAsync(UserId.From(user), id, ct) is not { Kind: MediaKind.Image, Status: MediaStatus.Ready })
+            return TypedResults.NotFound();
+
+        var expiresAt = DateTimeOffset.UtcNow.Add(UploadLinkLifetime);
+        var link = await storage.CreateUploadLinkAsync(MediaAnalysisPaths.DeviceCutout(id.Value), expiresAt);
+        return TypedResults.Ok(new UploadTicket(id.Value, link.ToString(), expiresAt));
     }
 
     /// <summary>
@@ -161,7 +177,8 @@ public static class MediaEndpoints
     /// </summary>
     private static async Task<Results<Ok<FramesResult>, NotFound, ProblemHttpResult>> UploadFramesAsync(
         MediaId id, FrameUploadRequest request, ClaimsPrincipal user, IMediaRepository media, BlobStorageService blobs,
-        ISoundAssetRepository sounds, ILoggerFactory loggers, CancellationToken ct, [FromServices] IAiVisionService? vision = null)
+        ISoundAssetRepository sounds, ILoggerFactory loggers, CancellationToken ct, [FromServices] IAiVisionService? vision = null,
+        [FromServices] IClipVision? clipVision = null)
     {
         var item = await media.GetAsync(UserId.From(user), id, ct);
         if (item is not { Kind: MediaKind.Video, Status: MediaStatus.Ready })
@@ -195,7 +212,9 @@ public static class MediaEndpoints
 
         await VisionStore.SaveFramesAsync(blobs, id, frames, ct);
         SceneLabel[] labels = [];
-        if (vision is not null)
+        // With whole-clip vision the run watches the video itself, so describing frames here
+        // would pay twice. The frames stay stored as its fallback.
+        if (vision is not null && clipVision is null)
         {
             try
             {

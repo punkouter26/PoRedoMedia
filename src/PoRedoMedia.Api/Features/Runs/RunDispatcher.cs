@@ -1,17 +1,21 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Api.Features.Runs;
 
 /// <summary>
-/// The queue runs wait in. One run executes at a time per process, which is what the hosting
-/// plan's CPU budget can carry, and one source can have only one run queued or running. Owners
-/// take turns. The run rows are the durable copy of the queue: what a restart cuts short is
-/// queued again when the next process starts.
+/// The queues runs wait in, one per lane. A video run renders with ffmpeg, so one executes at a
+/// time per process, which is what the hosting plan's CPU budget can carry. An image run spends
+/// nearly all its time waiting on a remote model (a Veo job takes minutes), so a few run side by
+/// side and none of them holds up a render. One source can have only one run queued or running.
+/// Owners take turns within a lane. The run rows are the durable copy of the queues: what a
+/// restart cuts short is queued again when the next process starts.
 /// </summary>
-public sealed partial class RunDispatcher(RunExecutor executor, IRunRepository runs, StorageClients storage, ILogger<RunDispatcher> logger)
+public sealed partial class RunDispatcher(
+    RunExecutor executor, IRunRepository runs, StorageClients storage, ILogger<RunDispatcher> logger, IConfiguration? configuration = null)
     : BackgroundService
 {
     /// <summary>
@@ -20,7 +24,13 @@ public sealed partial class RunDispatcher(RunExecutor executor, IRunRepository r
     /// </summary>
     public const int MaxAttempts = 3;
 
-    private readonly FairRunQueue _queue = new();
+    /// <summary>Image runs executed at once when <c>Runs:RemoteConcurrency</c> is not set.</summary>
+    internal const int DefaultRemoteConcurrency = 3;
+
+    private readonly FairRunQueue _renderQueue = new();
+    private readonly FairRunQueue _remoteQueue = new();
+    private readonly int _remoteConcurrency =
+        Math.Clamp(configuration?.GetValue<int?>(ConfigKeys.RunsRemoteConcurrency) ?? DefaultRemoteConcurrency, 1, 16);
     private readonly ConcurrentDictionary<MediaId, byte> _busySources = new();
     private readonly ConcurrentDictionary<RunId, CancellationTokenSource> _cancels = new();
     private readonly TaskCompletionSource _recovered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -34,7 +44,8 @@ public sealed partial class RunDispatcher(RunExecutor executor, IRunRepository r
     public override void Dispose()
     {
         base.Dispose();
-        _queue.Dispose();
+        _renderQueue.Dispose();
+        _remoteQueue.Dispose();
     }
 
     /// <summary>Done once the runs an earlier process left unfinished have been queued again or failed.</summary>
@@ -51,8 +62,15 @@ public sealed partial class RunDispatcher(RunExecutor executor, IRunRepository r
     public void Queue(Run run)
     {
         _cancels[run.Id] = new CancellationTokenSource();
-        _queue.Add(run);
+        (Renders(run.Functions) ? _renderQueue : _remoteQueue).Add(run);
     }
+
+    /// <summary>
+    /// True for a run that renders video with ffmpeg; it takes the one render slot. Every other
+    /// run mostly waits on a remote model and takes the remote lane.
+    /// </summary>
+    internal static bool Renders(IEnumerable<MediaFunction> functions) =>
+        functions.Any(f => FunctionStack.KindOf(f) == MediaKind.Video);
 
     /// <summary>
     /// Queues again every run an earlier process left unfinished, whether a deploy, a crash or the
@@ -120,11 +138,20 @@ public sealed partial class RunDispatcher(RunExecutor executor, IRunRepository r
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await RecoverAsync(stoppingToken);
+        await Task.WhenAll(
+            [WorkAsync(_renderQueue, stoppingToken), .. Enumerable.Range(0, _remoteConcurrency).Select(_ => WorkAsync(_remoteQueue, stoppingToken))]);
+    }
+
+    /// <summary>One worker: takes the lane's next run, executes it, and repeats until shutdown.</summary>
+    private async Task WorkAsync(FairRunQueue queue, CancellationToken stoppingToken)
+    {
+        // Off the caller's thread, so the workers start side by side.
+        await Task.Yield();
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var run = await _queue.TakeAsync(stoppingToken);
+                var run = await queue.TakeAsync(stoppingToken);
                 _cancels.TryGetValue(run.Id, out var cancel);
                 using var stop = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, cancel?.Token ?? CancellationToken.None);
                 try
@@ -223,6 +250,8 @@ public sealed class RunExecutor(
         }
 
         var context = new RunContext(run, source, OnOutputAsync, OnMessageAsync, working);
+        // Every AI call the steps make from here is added to this run's bill.
+        var tally = AiMeter.Begin();
 
         foreach (var function in ordered)
         {
@@ -230,6 +259,7 @@ public sealed class RunExecutor(
                 continue;
 
             var step = steps.First(s => s.Handles.Contains(function));
+            tally.Step = function.ToString();
             run = run with { Status = RunStatus.Running, CurrentStep = function, Log = [.. log] };
             await runs.SaveAsync(run, ct);
             await OnMessageAsync(FunctionStack.Label(function));
@@ -255,7 +285,8 @@ public sealed class RunExecutor(
                     logger.LogError(ex, "Run {RunId} failed in {Function}", run.Id, function);
                 // A render that overran its time limit carries a message written for the user too.
                 var reason = ex is RunStepException or TimeoutException ? ex.Message : $"{FunctionStack.Label(function)} failed unexpectedly.";
-                await FailAsync(run with { Status = RunStatus.Failed, Error = reason, Notes = [.. context.Notes], Log = [.. log] }, ct);
+                await ReportCostAsync();
+                await FailAsync(run with { Status = RunStatus.Failed, Error = reason, Notes = [.. context.Notes], Log = [.. log], AiCostUsd = tally.Usd }, ct);
                 return;
             }
 
@@ -266,7 +297,10 @@ public sealed class RunExecutor(
                 new("function", function.ToString()), new("outcome", outcome));
         }
 
-        await FinishAsync(run with { Status = RunStatus.Complete, CurrentStep = null, Notes = [.. context.Notes], Log = [.. log] }, ct);
+        await ReportCostAsync();
+        await FinishAsync(run with { Status = RunStatus.Complete, CurrentStep = null, Notes = [.. context.Notes], Log = [.. log], AiCostUsd = tally.Usd }, ct);
+
+        Task ReportCostAsync() => tally.Summary() is { } cost ? OnMessageAsync(cost) : Task.CompletedTask;
 
         int Percent() => ordered.Count == 0 ? 0 : (int)(100.0 * done.Count(ordered.Contains) / ordered.Count);
 

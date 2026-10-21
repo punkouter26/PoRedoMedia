@@ -26,6 +26,8 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
             ["Notes"] = JsonSerializer.Serialize(run.Notes),
             ["Log"] = JsonSerializer.Serialize(run.Log),
             ["CreatedAt"] = run.CreatedAt,
+            // Tables have no decimal type; a double is ample for an estimate.
+            ["AiCostUsd"] = run.AiCostUsd is { } cost ? (double)cost : null,
         }, TableUpdateMode.Replace, ct);
 
     public async Task<Run?> GetAsync(UserId owner, RunId id, CancellationToken ct = default)
@@ -71,6 +73,7 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
         Notes = JsonSerializer.Deserialize<List<string>>(row.GetString("Notes") ?? "[]") ?? [],
         Log = JsonSerializer.Deserialize<List<string>>(row.GetString("Log") ?? "[]") ?? [],
         CreatedAt = row.GetDateTimeOffset("CreatedAt") ?? default,
+        AiCostUsd = row.GetDouble("AiCostUsd") is { } cost ? (decimal)cost : null,
     };
 
     private static string[] Split(string? list) => (list ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
