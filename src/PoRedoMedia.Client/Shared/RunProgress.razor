@@ -39,15 +39,6 @@
         </RadzenAlert>
     }
 
-    @if (ShowDepth)
-    {
-        @* Something to watch while the video is made: the photo in 2.5D (js/fx/depth.js). *@
-        <figure class="run-depth po-fx-only">
-            <div class="run-depth-stage" @ref="_depth"></div>
-            <figcaption>While the video is made: your photo in 2.5D, worked out on this device. Move the pointer over it, or tilt your phone.</figcaption>
-        </figure>
-    }
-
     @if (Run.Log.Count > 1)
     {
         <details class="run-log" open="@(!Run.Finished)">
@@ -84,11 +75,11 @@
                 <figcaption>@output.Title</figcaption>
                 @if (output.Kind == MediaKind.Video && Run.Run.Functions.Contains(MediaFunction.Captions))
                 {
-                    <a href="@($"api/media/{output.Id}/captions.srt")" download="captions.srt">Download the captions (SRT)</a>
+                    <a href="@($"api/media/{output.Id}/export/srt")" download="captions.srt">Download the captions (SRT)</a>
                 }
                 @if (output.Kind == MediaKind.Video && output.Text is not null)
                 {
-                    <a href="@($"api/media/{output.Id}/roast-audio")" download>Download the roast alone (audio)</a>
+                    <a href="@($"api/media/{output.Id}/export/roast")" download>Download the roast alone (audio)</a>
                 }
                 @if (output.Kind != MediaKind.Audio && output.Text is not null)
                 {
@@ -103,13 +94,9 @@
     [Parameter, EditorRequired] public TrackedRun Run { get; set; } = null!;
 
     private ElementReference _reactor;
-    private ElementReference _depth;
-    private bool _depthStarted;
 
     /// <summary>Results already on screen. Only ones that arrive after that are revealed.</summary>
     private readonly HashSet<Guid> _shown = [];
-
-    private bool ShowDepth => !Run.Finished && Run.Step == MediaFunction.PhotoToVideo;
 
     protected override void OnInitialized() => Tracker.Changed += Refresh;
 
@@ -129,18 +116,6 @@
                 continue;
             if (output is { Kind: MediaKind.Image, ParentId: { } parent })
                 await JS.InvokeVoidAsync("poMorph.start", $".run-result[data-id='{output.Id}']", $"api/media/{parent}/content", output.Url);
-        }
-
-        if (ShowDepth && !_depthStarted)
-        {
-            _depthStarted = true;
-            // The picture the video is being made from: the newest one this run made, else the source.
-            var picture = Run.Outputs.LastOrDefault(o => o.Kind == MediaKind.Image)?.Url ?? $"api/media/{Run.Run.SourceId}/content";
-            await JS.InvokeVoidAsync("poDepth.start", _depth, picture);
-        }
-        else if (!ShowDepth)
-        {
-            _depthStarted = false;
         }
     }
 

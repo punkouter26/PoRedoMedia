@@ -69,14 +69,11 @@ public sealed record DirectedScript(ScriptEntry[] Entries, string? Title = null)
 
 /// <summary>
 /// Everything the director knows about a run beyond the scene labels: who is directing (persona),
-/// what is being said (speech transcript) and which sounds this user has starred.
+/// and what is being said (speech transcript).
 /// </summary>
-public sealed record DirectorContext(
-    string? MemePersona,
-    IReadOnlyList<TranscriptSegmentDto> Transcript,
-    IReadOnlySet<SoundId> Favorites)
+public sealed record DirectorContext(string? MemePersona, IReadOnlyList<TranscriptSegmentDto> Transcript)
 {
-    public static readonly DirectorContext Empty = new(null, [], new HashSet<SoundId>());
+    public static readonly DirectorContext Empty = new(null, []);
 }
 
 /// <summary>A sound scored against the current scene, highest score first.</summary>

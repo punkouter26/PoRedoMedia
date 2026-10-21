@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using PoRedoMedia.Api.Common;
-using PoRedoMedia.Api.Features.Memeify;
+using PoRedoMedia.Api.Features.Video;
 using PoRedoMedia.Api.Features.Render;
 using PoRedoMedia.Api.Features.Sharing;
 using PoRedoMedia.Shared.Enums;
@@ -131,7 +131,7 @@ public sealed class VideoFunctionTests(AzuriteFixture azurite) : IDisposable
         Assert.Equal(1, audioStreams);
         Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync(video.ThumbUrl)).StatusCode);
 
-        var srt = await client.GetStringAsync($"/api/media/{video.Id}/captions.srt");
+        var srt = await client.GetStringAsync($"/api/media/{video.Id}/export/srt");
         Assert.Contains("This is a mock transcript.", srt);
         Assert.Contains("-->", srt);
     }
@@ -152,7 +152,7 @@ public sealed class VideoFunctionTests(AzuriteFixture azurite) : IDisposable
         var gallery = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
         Assert.Equal("Captions", gallery.Single(m => m.Id == first.OutputIds[0]).Origin);
         // A video with no captions burned in has no captions file.
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{source.Id}/captions.srt")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{source.Id}/export/srt")).StatusCode);
     }
 
     [DockerFact]
@@ -179,25 +179,22 @@ public sealed class VideoFunctionTests(AzuriteFixture azurite) : IDisposable
     }
 
     [Fact]
-    public void Trim_and_trending_rules()
+    public void Trim_rules()
     {
-        Assert.Equal((0, 20), VideoRunStep.TrimWindow(null, null, 20));
-        Assert.Equal((2.5, 14), VideoRunStep.TrimWindow("2.5", "14", 20));
+        Assert.Equal((0, 20), VideoStep.TrimWindow(null, null, 20));
+        Assert.Equal((2.5, 14), VideoStep.TrimWindow("2.5", "14", 20));
         // An end before the start, a start past the video, and rubbish all trim less, never fail.
-        Assert.Equal((10, 11), VideoRunStep.TrimWindow("10", "3", 20));
-        Assert.Equal((19, 20), VideoRunStep.TrimWindow("50", "99", 20));
-        Assert.Equal((0, 20), VideoRunStep.TrimWindow("abc", "NaN", 20));
+        Assert.Equal((10, 11), VideoStep.TrimWindow("10", "3", 20));
+        Assert.Equal((19, 20), VideoStep.TrimWindow("50", "99", 20));
+        Assert.Equal((0, 20), VideoStep.TrimWindow("abc", "NaN", 20));
 
         var args = FFmpegArgs.BuildFFmpegArgs("/tmp/source.mp4", [], "/tmp/out.mp4", false, 6.5, true, trimStartSeconds: 2.5);
         Assert.StartsWith("-ss 2.5 -i \"/tmp/source.mp4\"", args, StringComparison.Ordinal);
         Assert.Contains(" -t 6.5 ", args, StringComparison.Ordinal);
-
-        Assert.True(SharingEndpoints.Trending(views: 0, remixes: 1, ageHours: 1) > SharingEndpoints.Trending(views: 20, remixes: 0, ageHours: 1));
-        Assert.True(SharingEndpoints.Trending(5, 1, ageHours: 1) > SharingEndpoints.Trending(5, 1, ageHours: 48));
     }
 
     [DockerFact]
-    public async Task A_trimmed_roasted_video_is_shorter_goes_on_the_feed_and_is_remixed_without_the_director()
+    public async Task A_trimmed_roasted_video_is_shorter_exports_and_shares()
     {
         var user = $"dev|{Guid.NewGuid()}";
         var client = await Factory.SignedInAsync(user);
@@ -210,33 +207,19 @@ public sealed class VideoFunctionTests(AzuriteFixture azurite) : IDisposable
         Assert.True(run.Status == RunStatus.Complete, run.Error);
         var video = (await client.GetFromJsonAsync($"/api/media/{run.OutputIds[0]}", WireJson.Default.MediaDto))!;
         Assert.InRange((await ProbeAsync(video)).Duration, 1.7, 2.4);
-        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync($"/api/media/{video.Id}/roast-audio")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{video.Id}/gif")).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/media/{video.Id}/gif", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync($"/api/media/{video.Id}/gif")).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync($"/api/media/{video.Id}/export/roast")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{video.Id}/export/gif")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/media/{video.Id}/export/gif", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync($"/api/media/{video.Id}/export/gif")).StatusCode);
 
         var zip = await client.GetAsync($"/api/media/zip?ids={source.Id},{video.Id}");
         using (var archive = new System.IO.Compression.ZipArchive(await zip.Content.ReadAsStreamAsync()))
             Assert.Equal(2, archive.Entries.Count);
 
-        // Shared by link only, it is not on the feed; posted, it is, and a stranger can remix it.
+        // The share link opens for anyone, signed in or not, and counts the view.
         var link = (await (await client.PostAsync($"/api/media/{video.Id}/share", null)).Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto))!;
-        Assert.False(link.Feed);
         var token = link.Url[(link.Url.LastIndexOf('/') + 1)..];
-        var strangerName = $"dev|{Guid.NewGuid()}";
-        var stranger = await Factory.SignedInAsync(strangerName);
-        Assert.DoesNotContain(await stranger.GetFromJsonAsync("/api/feed", WireJson.Default.ListFeedItemDto) ?? [], f => f.Token == token);
-        await client.PostAsync($"/api/media/{video.Id}/share?feed=true", null);
-        var post = Assert.Single(await stranger.GetFromJsonAsync("/api/feed?sort=new", WireJson.Default.ListFeedItemDto) ?? [], f => f.Token == token);
-        Assert.True(post is { CanRemix: true, Mine: false });
-
-        var remix = await RunAsync(stranger, await AddVideoAsync(strangerName), [MediaFunction.Memeify], new() { [RunOptions.VideoRemix] = token });
-
-        Assert.True(remix.Status == RunStatus.Complete, remix.Error);
-        Assert.Equal(1, _director.Calls);
-        Assert.Contains("1 view", await stranger.GetStringAsync($"/v/{token}"));
-        post = Assert.Single(await stranger.GetFromJsonAsync("/api/feed", WireJson.Default.ListFeedItemDto) ?? [], f => f.Token == token);
-        Assert.Equal((1, 1), (post.Views, post.Remixes));
+        Assert.Contains("1 view", await Factory.CreateClient().GetStringAsync($"/v/{token}"));
     }
 
     private sealed class CountingDirector : IDirectorService

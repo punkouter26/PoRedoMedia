@@ -5,6 +5,7 @@
 @inject ContextMenuService Menus
 @inject NotificationService Notifications
 @inject IJSRuntime JS
+@inject AppSettings Settings
 
 <aside class="media-panel" aria-label="Details">
 <RadzenCard class="po-pop po-glass">
@@ -84,10 +85,6 @@
                 {
                     <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">This item @expiry, and the link stops working with it. Pin the item to keep both.</RadzenText>
                 }
-                <div class="panel-feed">
-                    <RadzenSwitch Name="share-feed" Value="_link.Feed" Change="SetFeedAsync" />
-                    <RadzenLabel Component="share-feed" Text="Also post it to the feed, where every signed-in user can see it" />
-                </div>
                 <div class="panel-share-actions">
                     <RadzenButton Text="Stop sharing" Size="ButtonSize.Small" Variant="Variant.Outlined" ButtonStyle="ButtonStyle.Danger" Disabled="_busy" Click="StopSharingAsync" />
                     <RadzenButton Text="Copy" Icon="content_copy" Size="ButtonSize.Small" Click="@(() => JS.InvokeAsync<bool>("poMedia.copyText", _link.Url))" />
@@ -144,7 +141,7 @@
                 await GifAsync();
                 break;
             case "roast":
-                await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/roast-audio");
+                await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/export/roast");
                 break;
         }
     }));
@@ -221,7 +218,7 @@
             return;
         }
 
-        await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/gif");
+        await JS.InvokeVoidAsync("poMedia.download", $"api/media/{Media.Id}/export/gif");
     }
 
     /// <summary>
@@ -250,12 +247,6 @@
             await Changed.InvokeAsync(Media with { Shared = true });
     }
 
-    private async Task SetFeedAsync(bool on)
-    {
-        if ((await Api.ShareAsync(Media.Id, on)).Link is { } link)
-            _link = link;
-    }
-
     private async Task StopSharingAsync()
     {
         _busy = true;
@@ -280,19 +271,15 @@
             return;
 
         _busy = true;
-        // Its card in the grid breaks into shards; it comes back if the delete fails.
-        var shattered = await JS.InvokeAsync<bool>("poShatter.burst", new[] { Media.Id });
         var error = await Api.DeleteAsync(Media.Id);
         _busy = false;
         if (error is not null)
         {
-            await JS.InvokeVoidAsync("poShatter.restore", new[] { Media.Id });
             Notifications.Notify(NotificationSeverity.Error, "Could not delete", error, 8000);
             return;
         }
 
-        if (!shattered)
-            await JS.InvokeVoidAsync("poSfx.play", "remove");
+        await JS.InvokeVoidAsync("poSfx.play", "remove");
         await Deleted.InvokeAsync(Media);
     }
 }

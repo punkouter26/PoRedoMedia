@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean-up Round 2</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; --cut: #b4235a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; --cut: #ff7aa8; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 75ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair.phones { grid-template-columns: repeat(4, 1fr); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  figcaption b.gone { color: var(--cut); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  .cut { color: var(--cut); font-weight: 600; }
+  .add { color: var(--new); font-weight: 600; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } .pair.phones { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Clean-up round 2: fewer pages, one Library</h1>
+  <p class="lede">Before and after, captured headless with Playwright at 1366×860 (desktop) and 390×844 (phone),
+    Development environment, a fresh dev user each, on 2026-10-21. To show the most that changed, the "before" shots
+    have the Sound library, Community feed, Cost estimates and Recipes switches on. Those switches no longer exist, so
+    the "after" shots have only Cost estimates and Recipes on.</p>
+
+  <section>
+    <h2><span class="tag">Library</span>One page, no section tabs</h2>
+    <p class="what">The Library was a frame around three tabs: My media, Sounds and Feed. With Sounds and Feed gone it
+      is just the media grid, and the Library and Gallery pages are now one page.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-round-2/before-desktop-2-library.png" alt="Library before, with My media, Sounds and Feed tabs"><figcaption><b>Before:</b> My media · Sounds · Feed tabs beside the title.</figcaption></figure>
+      <figure><img src="261021-clean-round-2/after-desktop-2-library.png" alt="Library after, the media grid only"><figcaption><b class="new">After:</b> title, search, filters and the grid. Nothing else.</figcaption></figure>
+    </div>
+    <div class="pair phones" style="margin-top:14px">
+      <figure><img src="261021-clean-round-2/before-phone-2-library.png" alt="Phone library before"><figcaption><b>Before</b> (phone)</figcaption></figure>
+      <figure><img src="261021-clean-round-2/after-phone-2-library.png" alt="Phone library after"><figcaption><b class="new">After</b> (phone)</figcaption></figure>
+      <figure><img src="261021-clean-round-2/before-phone-1-home.png" alt="Phone home before"><figcaption><b>Before:</b> home (phone)</figcaption></figure>
+      <figure><img src="261021-clean-round-2/after-phone-1-home.png" alt="Phone home after"><figcaption><b class="new">After:</b> home (phone)</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Removed</span>Sounds page and Community feed</h2>
+    <p class="what">These two pages are gone, along with the endpoints, tables and scripts behind them. Meme-ify still
+      picks from the seeded sound library; it just has no page to browse it from. Share links still work.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-round-2/before-desktop-4-sounds.png" alt="Sounds page before"><figcaption><b class="gone">Removed:</b> the Sounds page (browse, play, star, upload, spectrograms).</figcaption></figure>
+      <figure><img src="261021-clean-round-2/before-desktop-5-feed.png" alt="Feed page before"><figcaption><b class="gone">Removed:</b> the Feed page (trending, newest, remix).</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Home</span>Create, with no feed peek</h2>
+    <p class="what">The "Trending in the feed" card left the home overview. The spend line stays on the home page
+      when Cost estimates is on.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-round-2/before-desktop-1-home.png" alt="Home before"><figcaption><b>Before</b></figcaption></figure>
+      <figure><img src="261021-clean-round-2/after-desktop-1-home.png" alt="Home after"><figcaption><b class="new">After</b></figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Runs</span>The spend moved into the Runs drawer</h2>
+    <p class="what">The "≈ $x this session" chip left the header. With Cost estimates on, the same figure appears at the
+      top of the Runs drawer, once anything has been spent (nothing has in these shots).</p>
+    <div class="pair">
+      <figure><img src="261021-clean-round-2/before-desktop-3-runs.png" alt="Runs drawer before"><figcaption><b>Before</b></figcaption></figure>
+      <figure><img src="261021-clean-round-2/after-desktop-3-runs.png" alt="Runs drawer after"><figcaption><b class="new">After:</b> the same drawer, with a spend line when there is a spend.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Settings</span>Four Advanced switches instead of six</h2>
+    <p class="what">The Sound library and Community feed switches went with their features.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-round-2/before-desktop-6-settings.png" alt="Settings before"><figcaption><b>Before:</b> six switches.</figcaption></figure>
+      <figure><img src="261021-clean-round-2/after-desktop-6-settings.png" alt="Settings after"><figcaption><b class="new">After:</b> On-device AI, Recipes, Cost estimates, Visual effects.</figcaption></figure>
+    </div>
+    <ul class="changes">
+      <li><span class="cut">Removed:</span> Sound library and Community feed switches, the Sounds and Feed pages, the feed toggle in the share panel, the remix banner on Create, the header cost chip.</li>
+      <li><span class="add">Kept:</span> share links, GIF / SRT / roast-audio downloads (now under <code>/api/media/{id}/export/…</code>), every run function.</li>
+      <li>Not visible here: the unused on-device text model, Azure Computer Vision and the Gemini frame labeller are gone, and the three video folders are now one <code>Features/Video</code> slice.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

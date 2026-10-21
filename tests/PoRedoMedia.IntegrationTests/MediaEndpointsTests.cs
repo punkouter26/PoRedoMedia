@@ -126,31 +126,6 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
-    public async Task An_uploaded_sound_belongs_to_its_uploader_alone()
-    {
-        var owner = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
-        var other = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
-        var name = $"honk-{Guid.NewGuid():N}";
-                // Starts like an MP3: the upload is checked by its first bytes, not by its name.
-        var mp3 = new byte[2048];
-        "ID3"u8.CopyTo(mp3);
-        using var form = new MultipartFormDataContent { { new ByteArrayContent(mp3), "file", "honk.mp3" } };
-
-        var created = await owner.PostAsync($"/api/sounds/upload?displayName={name}", form);
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-
-        // A file that is only named like a sound is refused.
-        using var fake = new MultipartFormDataContent { { new ByteArrayContent(new byte[2048]), "file", "fake.mp3" } };
-        Assert.Equal(HttpStatusCode.BadRequest, (await owner.PostAsync("/api/sounds/upload", fake)).StatusCode);
-
-        Assert.Contains((await owner.GetFromJsonAsync("/api/sounds", WireJson.Default.ListSoundAssetDto))!, s => s.DisplayName == name);
-        Assert.DoesNotContain((await other.GetFromJsonAsync("/api/sounds", WireJson.Default.ListSoundAssetDto))!, s => s.DisplayName == name);
-        // The sound is served by a redirect to a short-lived storage link.
-        Assert.Equal(HttpStatusCode.Redirect, (await owner.GetAsync(created.Headers.Location)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(created.Headers.Location)).StatusCode);
-    }
-
-    [DockerFact]
     public async Task A_file_that_only_claims_to_be_an_image_is_refused_and_removed()
     {
         var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");

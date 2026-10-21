@@ -1,6 +1,6 @@
 services:
   azurite:
-    image: mcr.microsoft.com/azure-storage/azurite:latest
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
     container_name: poredomedia-azurite
     hostname: azurite
     # --location /data is load-bearing: without it Azurite writes its state to /opt/azurite inside

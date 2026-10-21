@@ -58,36 +58,22 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
     internal static string Guardrail(bool explicitLanguage) =>
         TargetGuardrail + " " + (explicitLanguage ? ExplicitLanguage : CleanLanguage);
 
-    /// <summary>
-    /// Persona and form. Both move with <paramref name="style"/>, which is why this takes it.
-    /// </summary>
+    /// <summary>Persona and form: a stand-up set, written into the shape the performer reads.</summary>
     /// <remarks>
-    /// <see cref="RapStyle.StandUp"/> is not a backing track with a different label — a comedian
-    /// does not rhyme, and leaving "make the lines rhyme and scan to a beat" in place while calling
-    /// the delivery stand-up would have produced rapped bars with a new name on the button, which is
-    /// the "control that does nothing" failure this feature has already shipped once.
-    /// <para>
-    /// The section tags survive in both forms, and that is not cosmetic: Lyria performs what the
-    /// tags delimit, and the karaoke highlighting estimates line timings from them. A tagless
-    /// comedy set would break the player, so the set is written INTO that shape instead — the run
-    /// of jokes under [Verse], the recurring tagline under [Chorus].
-    /// </para>
+    /// A comedian does not rhyme, so the set is prose punchlines rather than bars. The section tags
+    /// stay, and that is not cosmetic: Lyria performs what the tags delimit, and the karaoke
+    /// highlighting estimates line timings from them. The run of jokes goes under [Verse], the
+    /// recurring tagline under [Chorus].
     /// </remarks>
-    private static string SystemPrompt(bool explicitLanguage, RapStyle style) =>
-        (style == RapStyle.StandUp
-            ? "You are a stand-up comedian on stage doing a roast set about the person in this photo. "
-              + "Reply with ONLY the set — no preamble, no explanation, no markdown fences. "
-              + "Structure it with section tags on their own lines: [Verse] then [Chorus]. "
-              + "Write 8 lines of jokes under [Verse] and a 4-line recurring tagline under [Chorus] — "
-              + "the bit the room chants back at them. "
-              + "Write PROSE PUNCHLINES, not bars. Rhyme is not required and a forced rhyme is worse "
-              + "than none — if a line only exists because it rhymes, it is a dead line. Build each "
-              + "joke as setup, then turn, then tag. Time it for a laugh, not for a beat. "
-            : "You are writing a roast verse for a battle rap. "
-              + "Reply with ONLY the lyrics — no preamble, no explanation, no markdown fences. "
-              + "Structure the output with section tags on their own lines: [Verse] then [Chorus]. "
-              + "Write 8 lines under [Verse] and 4 under [Chorus]. Make the lines rhyme and scan to "
-              + "a beat. ")
+    private static string SystemPrompt(bool explicitLanguage) =>
+        "You are a stand-up comedian on stage doing a roast set about the person in this photo. "
+        + "Reply with ONLY the set — no preamble, no explanation, no markdown fences. "
+        + "Structure it with section tags on their own lines: [Verse] then [Chorus]. "
+        + "Write 8 lines of jokes under [Verse] and a 4-line recurring tagline under [Chorus] — "
+        + "the bit the room chants back at them. "
+        + "Write PROSE PUNCHLINES, not bars. Rhyme is not required and a forced rhyme is worse "
+        + "than none — if a line only exists because it rhymes, it is a dead line. Build each "
+        + "joke as setup, then turn, then tag. Time it for a laugh, not for a beat. "
         + Craft + " "
         + Guardrail(explicitLanguage);
 
@@ -144,7 +130,7 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
     /// caller then takes the two-call path, which degrades one stage at a time.
     /// </summary>
     public async Task<(SceneSnapshot Scene, RoastLyrics Lyrics)?> ReadAndWriteAsync(
-        byte[] image, IReadOnlyList<string> tags, SceneDetails details, RapStyle style, RoastIntensity intensity, bool explicitLanguage,
+        byte[] image, IReadOnlyList<string> tags, RoastIntensity intensity, bool explicitLanguage,
         CancellationToken ct = default)
     {
         if (!chat.IsConfigured)
@@ -158,9 +144,9 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
                 + "JOB 1, the `scene` field. " + SceneDescriber.SystemPrompt
                 + "\nJOB 2, the `lyrics` field: everything below describes what goes in it, and only in it. "
                 + "Write it from the scene you just read, aiming at its most specific details.\n"
-                + SystemPrompt(explicitLanguage, style);
-            var user = SceneDescriber.BuildUserPrompt(tags, details)
-                + $"\n\nTrack style: {StyleDescription(style)}\n{ToneDirection(intensity)}\n"
+                + SystemPrompt(explicitLanguage);
+            var user = SceneDescriber.BuildUserPrompt(tags)
+                + $"\n\nDelivery: {StandUpDelivery}\n{ToneDirection(intensity)}\n"
                 + "Fill in the scene, then write the verse and chorus from it.";
 
             var result = await chat.CompleteAsync(system, user, image, ReadAndWriteSchema, ct);
@@ -186,7 +172,6 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
     public async Task<RoastLyrics> WriteAsync(
         string imageDescription,
         IReadOnlyList<string> tags,
-        RapStyle style,
         RoastIntensity intensity,
         bool softened,
         bool explicitLanguage = false,
@@ -214,7 +199,7 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
             try
             {
                 var lyrics = await WriteWithAiAsync(
-                    imageDescription, tags, style, effective, softened, explicitLanguage, ct);
+                    imageDescription, tags, effective, softened, explicitLanguage, ct);
                 if (!string.IsNullOrWhiteSpace(lyrics))
                 {
                     sw.Stop();
@@ -227,7 +212,7 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
                 filterRejected = true;
                 fallbackReason = explicitLanguage
                     ? "The lyric model's content filter rejected the explicit draft, so these are the "
-                      + "stock bars. Turning Explicit off usually gets a real verse back."
+                      + "stock bars. Roasting the photo again sometimes gets a real set back."
                     : "The lyric model's content filter rejected the draft, so these are the stock bars.";
             }
             catch (Exception ex)
@@ -251,7 +236,6 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
     private async Task<string> WriteWithAiAsync(
         string imageDescription,
         IReadOnlyList<string> tags,
-        RapStyle style,
         RoastIntensity effective,
         bool softened,
         bool explicitLanguage,
@@ -284,11 +268,11 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
         var user =
             $"Photo description: {imageDescription}\n"
             + $"Detected tags: {string.Join(", ", tags)}\n"
-            + $"Track style: {StyleDescription(style)}\n\n"
+            + $"Delivery: {StandUpDelivery}\n\n"
             + $"{toneDirection}\n"
             + "Write the roast verse and chorus now.";
 
-        var result = await chat.CompleteAsync(SystemPrompt(effectiveExplicit, style), user, ct: ct);
+        var result = await chat.CompleteAsync(SystemPrompt(effectiveExplicit), user, ct: ct);
 
         logger.LogInformation(
             "Roast lyrics written by model in {Elapsed}ms. Tokens={Tokens}, Intensity={Intensity}, "
@@ -377,13 +361,7 @@ public sealed class RoastLyricsWriter(IChatCompletionService chat, ILogger<Roast
             """;
     }
 
-    private static string StyleDescription(RapStyle style) => style switch
-    {
-        RapStyle.Trap => "modern trap — 808 sub-bass, rolling hi-hats, half-time around 140 BPM",
-        RapStyle.OldSchool => "old-school party rap — funk break, horn stabs, around 105 BPM",
-        RapStyle.StandUp => "a live stand-up set — spoken to a room, no beat to ride, laughs for punctuation",
-        _ => "90s boom-bap — dusty drums, vinyl crackle, around 90 BPM",
-    };
+    private const string StandUpDelivery = "a live stand-up set — spoken to a room, no beat to ride, laughs for punctuation";
 
     /// <summary>
     /// Strips markdown fences some models add despite the instruction not to. Cheap insurance —

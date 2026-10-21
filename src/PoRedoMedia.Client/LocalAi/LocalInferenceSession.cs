@@ -27,9 +27,6 @@ public enum LocalStage
 /// <summary>Executes one attempt at a given variant. Implemented over JS interop.</summary>
 public interface ILocalInferenceRuntime
 {
-    /// <summary>Runtime this implementation serves.</summary>
-    LocalRuntime Runtime { get; }
-
     /// <summary>
     /// Runs one attempt. Throws <see cref="LocalInferenceException"/> on failure so the caller can
     /// categorise it and decide whether to advance the chain.
@@ -55,9 +52,8 @@ public sealed class LocalInferenceException(LocalAiFailure failure, string messa
 /// Drives a <see cref="DtypeChain"/> across one or more runtime attempts.
 /// </summary>
 /// <remarks>
-/// This is the advance-on-failure half, and the reason it lives in C# rather than
-/// in either worker: the policy is identical for both runtimes and is fully testable with a fake
-/// <see cref="ILocalInferenceRuntime"/>.
+/// This is the advance-on-failure half. It lives in C# rather than in the worker so it is fully
+/// testable with a fake <see cref="ILocalInferenceRuntime"/>.
 /// </remarks>
 public sealed class LocalInferenceSession(ILocalInferenceRuntime runtime, ILogger logger)
 {

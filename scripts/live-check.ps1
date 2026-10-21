@@ -3,7 +3,7 @@
 # This calls real AI providers and spends real money and one quota credit per run.
 #
 # Start the app first:  dotnet run --project src/PoRedoMedia.Api
-# Usage (from a PowerShell prompt): ./scripts/live-check.ps1 -File photo.jpg -Functions MemeCaption [-Options @{ 'Vision.model' = 'remote:azure-cv' }] [-Label cv]
+# Usage (from a PowerShell prompt): ./scripts/live-check.ps1 -File photo.jpg -Functions MemeCaption [-Options @{ 'MemeCaption.mode' = 'ai' }] [-Label meme]
 param(
     [Parameter(Mandatory)][string]$File,
     [Parameter(Mandatory)][string[]]$Functions,

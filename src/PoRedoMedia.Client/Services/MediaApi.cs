@@ -25,15 +25,6 @@ public sealed class MediaApi(HttpClient http)
             : (null, await ReasonAsync(response));
     }
 
-    /// <summary>A link to put a cutout made on this device, for the next Cutout run on the picture.</summary>
-    public async Task<(UploadTicket? Ticket, string? Error)> DeviceCutoutLinkAsync(Guid id)
-    {
-        using var response = await http.PostAsync($"api/media/{id}/device-cutout", null);
-        return response.IsSuccessStatusCode
-            ? (await response.Content.ReadFromJsonAsync(WireJson.Default.UploadTicket), null)
-            : (null, await ReasonAsync(response));
-    }
-
     public async Task<(MediaDto? Media, string? Error)> ConfirmUploadAsync(Guid id)
     {
         using var response = await http.PostAsync($"api/media/{id}/confirm", null);
@@ -56,13 +47,10 @@ public sealed class MediaApi(HttpClient http)
         return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
     }
 
-    /// <summary>
-    /// The item's public link. Asking again returns the same one. <paramref name="feed"/> posts it
-    /// to the feed or takes it off; null leaves that as it is.
-    /// </summary>
-    public async Task<(ShareLinkDto? Link, string? Error)> ShareAsync(Guid id, bool? feed = null)
+    /// <summary>The item's public link. Asking again returns the same one.</summary>
+    public async Task<(ShareLinkDto? Link, string? Error)> ShareAsync(Guid id)
     {
-        using var response = await http.PostAsync($"api/media/{id}/share{(feed is { } on ? $"?feed={(on ? "true" : "false")}" : "")}", null);
+        using var response = await http.PostAsync($"api/media/{id}/share", null);
         return response.IsSuccessStatusCode
             ? (await response.Content.ReadFromJsonAsync(WireJson.Default.ShareLinkDto), null)
             : (null, await ReasonAsync(response));
@@ -71,13 +59,9 @@ public sealed class MediaApi(HttpClient http)
     /// <summary>Makes the video's GIF if it has none yet, which uses one run. Returns the reason when it could not.</summary>
     public async Task<string?> MakeGifAsync(Guid id)
     {
-        using var response = await http.PostAsync($"api/media/{id}/gif", null);
+        using var response = await http.PostAsync($"api/media/{id}/export/gif", null);
         return response.IsSuccessStatusCode ? null : await ReasonAsync(response);
     }
-
-    /// <summary>What users have posted to the feed: trending first, or newest first.</summary>
-    public async Task<List<FeedItemDto>> FeedAsync(bool newest) =>
-        await http.GetFromJsonAsync($"api/feed{(newest ? "?sort=new" : "")}", WireJson.Default.ListFeedItemDto) ?? [];
 
     public async Task<string?> StopSharingAsync(Guid id)
     {

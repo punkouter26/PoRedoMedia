@@ -10,12 +10,6 @@ public interface IVisionService
     Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default);
 }
 
-/// <summary>Picks the vision provider for a model id chosen in the model picker. Null picks the default.</summary>
-public interface IVisionServiceRouter
-{
-    IVisionService Resolve(string? modelId);
-}
-
 public sealed record GeneratedImage(byte[] Data, string ContentType)
 {
     public string Extension => ContentType == "image/jpeg" ? ".jpg" : ".png";
@@ -28,20 +22,6 @@ public interface IImageGenerationService
 
     /// <summary>Redraws <paramref name="image"/> as the prompt says. A non-zero seed asks for a different take.</summary>
     Task<GeneratedImage> EditAsync(string prompt, byte[] image, int seed = 0, CancellationToken ct = default);
-}
-
-/// <summary>Redraws a picture at a higher resolution. Generative: fine detail is re-imagined, not recovered.</summary>
-public interface IImageUpscaler
-{
-    /// <param name="size">"2K" or "4K": the length class of the result's longer side.</param>
-    Task<GeneratedImage> UpscaleAsync(byte[] image, string size, CancellationToken ct = default);
-}
-
-/// <summary>Lifts the subject of a picture off its background.</summary>
-public interface IBackgroundRemover
-{
-    /// <summary>The picture as a PNG whose background is transparent.</summary>
-    Task<byte[]> RemoveAsync(byte[] image, string contentType, CancellationToken ct);
 }
 
 /// <summary>
@@ -72,46 +52,6 @@ public sealed record MusicGenerationResult(byte[] Audio, string ContentType, lon
     public static MusicGenerationResult FromRefusal(long elapsedMs, string? reason) =>
         new([], string.Empty, elapsedMs, Refused: true, RefusalReason: reason);
 }
-
-/// <summary>Ground-truth facts read off an image: printed text, captioned regions, objects, people.</summary>
-public interface ISceneDetailProvider
-{
-    bool IsConfigured { get; }
-
-    Task<SceneDetails> GetDetailsAsync(byte[] imageData, CancellationToken ct = default);
-}
-
-public sealed record SceneDetails(
-    IReadOnlyList<string> TextLines, IReadOnlyList<string> RegionCaptions, IReadOnlyList<string> Objects, int PeopleCount, long ElapsedMs)
-{
-    public static SceneDetails Empty { get; } = new([], [], [], 0, 0);
-
-    public bool HasAny => TextLines.Count > 0 || RegionCaptions.Count > 0 || Objects.Count > 0;
-
-    public string ToPromptBlock()
-    {
-        var parts = new List<string>();
-        if (TextLines.Count > 0)
-            parts.Add($"Text visible in the image (read by OCR, treat as exact): {string.Join(" | ", TextLines)}");
-        if (RegionCaptions.Count > 0)
-            parts.Add($"Region captions: {string.Join("; ", RegionCaptions)}");
-        if (Objects.Count > 0)
-            parts.Add($"Detected objects: {string.Join(", ", Objects)}");
-        if (PeopleCount > 0)
-            parts.Add($"People detected: {PeopleCount}");
-        return string.Join('\n', parts);
-    }
-}
-
-/// <summary>A provider that can return description, tags and scene details in one call.</summary>
-public interface ICombinedVisionAnalyzer
-{
-    bool SupportsCombinedAnalysis { get; }
-
-    Task<CombinedVisionResult> AnalyzeAllAsync(byte[] imageData, CancellationToken ct = default);
-}
-
-public sealed record CombinedVisionResult(string Description, IReadOnlyList<string> Tags, double ConfidenceScore, SceneDetails Details, long ElapsedMs);
 
 public interface IVideoGenerationService
 {

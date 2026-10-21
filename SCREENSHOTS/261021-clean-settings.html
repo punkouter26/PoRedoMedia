@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean-up and Settings</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; --cut: #b4235a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; --cut: #ff7aa8; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 75ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair.phones { grid-template-columns: repeat(4, 1fr); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  .cut { color: var(--cut); font-weight: 600; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } .pair.phones { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Clean-up C1–C10: a simpler default app, with Settings</h1>
+  <p class="lede">Before (commit e580457) and after, captured headless with Playwright at 1366×860 (desktop) and 390×844
+    (phone), Test environment with mock AI, a fresh user each, on 2026-10-21. The orange strip is the mock-data notice,
+    shown only with mock AI. Every Advanced switch is off in the "after" shots, which is what a new user sees.</p>
+
+  <section>
+    <h2><span class="tag">C6</span>A Settings page in place of the account drawer</h2>
+    <p class="what">The avatar button now opens <code>/settings</code>: the account and Sign out, Look and sound, and a new
+      Advanced section with six switches, all off to start with.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-settings/before-desktop-4-settings.png" alt="Before: the account drawer over the library"><figcaption><b>Before</b>: a side drawer with theme, effects, sounds (on by default) and Sign out.</figcaption></figure>
+      <figure><img src="261021-clean-settings/after-desktop-4-settings.png" alt="After: the Settings page with an Advanced section"><figcaption><b class="new">After</b>: a page; sounds off by default; Advanced lists what each switch adds.</figcaption></figure>
+    </div>
+    <div class="pair phones" style="margin-top:14px">
+      <figure><img src="261021-clean-settings/before-phone-4-settings.png" alt="Before: drawer on a phone"><figcaption><b>Before</b>, phone.</figcaption></figure>
+      <figure><img src="261021-clean-settings/after-phone-4-settings.png" alt="After: Settings page on a phone"><figcaption><b class="new">After</b>, phone.</figcaption></figure>
+      <figure><img src="261021-clean-settings/before-phone-2-compose.png" alt="Before: compose on a phone"><figcaption><b>Before</b>: compose, phone.</figcaption></figure>
+      <figure><img src="261021-clean-settings/revised-phone-2-compose.png" alt="After: compose on a phone"><figcaption><b class="new">After</b>: compose, phone.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">C4 · C2</span>Create shows every function, and no model picker</h2>
+    <p class="what">The "AI model" box is gone: the server uses its one vision provider, and the on-device choice appears
+      only with "On-device AI". Recipes and the cost estimate have their own switches. Every function the server can run
+      is shown, as before: a first version hid four of them behind a "More functions" switch (the middle shot), which was
+      then removed on request.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-settings/before-desktop-2-compose.png" alt="Before: seven function tiles, AI model dropdown, recipe and cost lines"><figcaption><b>Before</b>: 7 tiles, an <span class="cut">AI model</span> dropdown, <span class="cut">Save as a recipe</span>, <span class="cut">Estimated cost</span>.</figcaption></figure>
+      <figure><img src="261021-clean-settings/revised-desktop-2-compose.png" alt="After: seven function tiles and one options box"><figcaption><b class="new">After</b>: all 7 tiles, one options box. (Bulk styles is greyed because it runs on its own.)</figcaption></figure>
+    </div>
+    <div class="pair phones" style="margin-top:14px">
+      <figure><img src="261021-clean-settings/after-desktop-2-compose.png" alt="Withdrawn: four tiles and a pointer to Settings"><figcaption><b>Withdrawn</b>: 4 tiles behind "More functions".</figcaption></figure>
+      <figure><img src="261021-clean-settings/revised-phone-2-compose.png" alt="After: compose on a phone"><figcaption><b class="new">After</b>, phone.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">C8</span>Home and Library without the feed and sounds</h2>
+    <p class="what">"Trending in the feed" and the session spend leave the home page; the Library's Sounds and Feed tabs
+      appear only with their switches, so with both off the tab bar is not drawn. Their addresses still work.</p>
+    <div class="pair">
+      <figure><img src="261021-clean-settings/before-desktop-1-home.png" alt="Before: home with today, spend, recent runs and trending feed"><figcaption><b>Before</b>: Today with spend, Recent runs, <span class="cut">Trending in the feed</span>.</figcaption></figure>
+      <figure><img src="261021-clean-settings/after-desktop-1-home.png" alt="After: home with today and recent runs"><figcaption><b class="new">After</b>: Today and Recent runs.</figcaption></figure>
+      <figure><img src="261021-clean-settings/before-desktop-3-library.png" alt="Before: library with three tabs"><figcaption><b>Before</b>: My media · <span class="cut">Sounds</span> · <span class="cut">Feed</span>.</figcaption></figure>
+      <figure><img src="261021-clean-settings/after-desktop-3-library.png" alt="After: library with no tab bar"><figcaption><b class="new">After</b>: just your media.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">C5</span>Effects that are gone, and effects that wait</h2>
+    <ul class="changes">
+      <li><span class="cut">Removed</span>: the 2.5D depth preview during Photo to video (it downloaded a depth model to the browser) and the gallery's tilt, magnet, shatter-on-delete and throw-to-delete physics.</li>
+      <li>Off until "Visual effects" is switched on: glass backdrop, particles, the run orb, picture reveals, confetti, the roast concert, spectrograms. Interface sounds are off until switched on.</li>
+      <li>None of this shows in automated browsers either way, so these shots look the same as before on that point.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

@@ -3,38 +3,19 @@ using PoRedoMedia.Shared.Models;
 
 namespace PoRedoMedia.Shared;
 
-/// <summary>One choice in the model picker.</summary>
-public sealed record AiModelOption(string Id, string Name, string Hint);
-
-/// <summary>What the model picker offers, and what a run is expected to cost.</summary>
+/// <summary>The on-device models, and what a run is expected to cost.</summary>
 public static class AiCatalog
 {
-    /// <summary>The vision model that runs in the user's browser. Its weights download on first use.</summary>
-    public const string BrowserVision = AiProviderIds.BrowserPrefix + "florence2-base";
-
-    /// <summary>The background remover that runs in the user's browser (BiRefNet lite, MIT licence).</summary>
-    public const string BrowserCutout = AiProviderIds.BrowserPrefix + "birefnet-lite";
-
-    private static readonly AiModelOption[] Vision =
-    [
-        new(AiProviderIds.GeminiVision, "Google Gemini", "Real sentences, about 2 seconds"),
-        new(AiProviderIds.AzureOpenAiVision, "Azure OpenAI", "The most detailed descriptions"),
-        new(AiProviderIds.AzureComputerVision, "Azure Computer Vision", "Tags only in this region"),
-        new(AiProviderIds.OllamaVision, "Ollama", "A model on this machine (development)"),
-        new(BrowserVision, "On this device (Florence-2)", "About 230 MB the first time, then free"),
-    ];
-
     /// <summary>
-    /// The choices for looking at a picture: automatic, then what the server has configured in its
-    /// order of preference, then the on-device model.
+    /// Model ids that run on the user's device start with this. A device model is never sent to a
+    /// cloud provider: the device does the work and the run carries its result.
     /// </summary>
-    public static IReadOnlyList<AiModelOption> VisionOptions(IEnumerable<string> serverModels) =>
-        [Automatic, .. serverModels.Append(BrowserVision).Select(id => Vision.FirstOrDefault(o => o.Id == id)).OfType<AiModelOption>()];
+    public const string BrowserPrefix = "browser:";
 
-    /// <summary>No choice made: the server uses the best model it has configured.</summary>
-    public static readonly AiModelOption Automatic = new("", "Automatic", "The server uses its best configured model");
+    /// <summary>The vision model that runs in the user's browser. Its weights download on first use.</summary>
+    public const string BrowserVision = BrowserPrefix + "florence2-base";
 
-    public static bool RunsInBrowser(string? modelId) => modelId?.StartsWith(AiProviderIds.BrowserPrefix, StringComparison.Ordinal) == true;
+    public static bool RunsInBrowser(string? modelId) => modelId?.StartsWith(BrowserPrefix, StringComparison.Ordinal) == true;
 
     /// <summary>
     /// An estimate, from list prices, of what one run costs. It is shown to the user as a guide
@@ -54,8 +35,6 @@ public static class AiCatalog
                 // One call reads the picture and writes the bars; a refused song costs a second draft.
                 MediaFunction.RapRoast => look + prices.TextUsd + prices.MusicUsd,
                 MediaFunction.PhotoToVideo => prices.VideoUsd,
-                MediaFunction.Upscale => prices.UpscaleUsd * (options.GetValueOrDefault(RunOptions.UpscaleSize) == "4K" ? 2 : 1),
-                MediaFunction.Cutout => options.GetValueOrDefault(RunOptions.CutoutModel) == BrowserCutout ? 0 : prices.CutoutUsd,
                 MediaFunction.BulkStyles => prices.ImageUsd * Math.Max(1, options.Keys.Count(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))),
                 MediaFunction.Memeify => prices.VisionUsd + prices.TextUsd,
                 MediaFunction.VideoRoast => 2 * prices.TextUsd,

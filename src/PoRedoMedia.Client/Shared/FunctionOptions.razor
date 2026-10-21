@@ -54,33 +54,87 @@
 
 @if (Functions.Contains(MediaFunction.BulkStyles))
 {
+    @* One card per style: tick it to draw it, edit it in place. An empty slot is simply not shown. *@
     <RadzenFieldset Text="Bulk styles" AllowCollapse="true" class="rz-mt-2">
-        <RadzenStack Gap="0.75rem">
-            <RadzenText class="rz-m-0">Each ticked style makes one picture. Untick the ones you don't want.</RadzenText>
-            @for (var i = 0; i < _bulk.Count; i++)
+        <div class="bulk">
+            <div class="bulk-head">
+                <span class="bulk-count" aria-live="polite">
+                    @(BulkFilled == 0 ? "No styles" : $"{BulkSelected} of {BulkFilled} selected") · one picture each
+                </span>
+                <span class="bulk-tools">
+                    @if (BulkFilled > 0)
+                    {
+                        <RadzenButton Text="@(BulkSelected == BulkFilled ? "None" : "All")" Size="ButtonSize.Small" Variant="Variant.Text"
+                                      Click="SelectAllBulkAsync" title="@(BulkSelected == BulkFilled ? "Untick every style" : "Tick every style")" />
+                        <RadzenButton Text="Clear" Icon="clear_all" Size="ButtonSize.Small" Variant="Variant.Text" Click="ClearBulkAsync"
+                                      title="Remove every style, to write your own" />
+                    }
+                    <RadzenButton Text="Save as mine" Icon="bookmark" Size="ButtonSize.Small" Variant="Variant.Text" Click="SaveBulkAsync"
+                                  Disabled="@(BulkFilled == 0)" title="Start with these styles next time" />
+                </span>
+            </div>
+            @if (_bulkSaved.Length > 0)
             {
-                var index = i;
-                var name = $"bulk-{index}";
-                <div class="bulk-row">
-                    <input type="checkbox" id="@name" checked="@_bulkTicked[index]" @onchange="@(e => TickBulk(index, e.Value is true))" />
-                    <label for="@name">@BulkPrompts.Title(_bulk[index])</label>
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0" aria-live="polite">@_bulkSaved</RadzenText>
+            }
+
+            @if (BulkFilled == 0 && _bulkEditing is null)
+            {
+                <div class="bulk-empty">
+                    <span>No styles yet. Write your own, or start again from the built-in ten.</span>
+                    <RadzenButton Text="Use the built-in ten" Size="ButtonSize.Small" Variant="Variant.Outlined" Click="RestoreBulkAsync" />
                 </div>
             }
-            <RadzenPanel AllowCollapse="true" Collapsed="true" Text="Edit the style prompts">
-                <RadzenStack Gap="0.5rem" class="rz-mt-2">
-                    @for (var i = 0; i < _bulk.Count; i++)
-                    {
-                        var index = i;
-                        <RadzenTextArea Value="@_bulk[index]" Rows="4" MaxLength="@BulkPrompts.MaxLength" aria-label="@($"Style prompt {index + 1}")"
-                                        Change="@(text => EditBulk(index, text))" class="po-fill" />
-                    }
-                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
-                        <RadzenButton Text="Save as my styles" Variant="Variant.Outlined" Click="SaveBulkAsync" />
-                        <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0" aria-live="polite">@_bulkSaved</RadzenText>
-                    </RadzenStack>
-                </RadzenStack>
-            </RadzenPanel>
-        </RadzenStack>
+
+            <ul class="bulk-list">
+                @for (var i = 0; i < _bulk.Count; i++)
+                {
+                    var index = i;
+                    var editing = _bulkEditing == index;
+                    if (!editing && _bulk[index].Trim().Length == 0)
+                        continue;
+                    var (title, body) = SplitBulk(_bulk[index]);
+                    var name = title.Length > 0 ? title : "Untitled style";
+                    <li class="@($"bulk-card {(_bulkTicked[index] ? "on" : "")} {(editing ? "editing" : "")}")" @key="index">
+                        @if (editing)
+                        {
+                            <RadzenTextBox Value="@title" MaxLength="58" Placeholder="Name, e.g. The Film Noir Still" aria-label="Style name"
+                                           Change="@(v => EditBulk(index, JoinBulk(v, body)))" class="po-fill" />
+                            <RadzenTextArea Value="@body" Rows="5" MaxLength="@BulkPrompts.MaxLength" aria-label="What the style looks like"
+                                            Placeholder="@($"Describe the look. Write {BulkPrompts.SubjectToken} where the person or thing in the picture goes.")"
+                                            Change="@(v => EditBulk(index, JoinBulk(title, v)))" class="po-fill" />
+                            <span class="bulk-card-actions">
+                                <RadzenButton Text="Done" Size="ButtonSize.Small" Click="@(() => _bulkEditing = null)" />
+                            </span>
+                        }
+                        else
+                        {
+                            <label class="bulk-pick">
+                                <input type="checkbox" checked="@_bulkTicked[index]" @onchange="@(e => TickBulk(index, e.Value is true))" />
+                                <span class="bulk-text">
+                                    <strong>@name</strong>
+                                    @if (body.Length > 0)
+                                    {
+                                        <span class="bulk-desc">@body.Replace(BulkPrompts.SubjectToken, "the subject", StringComparison.Ordinal)</span>
+                                    }
+                                </span>
+                            </label>
+                            <span class="bulk-card-actions">
+                                <RadzenButton Icon="edit" Size="ButtonSize.Small" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                              aria-label="@($"Edit {name}")" title="Edit" Click="@(() => _bulkEditing = index)" />
+                                <RadzenButton Icon="close" Size="ButtonSize.Small" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                              aria-label="@($"Remove {name}")" title="Remove" Click="@(() => EditBulk(index, ""))" />
+                            </span>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (_bulkEditing is null && BulkFilled < BulkPrompts.Count)
+            {
+                <RadzenButton Text="Add a style" Icon="add" Size="ButtonSize.Small" Variant="Variant.Outlined" Click="AddBulk" class="bulk-add" />
+            }
+        </div>
     </RadzenFieldset>
 }
 
@@ -104,36 +158,6 @@
     </RadzenFieldset>
 }
 
-@if (Functions.Contains(MediaFunction.RapRoast))
-{
-    <RadzenFieldset Text="Rap roast" AllowCollapse="true" class="rz-mt-2">
-        <RadzenStack Gap="0.75rem">
-            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.RoastStyle) is { Length: > 0 } style ? style : "Trap")"
-                             Change="@((string v) => Set(RunOptions.RoastStyle, v))" aria-label="How it is performed">
-                <Items>
-                    <RadzenSelectBarItem Text="Trap" Value="@("Trap")" />
-                    <RadzenSelectBarItem Text="Old school" Value="@("OldSchool")" />
-                    <RadzenSelectBarItem Text="Stand-up" Value="@("StandUp")" />
-                </Items>
-            </RadzenSelectBar>
-            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.RoastIntensity) is { Length: > 0 } level ? level : "Roast")"
-                             Change="@((string v) => Set(RunOptions.RoastIntensity, v))" aria-label="How hard it hits">
-                <Items>
-                    <RadzenSelectBarItem Text="Gentle" Value="@("Gentle")" />
-                    <RadzenSelectBarItem Text="Roast" Value="@("Roast")" />
-                    <RadzenSelectBarItem Text="Scorched" Value="@("Scorched")" />
-                    <RadzenSelectBarItem Text="Nuclear" Value="@("Nuclear")" />
-                </Items>
-            </RadzenSelectBar>
-            <div class="bulk-row">
-                <RadzenSwitch Name="roast-explicit" Value="@(Get(RunOptions.RoastExplicit) == "true")"
-                              Change="@(on => Set(RunOptions.RoastExplicit, on ? "true" : "false"))" />
-                <RadzenLabel Component="roast-explicit" Text="Allow strong language" />
-            </div>
-        </RadzenStack>
-    </RadzenFieldset>
-}
-
 @if (Functions.Contains(MediaFunction.PhotoToVideo))
 {
     <RadzenFieldset Text="Photo to video" AllowCollapse="true" class="rz-mt-2">
@@ -141,46 +165,6 @@
             <RadzenTextArea Value="@Get(RunOptions.VideoPrompt)" Rows="3" MaxLength="1200" aria-label="What should happen in the clip" Change="@(v => Set(RunOptions.VideoPrompt, v))" />
         </RadzenFormField>
         <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">Makes an 8-second clip with sound. It takes a few minutes.</RadzenText>
-    </RadzenFieldset>
-}
-
-@if (Functions.Contains(MediaFunction.Upscale))
-{
-    <RadzenFieldset Text="Upscale" AllowCollapse="true" class="rz-mt-2">
-        <RadzenStack Gap="0.75rem">
-            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.UpscaleSize) == "4K" ? "4K" : "2K")"
-                             Change="@((string v) => Set(RunOptions.UpscaleSize, v))" aria-label="Size of the result">
-                <Items>
-                    <RadzenSelectBarItem Text="2K" Value="@("2K")" />
-                    <RadzenSelectBarItem Text="4K" Value="@("4K")" />
-                </Items>
-            </RadzenSelectBar>
-            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">The AI redraws the picture larger. It is sharper, but small details such as text can change.</RadzenText>
-        </RadzenStack>
-    </RadzenFieldset>
-}
-
-@if (Functions.Contains(MediaFunction.Cutout))
-{
-    <RadzenFieldset Text="Cutout" AllowCollapse="true" class="rz-mt-2">
-        <RadzenStack Gap="0.75rem">
-            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.CutoutModel) == AiCatalog.BrowserCutout ? AiCatalog.BrowserCutout : "")"
-                             Change="@((string v) => Set(RunOptions.CutoutModel, v))" aria-label="Where the cutout is made">
-                <Items>
-                    <RadzenSelectBarItem Text="Server" Value="@("")" />
-                    <RadzenSelectBarItem Text="On device (free)" Value="@AiCatalog.BrowserCutout" />
-                </Items>
-            </RadzenSelectBar>
-            @if (Get(RunOptions.CutoutModel) == AiCatalog.BrowserCutout)
-            {
-                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">Made in your browser: about 115 MB the first time (230 MB without a GPU), then free. Works only as the first change to the picture.</RadzenText>
-            }
-            <div class="bulk-row">
-                <RadzenSwitch Name="cutout-sticker" Value="@(Get(RunOptions.CutoutSticker) != "false")"
-                              Change="@(on => Set(RunOptions.CutoutSticker, on ? "true" : "false"))" />
-                <RadzenLabel Component="cutout-sticker" Text="Also make a 512 px sticker for WhatsApp or Telegram" />
-            </div>
-        </RadzenStack>
     </RadzenFieldset>
 }
 
@@ -234,6 +218,9 @@
     /// <summary>Voices the server can perform the video roast in.</summary>
     [Parameter] public IReadOnlyList<string> RoastVoices { get; set; } = [];
 
+    /// <summary>True when on-device AI is switched on in Settings: the device choices are offered.</summary>
+    [Parameter] public bool OnDevice { get; set; }
+
     /// <summary>Length of the picked video in seconds. The trim sliders show when it is known and long enough.</summary>
     [Parameter] public double? Duration { get; set; }
 
@@ -246,6 +233,7 @@
     private List<string> _bulk = [];
     private List<bool> _bulkTicked = [];
     private string _bulkSaved = "";
+    private int? _bulkEditing;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -276,6 +264,68 @@
         WriteBulk();
         return Changed.InvokeAsync();
     }
+
+    private int BulkFilled => _bulk.Count(p => p.Trim().Length > 0);
+
+    private int BulkSelected => _bulk.Where((p, i) => _bulkTicked[i] && p.Trim().Length > 0).Count();
+
+    /// <summary>Removes every style, so the user can write their own.</summary>
+    private Task ClearBulkAsync()
+    {
+        _bulk = [.. _bulk.Select(_ => "")];
+        _bulkTicked = [.. _bulk.Select(_ => true)];
+        _bulkSaved = "";
+        _bulkEditing = null;
+        WriteBulk();
+        return Changed.InvokeAsync();
+    }
+
+    private Task RestoreBulkAsync()
+    {
+        _bulk = [.. BulkPrompts.All];
+        _bulkTicked = [.. _bulk.Select(_ => true)];
+        _bulkSaved = "";
+        WriteBulk();
+        return Changed.InvokeAsync();
+    }
+
+    /// <summary>Ticks every style, or unticks them all when they already are.</summary>
+    private Task SelectAllBulkAsync()
+    {
+        var on = BulkSelected != BulkFilled;
+        _bulkTicked = [.. _bulk.Select(_ => on)];
+        WriteBulk();
+        return Changed.InvokeAsync();
+    }
+
+    /// <summary>Opens the first empty slot, ticked, for a new style.</summary>
+    private void AddBulk()
+    {
+        var index = _bulk.FindIndex(p => p.Trim().Length == 0);
+        if (index < 0)
+        {
+            _bulk.Add("");
+            _bulkTicked.Add(true);
+            index = _bulk.Count - 1;
+        }
+
+        _bulkTicked[index] = true;
+        _bulkEditing = index;
+    }
+
+    /// <summary>A prompt's name (the words before its first colon) and its description.</summary>
+    private static (string Title, string Body) SplitBulk(string prompt) =>
+        prompt.IndexOf(':') is > 0 and < 60 and var colon
+            ? (prompt[..colon].Trim(), prompt[(colon + 1)..].Trim())
+            : ("", prompt.Trim());
+
+    private static string JoinBulk(string? title, string? body) =>
+        (title?.Trim() ?? "", body?.Trim() ?? "") switch
+        {
+            ("", var b) => b,
+            (var t, "") => t + ":",
+            (var t, var b) => $"{t}: {b}",
+        };
 
     private async Task SaveBulkAsync() =>
         _bulkSaved = await Runs.SaveBulkPromptsAsync(_bulk) ?? "Saved.";
@@ -345,6 +395,6 @@
     public static string? Missing(IReadOnlyList<MediaFunction> functions, IReadOnlyDictionary<string, string> options) =>
         // Only the page insists on a ticked style: a request with none uses the saved set.
         functions.Contains(MediaFunction.BulkStyles) && !options.Keys.Any(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))
-            ? "Tick at least one style."
+            ? "Type or tick at least one style."
             : FunctionStack.MissingOption(functions, options);
 }

@@ -7,7 +7,7 @@ namespace PoRedoMedia.IntegrationTests;
 public sealed class AzuriteFixture : IAsyncLifetime
 {
     private readonly AzuriteContainer _container =
-        new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:latest")
+        new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.37.0")
             .WithCommand("--skipApiVersionCheck")
             .Build();
 

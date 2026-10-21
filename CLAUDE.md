@@ -29,9 +29,11 @@ dotnet run --project src/PoRedoMedia.Api -- seed-sounds   # fills the sound libr
 `PoRedoMedia.Shared` holds wire DTOs, enums (`MediaFunction`), `ConfigKeys`, `FunctionStack` rules and catalogs.
 Wire enums travel as strings over both HTTP and SignalR.
 
-**Api layout.** `Features/<Slice>/` are vertical slices (Media, Runs, Auth, Render, one folder per media function…);
-each exposes `MapX(this IEndpointRouteBuilder)` called from `Program.cs`. `Common/` holds cross-slice contracts,
-strongly typed IDs, storage, AI providers and `ImageBytes` (all still-image decode/encode, on SkiaSharp).
+**Api layout.** `Features/<Slice>/` are vertical slices (Media, Runs, Auth, Render, Sharing, one folder per image
+function, and `Video/` for the one step that runs Meme-ify, Insult roast and Auto-captions together); each exposes
+`MapX(this IEndpointRouteBuilder)` called from `Program.cs`. `Common/` holds cross-slice contracts, strongly typed IDs,
+storage, AI providers (`Common/Ai`, including the video vision and speech clients) and `ImageBytes` (all still-image
+decode/encode, on SkiaSharp). Exports of a result live under `/api/media/{id}/export/{gif|srt|roast}`.
 `Configuration/FunctionRegistration.AddFunctions` registers AI providers and run steps.
 
 **Run pipeline** (`Features/Runs/`). `POST /api/runs` validates with `FunctionStack.Validate`, checks each function
@@ -44,7 +46,9 @@ refunded. Progress goes out over SignalR (`RunHub` at `/hubs/run`); `Housekeepin
 a restart. The queue, upload rate limit and Veo job waits are in-process only (marked `ponytail:`).
 
 **Functions only exist when configured.** A function is runnable only if its step was registered, which depends on
-the config keys present (e.g. `Google:ApiKey` enables Gemini images, Veo, Lyria, BulkStyles, PhotoToVideo).
+the config keys present (e.g. `Google:ApiKey` enables Gemini images, Veo, Lyria, BulkStyles, PhotoToVideo). Pictures
+are looked at by one `IVisionService` (Gemini, else Azure OpenAI; no user-facing picker); a description written by the
+browser's own model (`Vision.description`) replaces that call.
 `Mocks:UseMockAi` (Test environment only; Development uses the real keys) swaps every provider for a mock and skips Key Vault. Read config only
 through `Shared/ConfigKeys`. Key Vault `kv-poshared` loads only `PoRedoMedia--*` secrets (`--` → `:`); in Development
 the vault's Storage secret is skipped so local runs stay on Azurite.
@@ -60,16 +64,23 @@ Modes: fake auth via `X-Fake-User` (Dev/Test), cookie-only (throws in Production
 `RequireAntiforgeryValidation()` on route groups with the `X-CSRF-TOKEN` header; the client's
 `AntiforgeryTokenHandler` retry on 400 is load-bearing.
 
+**Settings.** `/settings` (anonymous-capable; the header's account button links to it) holds look and sound plus the
+Advanced switches in `Client/Services/AppSettings` (On-device AI, Recipes, Cost estimates, Visual
+effects). Every switch starts **off**, so the default app is the simple one; a switch
+only hides UI, never access. Switches live in `localStorage` (`po.adv.*`, `po.fx`) and are read synchronously
+through in-process JS. Every function the server can run is always offered. E2E tests turn switches on with
+`SignedInPageAsync(path, "po.adv.device-ai", ...)`.
+
 **Client effects.** `wwwroot/js/fx/` holds the visual effects (glass backdrop, particles, pixel-flow reveal, run orb,
-confetti, gallery physics, depth preview, roast concert, spectrograms); `sfx.js` synthesises every sound. All of them
-ask `poFx.enabled()`, which is false for reduced motion, in automated browsers (`navigator.webdriver`, so the E2E
-suite never sees them) and when switched off in Settings; `localStorage['po.fx'] = 'on'` forces them on for
-screenshots. Elements that exist only for an effect carry `.po-fx-only`. Blazor never awaits an effect: the .NET-facing
-entry points (`poMorph.start`, `poDepth.start`, `poConfetti.burst`) return nothing.
+confetti, roast concert); `sfx.js` synthesises every sound. Both are off until switched on in
+Settings (`po.fx = 'on'`, `po.sfx.muted = '0'`), and effects stay off for reduced motion. Elements that exist only
+for an effect carry `.po-fx-only`. Blazor never awaits an effect: the .NET-facing entry points (`poMorph.start`,
+`poConfetti.burst`) return nothing. On-device models (Florence-2 vision, Whisper speech) live in
+`Client/LocalAi` and `wwwroot/js/local-ai/` (`device-tasks.js` for speech).
 
 **ffmpeg and fonts.** `Common/FFmpegProcess` finds ffmpeg via `FFmpegBinPath`, then `./ffmpeg/` beside the app, then
 PATH; `Features/Render/FFmpegArgs` builds every command line as pure, unit-tested functions. App Service has no fonts,
-so `deploy.yml` bundles a static ffmpeg and `fonts/DejaVuSans-Bold.ttf`. Linux uses SkiaSharp's NoDependencies
+so `scripts/package.sh` (run by `deploy.yml`) bundles a static ffmpeg and `fonts/DejaVuSans-Bold.ttf`. Linux uses SkiaSharp's NoDependencies
 native build (no fontconfig), so the meme renderer falls back to that font file.
 
 **Build version.** `Directory.Build.targets` stamps the client assembly (opt-in `StampBuildVersion`) with a `BuildStamp` (`YYMMDD` from the commit

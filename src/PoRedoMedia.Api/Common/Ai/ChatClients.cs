@@ -22,11 +22,6 @@ public static class ChatClients
         configuration[ConfigKeys.OpenAiEndpoint] is { Length: > 0 } endpoint && configuration[ConfigKeys.OpenAiKey] is { Length: > 0 } key
             ? AzureOpenAi(new Uri(endpoint), key, configuration[ConfigKeys.OpenAiChatDeployment] is { Length: > 0 } d ? d : DefaultDeployment)
             : null;
-
-    /// <summary>A client for a model on the local Ollama daemon. Development only.</summary>
-    public static IChatClient Ollama(IConfiguration configuration, string model) =>
-        new OllamaSharp.OllamaApiClient(
-            new Uri(configuration[ConfigKeys.OllamaEndpoint] is { Length: > 0 } endpoint ? endpoint : "http://localhost:11434"), model);
 }
 
 /// <summary>

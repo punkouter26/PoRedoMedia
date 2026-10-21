@@ -1,8 +1,12 @@
-using System.Security.Claims;
+using System.Text;
+using PoRedoMedia.Shared.Enums;
 
 namespace PoRedoMedia.Api.Features.Render;
 
-/// <summary>Other forms of a rendered video: a looping GIF, and its roast as a sound file.</summary>
+/// <summary>
+/// Other forms of a result, all under <c>/api/media/{id}/export/</c>: a looping GIF of a video,
+/// its captions as an SRT file, and its roast as a sound file.
+/// </summary>
 public static class ExportEndpoints
 {
     /// <summary>A GIF covers the opening of the video only: longer ones run to tens of megabytes.</summary>
@@ -14,9 +18,9 @@ public static class ExportEndpoints
 
     public static IEndpointRouteBuilder MapExports(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/media/{id}/gif", MakeGifAsync).AddEndpointFilter<AntiforgeryValidationFilter>();
-        app.MapGet("/api/media/{id}/gif", GifAsync);
-        app.MapGet("/api/media/{id}/roast-audio", RoastAudioAsync);
+        var group = app.MapGroup("/api/media/{id}/export");
+        group.MapPost("/gif", MakeGifAsync).AddEndpointFilter<AntiforgeryValidationFilter>();
+        group.MapGet("/{kind}", ExportAsync);
         return app;
     }
 
@@ -30,7 +34,7 @@ public static class ExportEndpoints
         FFmpegProcess ffmpeg, IRenderQuota quota, Features.Runs.RunDispatcher dispatcher, CancellationToken ct)
     {
         var owner = UserId.From(http.User);
-        if (await media.GetAsync(owner, id, ct) is not { Kind: Shared.Enums.MediaKind.Video, Status: MediaStatus.Ready } item)
+        if (await media.GetAsync(owner, id, ct) is not { Kind: MediaKind.Video, Status: MediaStatus.Ready } item)
             return Results.NotFound();
 
         var path = MediaAnalysisPaths.Gif(id.Value);
@@ -78,26 +82,37 @@ public static class ExportEndpoints
         }
     }
 
-    /// <summary>The GIF, once it has been made. 404 until then.</summary>
-    private static async Task<IResult> GifAsync(MediaId id, HttpContext http, IMediaRepository media, BlobDelivery delivery, CancellationToken ct) =>
-        await media.GetAsync(UserId.From(http.User), id, ct) is { Kind: Shared.Enums.MediaKind.Video, Status: MediaStatus.Ready }
-            ? await delivery.ServeAsync(http, MediaAnalysisPaths.Gif(id.Value), "meme.gif", ct: ct)
-            : Results.NotFound();
-
-    /// <summary>The insults alone, as the voice performed them. 404 when the video has no roast.</summary>
-    private static async Task<IResult> RoastAudioAsync(
-        MediaId id, ClaimsPrincipal user, HttpContext http, IMediaRepository media, BlobStorageService blobs, BlobDelivery delivery, CancellationToken ct)
+    /// <summary>
+    /// One export of the caller's item: <c>gif</c> once it has been made, <c>srt</c> for the
+    /// captions burned into a video, <c>roast</c> for the insults alone as the voice performed
+    /// them. 404 when the item has no such thing.
+    /// </summary>
+    private static async Task<IResult> ExportAsync(
+        MediaId id, string kind, HttpContext http, IMediaRepository media, BlobStorageService blobs, BlobDelivery delivery, CancellationToken ct)
     {
-        if (await media.GetAsync(UserId.From(user), id, ct) is null)
+        if (await media.GetAsync(UserId.From(http.User), id, ct) is not { Status: MediaStatus.Ready } item)
             return Results.NotFound();
 
-        foreach (var extension in new[] { "mp3", "wav" })
+        switch (kind)
         {
-            var path = MediaAnalysisPaths.RoastClip(id.Value, 0, extension);
-            if (await blobs.ExistsAsync(path, ct))
-                return await delivery.ServeAsync(http, path, $"roast.{extension}", ct: ct);
-        }
+            case "gif" when item.Kind == MediaKind.Video:
+                return await delivery.ServeAsync(http, MediaAnalysisPaths.Gif(id.Value), "meme.gif", ct: ct);
 
-        return Results.NotFound();
+            case "srt" when await blobs.ExistsAsync(MediaAnalysisPaths.Transcript(id.Value), ct):
+                var srt = SrtWriter.Write(await MediaTranscript.LoadAsync(blobs, id, ct));
+                return Results.File(Encoding.UTF8.GetBytes(srt), "application/x-subrip", "captions.srt");
+
+            case "roast":
+                foreach (var extension in new[] { "mp3", "wav" })
+                {
+                    var path = MediaAnalysisPaths.RoastClip(id.Value, 0, extension);
+                    if (await blobs.ExistsAsync(path, ct))
+                        return await delivery.ServeAsync(http, path, $"roast.{extension}", ct: ct);
+                }
+                return Results.NotFound();
+
+            default:
+                return Results.NotFound();
+        }
     }
 }

@@ -9,7 +9,7 @@ namespace PoRedoMedia.Api.Features.MemeCaption;
 /// then writes a caption), from the user, or from the user through one of the template layouts.
 /// </summary>
 public sealed class MemeCaptionStep(
-    IVisionServiceRouter vision, ICaptionWriter writer, MemeTemplateService templates,
+    IVisionService vision, ICaptionWriter writer, MemeTemplateService templates,
     BlobStorageService blobs, MediaOutputs outputs, AiReadStore reads) : IRunStep
 {
     public IReadOnlySet<MediaFunction> Handles { get; } = new HashSet<MediaFunction> { MediaFunction.MemeCaption };

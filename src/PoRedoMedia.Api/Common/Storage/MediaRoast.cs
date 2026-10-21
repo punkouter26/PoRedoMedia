@@ -14,8 +14,7 @@ public sealed record RoastTrack(string Voice, string AudioPath, IReadOnlyList<Ro
 /// </summary>
 /// <remarks>
 /// The lines are a track of their own, not cues in the director script: a cue's sound is a library
-/// <see cref="SoundId"/>, and a script travels to other items through remixes, where a clip
-/// generated for this video does not exist.
+/// <see cref="SoundId"/>, while each clip here was generated for this one video.
 /// </remarks>
 public static class MediaRoast
 {

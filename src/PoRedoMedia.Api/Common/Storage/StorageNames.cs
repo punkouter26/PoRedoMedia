@@ -12,7 +12,6 @@ public static class StorageNames
         public const string SoundAssets = "SoundAssets";
 
         /// <summary>Per-user starred sounds, partitioned by user.</summary>
-        public const string SoundFavorites = "SoundFavorites";
 
         /// <summary>Per-user daily run counters, partitioned by UTC day.</summary>
         public const string RenderQuotas = "RenderQuotas";

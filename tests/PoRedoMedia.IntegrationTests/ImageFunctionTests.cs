@@ -155,8 +155,8 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         var vision = new CountingVision();
         using var factory = new AppFactory(azurite.ConnectionString, services =>
         {
-            services.RemoveAll<IVisionServiceRouter>();
-            services.AddSingleton<IVisionServiceRouter>(vision);
+            services.RemoveAll<IVisionService>();
+            services.AddSingleton<IVisionService>(vision);
         });
         var user = $"dev|{Guid.NewGuid()}";
         var client = await factory.SignedInAsync(user);
@@ -178,19 +178,12 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         Assert.Equal(0, vision.Calls);
         // A browser model with nothing from the browser is refused, not replaced by a paid one.
         Assert.Equal(RunStatus.Failed, notDescribed.Status);
-        Assert.Equal(1, vision.Resolves);
+        Assert.Equal(0, vision.Calls);
     }
 
-    private sealed class CountingVision : IVisionServiceRouter, IVisionService
+    private sealed class CountingVision : IVisionService
     {
         public int Calls { get; private set; }
-        public int Resolves { get; private set; }
-
-        public IVisionService Resolve(string? modelId)
-        {
-            Resolves++;
-            return modelId is null ? this : throw new RunStepException("The picked vision model is not available on this server.");
-        }
 
         public Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default)
         {
@@ -206,7 +199,7 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         var client = await _factory.Value.SignedInAsync(user);
         var source = await AddImageAsync(user);
 
-        var run = await RunAsync(client, source, [MediaFunction.RapRoast], new() { [RunOptions.RoastStyle] = "StandUp" });
+        var run = await RunAsync(client, source, [MediaFunction.RapRoast]);
 
         Assert.True(run.Status == RunStatus.Complete, run.Error);
         var roast = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!.Single(m => m.Id == Assert.Single(run.OutputIds));
@@ -225,22 +218,19 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
 
         var run = await RunAsync(
             client, source,
-            [MediaFunction.PhotoToVideo, MediaFunction.Cutout, MediaFunction.RapRoast, MediaFunction.Upscale, MediaFunction.MemeCaption, MediaFunction.Restyle],
-            new() { [RunOptions.VideoPrompt] = "The picture slowly zooms in", [RunOptions.UpscaleSize] = "4K" });
+            [MediaFunction.PhotoToVideo, MediaFunction.RapRoast, MediaFunction.MemeCaption, MediaFunction.Restyle],
+            new() { [RunOptions.VideoPrompt] = "The picture slowly zooms in" });
 
         Assert.True(run.Status == RunStatus.Complete, run.Error);
         var gallery = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
         var made = run.OutputIds.Select(id => gallery.Single(m => m.Id == id)).ToList();
-        Assert.Equal(["Restyle", "MemeCaption", "Upscale", "Cutout", "Cutout", "RapRoast", "PhotoToVideo"], made.Select(m => m.Origin));
-        Assert.Equal(
-            [MediaKind.Image, MediaKind.Image, MediaKind.Image, MediaKind.Image, MediaKind.Image, MediaKind.Audio, MediaKind.Video],
-            made.Select(m => m.Kind));
-        Assert.Equal(["image/png", "image/webp"], made.Skip(3).Take(2).Select(m => m.ContentType));
-        // Upscale replaces the working picture; Cutout only reads it. Everything after is made from the upscaled one.
-        var upscaled = made[2];
-        Assert.All(made.Skip(3), m => Assert.Equal(upscaled.Id, m.ParentId));
-        Assert.InRange(made[6].DurationSeconds!.Value, 1.5, 2.5);
-        Assert.Equal(System.Net.HttpStatusCode.Redirect, (await client.GetAsync(made[6].ThumbUrl)).StatusCode);
+        Assert.Equal(["Restyle", "MemeCaption", "RapRoast", "PhotoToVideo"], made.Select(m => m.Origin));
+        Assert.Equal([MediaKind.Image, MediaKind.Image, MediaKind.Audio, MediaKind.Video], made.Select(m => m.Kind));
+        // Meme caption replaces the working picture; the roast and the clip only read it, so both are made from the captioned one.
+        var captioned = made[1];
+        Assert.All(made.Skip(2), m => Assert.Equal(captioned.Id, m.ParentId));
+        Assert.InRange(made[3].DurationSeconds!.Value, 1.5, 2.5);
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, (await client.GetAsync(made[3].ThumbUrl)).StatusCode);
     }
 
     [DockerFact]

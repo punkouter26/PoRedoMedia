@@ -26,10 +26,10 @@ builder.Services.AddScoped<AppConfigService>();
 builder.Services.AddScoped<MediaApi>();
 builder.Services.AddScoped<BlobUploadService>();
 builder.Services.AddScoped<RunApi>();
-builder.Services.AddScoped<SoundsApi>();
 builder.Services.AddScoped<SessionCostService>();
 builder.Services.AddScoped<RunTracker>();
 builder.Services.AddScoped<UiStore>();
+builder.Services.AddScoped<AppSettings>();
 builder.Services.AddScoped<LocalAiService>();
 builder.Services.AddRadzenComponents();
 

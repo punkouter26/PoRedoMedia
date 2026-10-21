@@ -7,17 +7,12 @@ namespace PoRedoMedia.Client.LocalAi;
 /// <see cref="ILocalInferenceRuntime"/> over the JS workers.
 /// </summary>
 /// <remarks>
-/// One implementation serves both runtimes because the workers share a postMessage protocol; only
-/// the payload differs, and that difference is confined to <see cref="BuildOptions"/>. Runs are
-/// keyed by a run id so several can be in flight without their callbacks crossing.
+/// Runs are keyed by a run id so several can be in flight without their callbacks crossing.
 /// </remarks>
-public sealed class JsLocalInferenceRuntime(IJSRuntime js, LocalRuntime runtime)
-    : ILocalInferenceRuntime, IAsyncDisposable
+public sealed class JsLocalInferenceRuntime(IJSRuntime js) : ILocalInferenceRuntime, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, RunState> _runs = new();
     private DotNetObjectReference<JsLocalInferenceRuntime>? _selfRef;
-
-    public LocalRuntime Runtime { get; } = runtime;
 
     public async Task<string> RunAsync(
         LocalModelDescriptor descriptor,
@@ -64,29 +59,15 @@ public sealed class JsLocalInferenceRuntime(IJSRuntime js, LocalRuntime runtime)
         }
     }
 
-    /// <summary>Builds the worker payload. The only place the two runtimes genuinely diverge.</summary>
-    private object BuildOptions(
-        LocalModelDescriptor descriptor, DtypeVariant variant, LocalDevice device, string prompt, byte[]? image)
-        => Runtime switch
+    /// <summary>Builds the transformers.js worker payload.</summary>
+    private static object BuildOptions(
+        LocalModelDescriptor descriptor, DtypeVariant variant, LocalDevice device, string prompt, byte[]? image) => new
         {
-            LocalRuntime.TransformersJs => new
-            {
-                runtime = nameof(LocalRuntime.TransformersJs),
-                repoId = descriptor.RepoId,
-                dtype = LocalModelRegistry.TransformersDtype(variant),
-                device = device.ToString(),
-                prompt,
-                imageBase64 = image is null ? null : Convert.ToBase64String(image),
-            },
-            _ => new
-            {
-                runtime = nameof(LocalRuntime.WebLlm),
-                // WebLLM encodes quantization in the id, so the variant is already baked in here.
-                modelReference = LocalModelRegistry.ResolveModelReference(descriptor, variant),
-                device = device.ToString(),
-                prompt,
-                systemPrompt = (string?)null,
-            },
+            repoId = descriptor.RepoId,
+            dtype = LocalModelRegistry.TransformersDtype(variant),
+            device = device.ToString(),
+            prompt,
+            imageBase64 = image is null ? null : Convert.ToBase64String(image),
         };
 
     [JSInvokable]

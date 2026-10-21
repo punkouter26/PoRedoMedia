@@ -2,9 +2,8 @@
 // device when there is one, page-wide overlay canvases for effects that leave their element, and
 // the small helpers the effects share (shader programs, colours, palettes, audio analysis).
 //
-// Effects are off for a request for reduced motion, in automated browsers (the E2E tests, whose
-// screenshots and timings must not depend on them) and when switched off in the settings.
-// 'po.fx' = 'on' in this browser's storage forces them on, which is how screenshots of them are taken.
+// Effects are off until switched on in Settings ('po.fx' = 'on' in this browser's storage, which
+// is also how screenshots of them are taken), and always off for a request for reduced motion.
 window.poFx = (() => {
     const still = matchMedia('(prefers-reduced-motion: reduce)');
     const setting = () => window.poMedia.read('po.fx');
@@ -13,24 +12,15 @@ window.poFx = (() => {
     const jobs = new Map();
     const analysed = new Map();
 
-    /** Moving effects: particles, shaders that animate, physics. */
+    /** Moving effects: particles, shaders that animate. */
     function enabled() {
-        const choice = setting();
-        if (choice === 'off' || still.matches) return false;
-        return choice === 'on' || !navigator.webdriver;
-    }
-
-    /** Still decorations, such as the sound library's spectrograms: kept for reduced motion. */
-    function decor() {
-        const choice = setting();
-        return choice !== 'off' && (choice === 'on' || !navigator.webdriver);
+        return setting() === 'on' && !still.matches;
     }
 
     // Classes on <html> let stylesheets show an effect's element only when the effect will run.
     function refresh() {
         const root = document.documentElement;
         root.classList.toggle('po-fx', enabled());
-        root.classList.toggle('po-fx-decor', decor());
         window.poBackdrop?.refresh?.();
     }
 
@@ -207,20 +197,8 @@ window.poFx = (() => {
         return analysed.get(key);
     }
 
-    /** A track's spectrogram, `columns` × `rows` levels from 0 to 255, low notes in the last row. */
-    function spectrogram(url, columns, rows) {
-        const key = `spectrogram|${url}|${columns}|${rows}`;
-        if (!analysed.has(key)) {
-            analysed.set(key, mono(url).then(({ samples, sampleRate, duration }) =>
-                ask({ kind: 'spectrogram', samples, sampleRate, columns, rows }, [samples.buffer]).then((r) => ({ ...r, columns, rows, duration }))));
-            analysed.get(key).catch(() => analysed.delete(key));
-        }
-        return analysed.get(key);
-    }
-
     return {
         enabled,
-        decor,
         refresh,
         device,
         fit,
@@ -233,11 +211,10 @@ window.poFx = (() => {
         palette,
         haptic,
         bands,
-        spectrogram,
 
-        /** The settings switch. Off is remembered; on goes back to the automatic choice. */
+        /** The settings switch. */
         setEnabled(on) {
-            window.poMedia.write('po.fx', on ? null : 'off');
+            window.poMedia.write('po.fx', on ? 'on' : null);
             refresh();
         },
 

@@ -6,12 +6,10 @@ namespace PoRedoMedia.Api.Common.Ai;
 // Mock providers, registered when MockAi.IsEnabled. None makes a network call, so mock mode
 // cannot spend anything.
 
-public sealed class MockVisionService : IVisionService, IVisionServiceRouter
+public sealed class MockVisionService : IVisionService
 {
     public Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default) =>
         Task.FromResult(new VisionResult("A mock description of the picture, written with no AI call.", ["mock", "sample"], 0.99));
-
-    public IVisionService Resolve(string? modelId) => this;
 }
 
 /// <summary>Answers every chat request with one fixed sentence.</summary>
@@ -91,36 +89,6 @@ public sealed class MockImageGenerationService : IImageGenerationService
     }
 
     private static GeneratedImage Png(SKBitmap image) => new(ImageBytes.ToPng(image), "image/png");
-}
-
-/// <summary>Stands in for the upscaler by scaling the picture to twice its size, smoothly.</summary>
-public sealed class MockImageUpscaler : IImageUpscaler
-{
-    public Task<GeneratedImage> UpscaleAsync(byte[] image, string size, CancellationToken ct = default)
-    {
-        using var loaded = ImageBytes.Decode(image);
-        using var larger = loaded.Resize(new SKImageInfo(loaded.Width * 2, loaded.Height * 2), new SKSamplingOptions(SKCubicResampler.Mitchell));
-        return Task.FromResult(new GeneratedImage(ImageBytes.ToPng(larger), "image/png"));
-    }
-}
-
-/// <summary>Stands in for background removal by keeping an oval in the middle and clearing the rest.</summary>
-public sealed class MockBackgroundRemover : IBackgroundRemover
-{
-    public Task<byte[]> RemoveAsync(byte[] image, string contentType, CancellationToken ct)
-    {
-        using var loaded = ImageBytes.Decode(image);
-        using var cut = new SKBitmap(new SKImageInfo(loaded.Width, loaded.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
-        using (var canvas = new SKCanvas(cut))
-        {
-            canvas.Clear(SKColors.Transparent);
-            var middle = new SKRect(loaded.Width * 0.2f, loaded.Height * 0.1f, loaded.Width * 0.8f, loaded.Height * 0.9f);
-            canvas.ClipRoundRect(new SKRoundRect(middle, middle.Width / 2, middle.Height / 2), antialias: true);
-            canvas.DrawBitmap(loaded, 0, 0, SKSamplingOptions.Default, null);
-        }
-
-        return Task.FromResult(ImageBytes.ToPng(cut));
-    }
 }
 
 /// <summary>Stands in for music generation with a tiny silent MP3.</summary>

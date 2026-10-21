@@ -33,8 +33,7 @@ public enum LocalAiFailure
 /// a user can act on.
 /// </summary>
 /// <remarks>
-/// Ported from the WebLLM worker in the PoLocalCompare project, where these exact strings were
-/// found to be what browsers actually emit, and extended for the ONNX/wasm backend.
+/// These are the strings browsers and ONNX Runtime Web actually emit.
 /// </remarks>
 public static class LocalAiErrorClassifier
 {
@@ -68,8 +67,7 @@ public static class LocalAiErrorClassifier
             || m.Contains("load failed") || m.Contains("importscripts"))
             return LocalAiFailure.Network;
 
-        if (m.Contains("model_lib") || m.Contains("model lib") || m.Contains("cannot find model")
-            || m.Contains("unsupported model"))
+        if (m.Contains("cannot find model") || m.Contains("unsupported model"))
             return LocalAiFailure.ModelUnsupported;
 
         return LocalAiFailure.Unknown;
@@ -79,9 +77,9 @@ public static class LocalAiErrorClassifier
     public static string Describe(LocalAiFailure failure, string? rawMessage = null) => failure switch
     {
         LocalAiFailure.OutOfMemory =>
-            "Ran out of memory loading the model. Close other tabs and try again, or pick a smaller model.",
+            "Ran out of memory loading the model. Close other tabs and try again.",
         LocalAiFailure.DeviceLost =>
-            "The GPU context was lost. A hard refresh (Ctrl+Shift+R) clears it; running one model at a time helps.",
+            "The GPU context was lost. A hard refresh (Ctrl+Shift+R) clears it.",
         LocalAiFailure.ShaderCompilation =>
             "Your GPU or driver couldn't compile this model's shaders.",
         LocalAiFailure.ShaderF16Unsupported =>

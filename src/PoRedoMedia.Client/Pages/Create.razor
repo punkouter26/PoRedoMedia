@@ -9,6 +9,7 @@
 @inject LocalAiService LocalAi
 @inject HttpClient Http
 @inject UiStore Store
+@inject AppSettings Settings
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -16,14 +17,6 @@
 
 <div class="create-page">
     <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0 rz-mb-2">Create</RadzenText>
-
-    @if (Remixing && _run is null)
-    {
-        <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mt-0 rz-mb-3 po-alert-ink">
-            Remixing a shared video: pick a video of your own and its sounds, captions and stickers are re-timed onto it. The AI director is skipped.
-            <RadzenButton Text="Cancel the remix" Variant="Variant.Text" Size="ButtonSize.Small" class="rz-ml-2" Click="CancelRemix" />
-        </RadzenAlert>
-    }
 
     @if (_source is null && _run is null)
     {
@@ -55,7 +48,7 @@
                 @if (_run is null && _source is not null)
                 {
                     <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-mt-0 rz-mb-2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>
-                    @if (RecipeNames.Count > 0)
+                    @if (Settings[AppSettings.Recipes] && RecipeNames.Count > 0)
                     {
                         @* Saved recipes, one tap each. *@
                         <div class="create-recipes" role="group" aria-label="Saved recipes">
@@ -80,22 +73,25 @@
                             <FunctionPicker Kind="_source.Kind" Value="_functions" ValueChanged="OnFunctionsChanged" Available="_available" />
                         </div>
                         <div class="create-options">
-                            <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Duration="_source.DurationSeconds" Changed="StateHasChanged" />
-                            @if (_functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
+                            <FunctionOptions Functions="_functions" Options="_options" RoastVoices="_roastVoices" Duration="_source.DurationSeconds"
+                                             OnDevice="@Settings[AppSettings.OnDeviceAi]" Changed="StateHasChanged" />
+                            @if (Settings[AppSettings.OnDeviceAi] && _functions.Any(f => f is MediaFunction.MemeCaption or MediaFunction.Restyle or MediaFunction.RapRoast))
                             {
-                                <RadzenFieldset Text="AI model" AllowCollapse="true" class="rz-mt-2">
-                                    @* The automatic choice is an empty value, which a floating label would sit on top of. *@
-                                    <RadzenFormField Text="What looks at the picture" AllowFloatingLabel="false" class="po-fill">
-                                        <RadzenDropDown TValue="string" Data="_visionOptions" ValueProperty="Id" TextProperty="Name"
-                                                        Value="@(_options.GetValueOrDefault(RunOptions.VisionModel, ""))"
-                                                        Change="@(v => _options[RunOptions.VisionModel] = v?.ToString() ?? "")" />
-                                    </RadzenFormField>
-                                    <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">
-                                        @(_visionOptions.FirstOrDefault(o => o.Id == _options.GetValueOrDefault(RunOptions.VisionModel, ""))?.Hint)
-                                    </RadzenText>
+                                <RadzenFieldset Text="What looks at the picture" AllowCollapse="true" class="rz-mt-2">
+                                    <RadzenSelectBar TValue="string" Value="@(OnDeviceVision ? AiCatalog.BrowserVision : "")"
+                                                     Change="@((string v) => _options[RunOptions.VisionModel] = v)" aria-label="What looks at the picture">
+                                        <Items>
+                                            <RadzenSelectBarItem Text="Server" Value="@("")" />
+                                            <RadzenSelectBarItem Text="On device (free)" Value="@AiCatalog.BrowserVision" />
+                                        </Items>
+                                    </RadzenSelectBar>
+                                    @if (OnDeviceVision)
+                                    {
+                                        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2 rz-mb-0">Florence-2 in your browser: about 230 MB the first time, then free.</RadzenText>
+                                    }
                                 </RadzenFieldset>
                             }
-                            @if (_functions.Count > 0)
+                            @if (_functions.Count > 0 && Settings[AppSettings.Recipes])
                             {
                                 <details class="create-save">
                                     <summary>Save these ticks as a recipe</summary>
@@ -105,7 +101,7 @@
                                     </div>
                                 </details>
                             }
-                            else
+                            else if (_functions.Count == 0)
                             {
                                 <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0 create-hint">Tick one or more functions. Their settings appear here.</RadzenText>
                             }
@@ -130,9 +126,12 @@
                             else
                             {
                                 <RadzenText class="rz-m-0"><strong>@_source.Title</strong> → @string.Join(", then ", _functions.Select(FunctionStack.Label))</RadzenText>
-                                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
-                                    Estimated cost: $@(AiCatalog.EstimateCost(_functions, _options, _pricing).ToString("0.00"))
-                                </RadzenText>
+                                @if (Settings[AppSettings.CostEstimates])
+                                {
+                                    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">
+                                        Estimated cost: $@(AiCatalog.EstimateCost(_functions, _options, _pricing).ToString("0.00"))
+                                    </RadzenText>
+                                }
                             }
                             @QuotaLine
                         </div>
@@ -178,7 +177,7 @@
                                     <RadzenButton Text="Change the functions" Variant="Variant.Outlined" Disabled="_starting" Click="BackToFunctions" />
                                 }
                                 <RadzenButton Text="Start over" Variant="Variant.Outlined" Disabled="_starting" Click="StartOver" />
-                                <RadzenLink Path="gallery" Text="Open the gallery" />
+                                <RadzenLink Path="gallery" Text="Open the library" />
                             </RadzenStack>
                             @if (_problem is not null)
                             {
@@ -197,7 +196,7 @@
     private static readonly string[] Remembered =
     [
         RunOptions.VisionModel, RunOptions.VideoAspect, RunOptions.VideoPersona, RunOptions.VideoRoastVoice,
-        RunOptions.RoastStyle, RunOptions.RoastIntensity, RunOptions.RoastExplicit, RunOptions.RestyleStyle, RunOptions.MemeMode, RunOptions.CutoutModel,
+        RunOptions.RestyleStyle, RunOptions.MemeMode,
     ];
 
     /// <summary>A gallery item to start from, set by "Use as source".</summary>
@@ -205,9 +204,6 @@
 
     /// <summary>A run to show, set when one starts and by the header's run tray.</summary>
     [SupplyParameterFromQuery] public Guid? Run { get; set; }
-
-    /// <summary>A share token, set by the feed's Remix: the picked video borrows that shared video's cues.</summary>
-    [SupplyParameterFromQuery] public string? Remix { get; set; }
 
     /// <summary>Present when another app shared a file to this one.</summary>
     [SupplyParameterFromQuery] public string? Shared { get; set; }
@@ -217,7 +213,6 @@
     private Dictionary<string, string> _options = [];
     private IReadOnlyCollection<MediaFunction> _available = [];
     private IReadOnlyList<string> _roastVoices = [];
-    private IReadOnlyList<AiModelOption> _visionOptions = [];
     private AiPricingDto _pricing = new(0, 0, 0, 0, 0);
     private Dictionary<string, RunRequest> _recipes = [];
     private Dictionary<string, string> _lastOptions = [];
@@ -232,11 +227,7 @@
     private Guid? _openedSource;
     private Guid? _cancelling;
 
-    /// <summary>
-    /// True while the next run would be a remix. Once a video is picked the run's options say so,
-    /// and the banner follows them, so what is shown and what is sent cannot differ.
-    /// </summary>
-    private bool Remixing => _options.ContainsKey(RunOptions.VideoRemix) || (Remix is not null && _source is null);
+    private bool OnDeviceVision => AiCatalog.RunsInBrowser(_options.GetValueOrDefault(RunOptions.VisionModel));
 
     private RenderFragment? QuotaLine => _quota is { Unlimited: false }
         ? @<RadzenText TextStyle="TextStyle.Caption" class="rz-m-0 create-quota">@_quota.Remaining of @_quota.Limit runs left today. A run costs one.</RadzenText>
@@ -255,7 +246,6 @@
         var config = await Config.GetAsync();
         _available = config?.AvailableFunctions ?? [];
         _roastVoices = config?.RoastVoices ?? [];
-        _visionOptions = AiCatalog.VisionOptions(config?.VisionModels ?? []);
         _pricing = config?.Pricing ?? _pricing;
         _quota = await Runs.GetQuotaAsync();
         _recipes = await Store.ReadAsync(UiStore.Recipes, WireJson.Default.DictionaryStringRunRequest) ?? [];
@@ -300,26 +290,12 @@
     private Task PickAsync(MediaDto media)
     {
         (_source, _functions, _run, _problem, _recipe) = (media, [], null, null, null);
-        _options = _lastOptions.Where(o => Remembered.Contains(o.Key)).ToDictionary(o => o.Key, o => o.Value);
-        if (Remix is not null && media.Kind == MediaKind.Video && _available.Contains(MediaFunction.Memeify))
-        {
-            _functions = [MediaFunction.Memeify];
-            _options[RunOptions.VideoRemix] = Remix;
-        }
-        else if (Remix is not null)
-        {
-            _problem = "A remix needs a video, so this will be an ordinary run. Change the media to remix.";
-        }
-
+        // A device choice remembered from when on-device AI was on does not carry over once it is off.
+        var device = Settings[AppSettings.OnDeviceAi];
+        _options = _lastOptions
+            .Where(o => Remembered.Contains(o.Key) && (device || o.Key != RunOptions.VisionModel))
+            .ToDictionary(o => o.Key, o => o.Value);
         return Task.CompletedTask;
-    }
-
-    private void CancelRemix()
-    {
-        _options.Remove(RunOptions.VideoRemix);
-        // The picked media stays picked: only the remix leaves the address.
-        _openedSource = _source?.Id;
-        Navigation.NavigateTo(_source is null ? "" : $"?source={_source.Id}", replace: true);
     }
 
     private async Task CancelRunAsync()
@@ -339,11 +315,7 @@
             return;
 
         _functions = FunctionStack.InRunOrder(recipe.Functions.Where(_available.Contains));
-        // A recipe replaces the options, but not the remix they were carrying.
-        var remix = _options.GetValueOrDefault(RunOptions.VideoRemix);
         _options = new(recipe.Options ?? []);
-        if (remix is not null)
-            _options[RunOptions.VideoRemix] = remix;
         _problem = null;
     }
 
@@ -351,7 +323,7 @@
     {
         // The words typed for this one picture, and the description of it, stay out of the recipe.
         var kept = _options
-            .Where(o => o.Key is not (RunOptions.VisionDescription or RunOptions.VideoTrimStart or RunOptions.VideoTrimEnd or RunOptions.VideoRemix)
+            .Where(o => o.Key is not (RunOptions.VisionDescription or RunOptions.VideoTrimStart or RunOptions.VideoTrimEnd)
                 && !o.Key.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))
             .ToDictionary(o => o.Key, o => o.Value);
         _recipe = _recipeName.Trim();
@@ -377,8 +349,11 @@
             return;
 
         // A description left over from an earlier on-device attempt must not ride along with a
-        // server model: the server would use it and never look at the picture.
+        // server model: the server would use it and never look at the picture. And with on-device
+        // AI switched off, a remembered device choice does not count.
         _options.Remove(RunOptions.VisionDescription);
+        if (!Settings[AppSettings.OnDeviceAi])
+            _options.Remove(RunOptions.VisionModel);
 
         _starting = true;
         try
@@ -387,11 +362,6 @@
             await JS.InvokeVoidAsync("poMedia.askNotify");
             if (AiCatalog.RunsInBrowser(_options.GetValueOrDefault(RunOptions.VisionModel)) && !await DescribeOnDeviceAsync())
                 return;
-            if (_functions.Contains(MediaFunction.Cutout) && _options.GetValueOrDefault(RunOptions.CutoutModel) == AiCatalog.BrowserCutout
-                && !await CutOutOnDeviceAsync())
-            {
-                return;
-            }
 
             var estimate = AiCatalog.EstimateCost(_functions, _options, _pricing);
             // Options of functions that were ticked and then unticked stay in the form; they are not sent.
@@ -449,43 +419,6 @@
         {
             _problem = "The picture could not be fetched for the on-device model.";
             return false;
-        }
-        finally
-        {
-            _localStatus = null;
-        }
-    }
-
-    /// <summary>
-    /// Lifts the subject off the picked image on this device and sends the PNG where the run's
-    /// Cutout step will find it. A failure stops the run, for the same reason as on-device vision.
-    /// </summary>
-    private async Task<bool> CutOutOnDeviceAsync()
-    {
-        if (_functions.Any(f => f is MediaFunction.Restyle or MediaFunction.MemeCaption or MediaFunction.Upscale))
-        {
-            _problem = "An on-device cutout works only when it is the first change to the picture. Pick the server's remover for this stack.";
-            return false;
-        }
-
-        try
-        {
-            _localStatus = "Getting ready to cut out on your device…";
-            StateHasChanged();
-            var (ticket, error) = await Media.DeviceCutoutLinkAsync(_source!.Id);
-            if (ticket is null)
-            {
-                _problem = error;
-                return false;
-            }
-
-            using var progress = DotNetObjectReference.Create(new BlobUploadService.ProgressSink(percent =>
-            {
-                _localStatus = percent >= 0 ? $"Getting the on-device cutout model ready: {percent}%" : "Cutting out on your device…";
-                InvokeAsync(StateHasChanged);
-            }));
-            _problem = await JS.InvokeAsync<string?>("poMedia.cutoutOnDevice", _source.Url, ticket.UploadUrl, progress);
-            return _problem is null;
         }
         finally
         {

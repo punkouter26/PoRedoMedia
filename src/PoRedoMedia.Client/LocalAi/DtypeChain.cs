@@ -4,9 +4,8 @@ namespace PoRedoMedia.Client.LocalAi;
 /// The dtype fallback chain.
 /// </summary>
 /// <remarks>
-/// Resolution is two-phase, and both phases live here rather than in either JS runtime — that is
-/// what stops two runtimes from becoming two policies, and it is what makes the whole mechanism
-/// unit-testable with no browser and no network:
+/// Resolution is two-phase, and both phases live here rather than in the JS worker, which makes the
+/// whole mechanism testable with no browser and no network:
 /// <list type="number">
 /// <item>
 ///   <b>Probe-time pruning</b> — variants the device cannot run are removed up front
@@ -18,7 +17,7 @@ namespace PoRedoMedia.Client.LocalAi;
 ///   surviving variant (<see cref="Advance"/>). Exhausting the chain is a hard failure.
 /// </item>
 /// </list>
-/// A runtime adapter only ever <em>interprets</em> the variant this class hands it.
+/// The worker only ever <em>interprets</em> the variant this class hands it.
 /// </remarks>
 public sealed class DtypeChain
 {
@@ -98,7 +97,7 @@ public sealed class DtypeChain
     private static bool IsSupported(DtypeVariant variant, DeviceCapabilities capabilities) => variant switch
     {
         // Half-precision compute requires the GPU feature; it exists nowhere on the wasm backend.
-        DtypeVariant.Q4F16 or DtypeVariant.F16 => capabilities.HasWebGpu && capabilities.HasShaderF16,
+        DtypeVariant.F16 => capabilities.HasWebGpu && capabilities.HasShaderF16,
 
         // Integer-quantized and full-precision run on both backends.
         DtypeVariant.Q4 or DtypeVariant.F32 => true,

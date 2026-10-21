@@ -34,7 +34,7 @@ public sealed class CreateImageUiTests : UiTestBase
         await Assertions.Expect(page.GetByRole(AriaRole.Img, new() { Name = "Meme caption · beach" })).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByText("9 of 10 runs left today")).ToBeVisibleAsync();
 
-        await page.GetByRole(AriaRole.Link, new() { Name = "Open the gallery" }).ClickAsync();
+        await page.GetByRole(AriaRole.Link, new() { Name = "Open the library" }).ClickAsync();
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Meme caption · beach" })).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "beach.png" })).ToBeVisibleAsync();
 

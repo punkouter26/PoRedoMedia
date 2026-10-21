@@ -46,5 +46,4 @@ Overall summary of the project: [DOCS/README.md](DOCS/README.md).
 
 - App: `dotnet run --project src/PoRedoMedia.Api` (http://localhost:4100; needs `docker compose up -d` for Azurite).
 - Browser tests: `scripts/run-e2e.ps1`. Test budgets: `scripts/check-test-budgets.ps1`.
-- Package for App Service: `dotnet publish src/PoRedoMedia.Api -c Release -o artifacts/publish`,
-  add a static Linux ffmpeg under `artifacts/publish/ffmpeg`, then `python scripts/package.py artifacts/publish artifacts/package.zip`.
+- Package for App Service: `bash scripts/package.sh package.zip` (Linux or WSL; the same script `deploy.yml` runs).

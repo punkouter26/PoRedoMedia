@@ -3,17 +3,13 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.BulkStyles;
-using PoRedoMedia.Api.Features.Captions;
-using PoRedoMedia.Api.Features.Cutout;
-using PoRedoMedia.Api.Features.Memeify;
+using PoRedoMedia.Api.Features.Video;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.PhotoToVideo;
 using PoRedoMedia.Api.Features.RapRoast;
 using PoRedoMedia.Api.Features.Render;
 using PoRedoMedia.Api.Features.Sounds;
-using PoRedoMedia.Api.Features.VideoRoast;
 using PoRedoMedia.Api.Features.Restyle;
-using PoRedoMedia.Api.Features.Upscale;
 
 namespace PoRedoMedia.Api.Configuration;
 
@@ -40,14 +36,6 @@ public static class FunctionRegistration
             o.Retry.MaxRetryAttempts = 2;
         }).Services.AddHttpClient(GeminiVisionService.HttpClientName).AddHttpMessageHandler<AiMeterHandler>();
 
-        // Each background removal is a submit, a few polls and a read; retry those, not the wait.
-        services.AddHttpClient(HuggingFaceBackgroundRemover.HttpClientName).AddStandardResilienceHandler(o =>
-        {
-            o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(60);
-            o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
-            o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(2);
-        }).Services.AddHttpClient(HuggingFaceBackgroundRemover.HttpClientName).AddHttpMessageHandler<AiMeterHandler>();
-
         // A Veo call can be slow, and retrying a job start would bill twice: long timeout, no retries.
         services.AddHttpClient(VeoVideoService.HttpClientName, c => c.Timeout = TimeSpan.FromMinutes(15)).AddHttpMessageHandler<AiMeterHandler>();
 
@@ -55,8 +43,7 @@ public static class FunctionRegistration
 
         if (MockAi.IsEnabled(configuration, environment))
         {
-            services.AddSingleton<MockVisionService>();
-            services.AddSingleton<IVisionServiceRouter>(s => s.GetRequiredService<MockVisionService>());
+            services.AddSingleton<IVisionService, MockVisionService>();
             services.AddSingleton<ICaptionWriter, MockCaptionWriter>();
             services.AddSingleton<IRunStep, MemeCaptionStep>();
             services.AddSingleton<IChatClient, MockChatClient>();
@@ -66,26 +53,20 @@ public static class FunctionRegistration
             services.AddSingleton<IRunStep, BulkStylesStep>();
             // No chat model in mock mode: the roast code then takes its own built-in fallbacks.
             services.AddSingleton<IChatCompletionService>(new ChatCompletions());
-            services.AddSingleton<ISceneDetailProvider, NullSceneDetailProvider>();
             services.AddSingleton<IMusicGenerationService, MockMusicService>();
             AddRoast(services);
             services.AddSingleton<IVideoGenerationService, MockVideoService>();
             services.AddSingleton<IRunStep, PhotoToVideoStep>();
-            services.AddSingleton<IImageUpscaler, MockImageUpscaler>();
-            services.AddSingleton<IRunStep, UpscaleStep>();
-            services.AddSingleton<IBackgroundRemover, MockBackgroundRemover>();
-            services.AddSingleton<IRunStep, CutoutStep>();
             return services;
         }
 
-        // Free-form text: Azure OpenAI, or a local Ollama model when a developer opts in.
-        var chat = environment.IsDevelopment() && configuration[ConfigKeys.OllamaChatModel] is { Length: > 0 } ollamaChat
-            ? ChatClients.Ollama(configuration, ollamaChat)
-            : ChatClients.AzureOpenAi(configuration);
+        // Free-form text: Azure OpenAI.
+        var chat = ChatClients.AzureOpenAi(configuration);
 
-        services.AddSingleton<IVisionServiceRouter>(s => new VisionServiceRouter(VisionProviders(s, configuration, environment)));
-        var canSeeImages = Has(ConfigKeys.GoogleApiKey) || ChatClients.AzureOpenAi(configuration) is not null
-            || (Has(ConfigKeys.ComputerVisionEndpoint) && Has(ConfigKeys.ComputerVisionApiKey));
+        // Looking at pictures: Gemini gives real sentences cheaply; Azure OpenAI is the fallback.
+        var canSeeImages = Has(ConfigKeys.GoogleApiKey) || chat is not null;
+        if (canSeeImages)
+            services.AddSingleton<IVisionService>(s => Vision(s, configuration));
 
         if (chat is not null)
         {
@@ -109,24 +90,15 @@ public static class FunctionRegistration
             services.AddSingleton<IRunStep, BulkStylesStep>();
             services.AddSingleton<IVideoGenerationService, VeoVideoService>();
             services.AddSingleton<IRunStep, PhotoToVideoStep>();
-            services.AddSingleton<IImageUpscaler, GeminiImageService>();
-            services.AddSingleton<IRunStep, UpscaleStep>();
 
             if (canSeeImages)
             {
                 // The roast needs a performer (Lyria, on the Google key) and something that can see.
                 // Without a chat model it still runs, on its built-in lyrics, and says so.
                 services.AddSingleton<IChatCompletionService>(s => new ChatCompletions(chat is null ? null : s.GetRequiredService<IChatClient>()));
-                services.AddSingleton<ISceneDetailProvider, AzureSceneDetailService>();
                 services.AddSingleton<IMusicGenerationService, LyriaMusicService>();
                 AddRoast(services);
             }
-        }
-
-        if (Has(ConfigKeys.HuggingFaceApiKey))
-        {
-            services.AddSingleton<IBackgroundRemover, HuggingFaceBackgroundRemover>();
-            services.AddSingleton<IRunStep, CutoutStep>();
         }
 
         return services;
@@ -141,10 +113,8 @@ public static class FunctionRegistration
     private static void AddVideo(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddSingleton<ISoundAssetRepository, SoundAssetTableRepository>();
-        services.AddSingleton<ISoundFavoritesRepository, SoundFavoritesTableRepository>();
         services.AddSingleton<ISemanticMatchingService, SemanticMatchingService>();
         services.AddSingleton<AiFoundryClient>();
-        services.AddSingleton<SoundTagger>();
         services.AddSingleton<FFmpegRenderService>();
         services.AddSingleton<IMediaToolkit>(s => s.GetRequiredService<FFmpegRenderService>());
         services.AddSingleton<SourceAudioAnalysis>();
@@ -164,24 +134,19 @@ public static class FunctionRegistration
             var google = !string.IsNullOrWhiteSpace(configuration[ConfigKeys.GoogleApiKey]);
             var foundry = AiFoundryClient.Setting(configuration, "AiFoundry:Endpoint") is not null;
 
-            // Gemini watches the whole clip, sound and all; sampled frames stay the fallback.
-            if (google && configuration.GetValue<bool?>(ConfigKeys.VisionWholeClip) != false)
+            // Gemini watches the whole clip, sound and all; Foundry's sampled frames are the fallback.
+            if (google)
                 services.AddSingleton<IClipVision, GeminiClipVisionService>();
-
-            // Frames: Foundry by default, Gemini when picked or when it is the only one there.
-            if (google && (configuration[ConfigKeys.VisionFrameProvider] == "gemini" || !foundry))
-                services.AddSingleton<IAiVisionService, GeminiFrameVisionService>();
-            else if (foundry)
-                services.AddSingleton<IAiVisionService, AiFoundryVisionService>();
 
             if (foundry)
             {
+                services.AddSingleton<IAiVisionService, AiFoundryVisionService>();
                 services.AddSingleton<IDirectorService, AiFoundryDirectorService>();
                 services.AddSingleton<IVideoRoast, RoastService>();
             }
         }
 
-        services.AddSingleton<IRunStep, VideoRunStep>();
+        services.AddSingleton<IRunStep, VideoStep>();
     }
 
     private static void AddRoast(IServiceCollection services)
@@ -191,22 +156,13 @@ public static class FunctionRegistration
         services.AddSingleton<IRunStep, RapRoastStep>();
     }
 
-    private static Dictionary<string, IVisionService> VisionProviders(IServiceProvider services, IConfiguration configuration, IHostEnvironment environment)
+    /// <summary>The one vision provider, with its answers cached by picture.</summary>
+    private static CachingVisionService Vision(IServiceProvider services, IConfiguration configuration)
     {
-        var cache = services.GetRequiredService<HybridCache>();
-        var providers = new Dictionary<string, IVisionService>();
-        void Add(string id, IVisionService provider) => providers[id] = new CachingVisionService(provider, cache, id);
-
-        if (!string.IsNullOrWhiteSpace(configuration[ConfigKeys.GoogleApiKey]))
-            Add(AiProviderIds.GeminiVision, new GeminiVisionService(configuration, services.GetRequiredService<IHttpClientFactory>()));
-        if (ChatClients.AzureOpenAi(configuration) is { } azureChat)
-            Add(AiProviderIds.AzureOpenAiVision, new ChatVisionService(Instrument(azureChat, services, "vision")));
-        if (!string.IsNullOrWhiteSpace(configuration[ConfigKeys.ComputerVisionEndpoint]) && !string.IsNullOrWhiteSpace(configuration[ConfigKeys.ComputerVisionApiKey]))
-            Add(AiProviderIds.AzureComputerVision, new AzureVisionService(configuration));
-        if (environment.IsDevelopment() && configuration[ConfigKeys.OllamaVisionModel] is { Length: > 0 } ollamaVision)
-            Add(AiProviderIds.OllamaVision, new ChatVisionService(Instrument(ChatClients.Ollama(configuration, ollamaVision), services, "vision")));
-
-        return providers;
+        var (scope, provider) = string.IsNullOrWhiteSpace(configuration[ConfigKeys.GoogleApiKey])
+            ? ("azure-openai", (IVisionService)new ChatVisionService(Instrument(ChatClients.AzureOpenAi(configuration)!, services, "vision")))
+            : ("gemini", new GeminiVisionService(configuration, services.GetRequiredService<IHttpClientFactory>()));
+        return new CachingVisionService(provider, services.GetRequiredService<HybridCache>(), scope);
     }
 
     /// <summary>A chat client with OpenTelemetry spans (gen_ai.*) and usage metering around it.</summary>

@@ -38,7 +38,7 @@ public sealed class RunContext(
 
     /// <summary>
     /// The image the next step should work on: the source, until a step replaces it. Restyle, Meme
-    /// caption and Upscale each replace it; Cutout, Rap roast and Photo to video only read it.
+    /// caption each replace it; Rap roast and Photo to video only read it.
     /// </summary>
     public MediaItem Current { get; private set; } = working ?? source;
 
@@ -85,7 +85,4 @@ public interface IShareLinks
 
     /// <summary>Whose item a link points at, or null when the link is unknown or turned off.</summary>
     Task<(UserId Owner, MediaId Media)?> ResolveAsync(string token, CancellationToken ct = default);
-
-    /// <summary>Counts one more remix of the shared item.</summary>
-    Task CountRemixAsync(string token, CancellationToken ct = default);
 }

@@ -61,10 +61,11 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
         Owner = new UserId(row.GetString("Owner")),
         Id = RunId.Parse(row.RowKey, null),
         SourceId = MediaId.Parse(row.GetString("SourceId"), null),
-        Functions = [.. Split(row.GetString("Functions")).Select(Enum.Parse<MediaFunction>)],
+        // A run stored before a function was removed lists it; the name is dropped, not fatal.
+        Functions = [.. Split(row.GetString("Functions")).Select(f => Enum.TryParse<MediaFunction>(f, out var known) ? known : (MediaFunction?)null).OfType<MediaFunction>()],
         Options = JsonSerializer.Deserialize<Dictionary<string, string>>(row.GetString("Options") ?? "{}") ?? [],
         Status = Enum.Parse<RunStatus>(row.GetString("Status")),
-        CurrentStep = row.GetString("CurrentStep") is { } step ? Enum.Parse<MediaFunction>(step) : null,
+        CurrentStep = Enum.TryParse<MediaFunction>(row.GetString("CurrentStep"), out var step) ? step : null,
         Error = row.GetString("Error"),
         OutputIds = [.. Split(row.GetString("OutputIds")).Select(o => MediaId.Parse(o, null))],
         WorkingId = row.GetString("WorkingId") is { Length: > 0 } working ? MediaId.Parse(working, null) : null,

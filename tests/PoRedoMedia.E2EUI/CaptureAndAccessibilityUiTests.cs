@@ -64,7 +64,7 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
         Assert.Contains(json.GetProperty("icons").EnumerateArray(), i => i.GetProperty("sizes").GetString() == "512x512");
         Assert.Equal(1, await anonymous.Locator("link[rel=manifest]").CountAsync());
 
-        var page = await SignedInPageAsync("/");
+        var page = await SignedInPageAsync("/", "po.adv.device-ai", "po.adv.costs", "po.adv.recipes");
         await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Choose a photo or a video" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
         await ScanAsync(page, "create-1-media");
 
@@ -80,10 +80,9 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
         await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "Share", Exact = true })).ToBeVisibleAsync();
         await ScanAsync(page, "gallery");
 
-        await page.GotoAsync(BaseUrl + "/sounds");
-        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Library" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
-        await page.WaitForSelectorAsync(".sounds-grid");
-        await ScanAsync(page, "sounds");
+        await page.GotoAsync(BaseUrl + "/settings");
+        await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Advanced" })).ToBeVisibleAsync(new() { Timeout = 30_000 });
+        await ScanAsync(page, "settings");
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
@@ -95,15 +94,14 @@ public sealed class CaptureAndAccessibilityUiTests : UiTestBase
     [LocalAiFact]
     public async Task The_on_device_model_describes_the_picture_and_the_run_completes()
     {
-        var page = await SignedInPageAsync("/");
+        var page = await SignedInPageAsync("/", "po.adv.device-ai", "po.adv.costs");
         var log = new List<string>();
         page.Console += (_, m) => { if (m.Type is "error" or "warning") log.Add($"{m.Type}: {m.Text}"); };
         await page.GetByRole(AriaRole.Button, new() { Name = "Use the camera" }).ClickAsync(new() { Timeout = 30_000 });
         await page.GetByRole(AriaRole.Button, new() { Name = "Take the photo" }).ClickAsync();
         await page.Locator("[data-fn=MemeCaption] input").CheckAsync(new() { Timeout = 30_000 });
 
-        await page.Locator(".rz-dropdown").Last.ClickAsync();
-        await page.GetByRole(AriaRole.Option, new() { Name = "On this device (Florence-2)" }).ClickAsync();
+        await page.GetByText("On device (free)").ClickAsync();
         await Assertions.Expect(page.GetByText("Estimated cost: $0.00")).ToBeVisibleAsync();
         await page.GetByRole(AriaRole.Button, new() { Name = "Run", Exact = true }).ClickAsync();
 

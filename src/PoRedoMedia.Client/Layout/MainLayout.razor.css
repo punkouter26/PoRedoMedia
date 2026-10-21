@@ -82,6 +82,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
+    text-decoration: none;
     cursor: pointer;
 }
 

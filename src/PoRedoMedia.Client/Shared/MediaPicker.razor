@@ -179,7 +179,7 @@
                     _status = percent >= 0 ? $"Getting the on-device speech model ready: {percent}%" : "Listening to the video on your device…";
                     InvokeAsync(StateHasChanged);
                 }));
-                await JS.InvokeAsync<int>("poMedia.transcribeVideo", input, media.Id, progress);
+                await JS.InvokeAsync<int>("poDeviceAi.transcribeVideo", input, media.Id, progress);
             }
 
             _status = null;

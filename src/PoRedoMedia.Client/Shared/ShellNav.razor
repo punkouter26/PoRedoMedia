@@ -1,4 +1,4 @@
-@* The two places to go: Create, and the Library (gallery, sounds, feed). Drawn twice by the
+@* The two places to go: Create, and the Library. Drawn twice by the
    layout, in the header on wide screens and as a tab bar at the bottom on phones. *@
 @implements IDisposable
 @inject NavigationManager Navigation
@@ -14,7 +14,7 @@
 </nav>
 
 @code {
-    private static readonly string[] LibraryPaths = ["gallery", "sounds", "feed", "library"];
+    private static readonly string[] LibraryPaths = ["gallery", "library"];
 
     [Parameter, EditorRequired] public string Label { get; set; } = "";
     [Parameter] public string? Class { get; set; }

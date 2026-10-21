@@ -1,24 +1,13 @@
 /**
- * Bridge between the Blazor LocalAi services and the two inference workers.
+ * Bridge between the Blazor LocalAi services and the transformers.js inference worker.
  *
- * Both workers speak an identical postMessage protocol — {type:'status'|'complete'|'error'} — so
- * this file is runtime-agnostic: it picks a worker script by runtime name and otherwise treats
- * them the same. All fallback POLICY lives in C# (DtypeChain); this layer only executes one
- * attempt at whatever variant it is handed.
+ * The worker speaks a small postMessage protocol — {type:'status'|'complete'|'error'}. All
+ * fallback POLICY lives in C# (DtypeChain); this layer only executes one attempt at whatever
+ * variant it is handed.
  */
 
 const workers = {};
-
-// Availability probes are deduplicated and cached: the model picker renders one row per model and
-// would otherwise fire a burst of identical HEAD requests on every render.
-const availabilityCache = new Map();
-const availabilityInflight = new Map();
-const AVAILABILITY_TTL_MS = 15000;
-
-const WORKER_SCRIPTS = {
-    WebLlm: '/js/local-ai/webllm-worker.js',
-    TransformersJs: '/js/local-ai/transformers-worker.js',
-};
+const WORKER_SCRIPT = '/js/local-ai/transformers-worker.js';
 
 /**
  * Probes the GPU so C# can prune the dtype chain before any weights are fetched.
@@ -58,68 +47,6 @@ window.poLocalAiProbeDevice = async function () {
 };
 
 /**
- * Checks whether a model's files are reachable, trying a vendored local copy before the CDNs.
- * Mirrors the source-fallback chain proven in PoLocalCompare, and is independent of the dtype
- * chain — one is about WHERE the weights come from, the other about WHICH weights.
- */
-window.poLocalAiResolveAvailability = async function (repoId, localBaseUrl, cdnTemplates) {
-    const key = `${repoId}|${localBaseUrl}|${(cdnTemplates || []).join('|')}`;
-    const cached = availabilityCache.get(key);
-    if (cached && Date.now() - cached.at < AVAILABILITY_TTL_MS) return cached.value;
-    if (availabilityInflight.has(key)) return availabilityInflight.get(key);
-
-    const promise = (async () => {
-        if (localBaseUrl) {
-            const local = joinUrl(localBaseUrl, repoId);
-            if (await canReach(local)) return { available: true, source: 'local', baseUrl: local };
-        }
-
-        const templates = Array.isArray(cdnTemplates) ? cdnTemplates.filter(Boolean) : [];
-        for (let i = 0; i < templates.length; i++) {
-            const url = templates[i].includes('{repoId}')
-                ? templates[i].replaceAll('{repoId}', repoId)
-                : joinUrl(templates[i], repoId);
-            if (await canReach(url)) {
-                return { available: true, source: i === 0 ? 'cdn' : 'cdn-backup', baseUrl: url };
-            }
-        }
-
-        return { available: false, source: '', baseUrl: '' };
-    })();
-
-    availabilityInflight.set(key, promise);
-    try {
-        const value = await promise;
-        availabilityCache.set(key, { at: Date.now(), value });
-        return value;
-    } finally {
-        availabilityInflight.delete(key);
-    }
-};
-
-function joinUrl(base, suffix) {
-    const b = base.endsWith('/') ? base : `${base}/`;
-    return `${b}${suffix}`;
-}
-
-async function canReach(url) {
-    if (!url) return false;
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3500);
-        try {
-            // HEAD on the repo root: cheap, and enough to tell "reachable" from "blocked/absent".
-            const response = await fetch(url, { method: 'HEAD', signal: controller.signal, cache: 'no-store' });
-            return response.ok;
-        } finally {
-            clearTimeout(timeout);
-        }
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Runs ONE attempt at the given variant. C# owns retry/fallback, so any failure here is reported
  * straight back rather than being retried internally.
  *
@@ -127,17 +54,11 @@ async function canReach(url) {
  * @param runId      Correlates callbacks with the awaiting C# task.
  */
 window.poLocalAiRun = function (dotnetRef, runId, options) {
-    const script = WORKER_SCRIPTS[options.runtime];
-    if (!script) {
-        dotnetRef.invokeMethodAsync('ReceiveError', runId, `Unknown runtime '${options.runtime}'.`);
-        return;
-    }
-
     terminate(runId);
 
     let worker;
     try {
-        worker = new Worker(script, { type: 'module' });
+        worker = new Worker(WORKER_SCRIPT, { type: 'module' });
     } catch (err) {
         dotnetRef.invokeMethodAsync('ReceiveError', runId, `Worker failed to start: ${err?.message ?? err}`);
         return;

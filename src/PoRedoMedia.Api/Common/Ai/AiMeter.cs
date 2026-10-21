@@ -191,8 +191,7 @@ public sealed class AiMeterHandler(AiMeter meter, IConfiguration configuration) 
             var model = ModelOf(path);
             if (model.Contains("image", StringComparison.OrdinalIgnoreCase))
             {
-                var upscale = configuration[ConfigKeys.GoogleUpscaleModel] is { Length: > 0 } u ? u : "gemini-3-pro-image";
-                meter.RecordCall("image", model, model == upscale ? "UpscaleUsd" : "ImageUsd", elapsed);
+                meter.RecordCall("image", model, "ImageUsd", elapsed);
             }
             else
             {
@@ -208,11 +207,6 @@ public sealed class AiMeterHandler(AiMeter meter, IConfiguration configuration) 
         else if (path.EndsWith("/interactions", StringComparison.Ordinal))
         {
             meter.RecordCall("music", configuration[ConfigKeys.GoogleLyriaModel] ?? "lyria", "MusicUsd", elapsed);
-        }
-        else if (uri.Host.StartsWith("router.huggingface", StringComparison.OrdinalIgnoreCase))
-        {
-            // The submit is the billed request; status polls and the result read are GETs.
-            meter.RecordCall("cutout", "bria-rmbg", "CutoutUsd", elapsed);
         }
         else if (path.Contains("/audio/speech", StringComparison.Ordinal) || path.EndsWith("/tts/cognitiveservices/v1", StringComparison.Ordinal))
         {

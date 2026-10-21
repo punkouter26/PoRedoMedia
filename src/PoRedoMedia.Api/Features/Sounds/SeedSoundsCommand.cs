@@ -261,9 +261,8 @@ public static class SeedSoundsCommand
     }
 
     /// <summary>
-    /// Locates the directory containing <c>sounds-metadata.json</c>. Tries the explicit override,
-    /// then a few well-known relative locations so the running API finds the metadata regardless
-    /// of working directory.
+    /// Locates the directory containing <c>sounds-metadata.json</c>: the explicit override, else
+    /// <c>scripts/meme-sounds</c> from the repository root or from the API project folder.
     /// </summary>
     public static string ResolveSeedsDir(string[] args, string cwd)
     {
@@ -274,13 +273,7 @@ public static class SeedSoundsCommand
         var candidates = new[]
         {
             Path.Combine(cwd, "scripts", "meme-sounds"),
-            Path.Combine(cwd, "SCRIPTS", "meme-sounds"),
             Path.GetFullPath(Path.Combine(cwd, "..", "..", "scripts", "meme-sounds")),
-            Path.GetFullPath(Path.Combine(cwd, "..", "..", "SCRIPTS", "meme-sounds")),
-            Path.Combine(cwd, "tools", "meme-sounds"),
-            Path.GetFullPath(Path.Combine(cwd, "..", "..", "tools", "meme-sounds")),
-            Path.GetFullPath(Path.Combine(cwd, "..", "..", "..", "scripts", "meme-sounds")),
-            Path.GetFullPath(Path.Combine(cwd, "..", "..", "..", "SCRIPTS", "meme-sounds")),
         };
 
         return candidates.FirstOrDefault(d => File.Exists(Path.Combine(d, "sounds-metadata.json")))

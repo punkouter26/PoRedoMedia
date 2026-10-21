@@ -32,27 +32,14 @@ public static class ConfigKeys
     public const string OpenAiEndpoint = "OpenAI:Endpoint";
     public const string OpenAiKey = "OpenAI:Key";
     public const string OpenAiChatDeployment = "OpenAI:ChatCompletionsDeployment";
-    public const string ComputerVisionEndpoint = "ComputerVision:Endpoint";
-    public const string ComputerVisionApiKey = "ComputerVision:ApiKey";
-    public const string ComputerVisionMinTagConfidence = "ComputerVision:MinTagConfidence";
     public const string GoogleApiKey = "Google:ApiKey";
     public const string GoogleVisionModel = "Google:VisionModel";
     public const string GoogleImageModel = "Google:ImageModel";
     public const string GoogleLyriaModel = "Google:LyriaModel";
     public const string GoogleVeoModel = "Google:VeoModel";
-    public const string GoogleUpscaleModel = "Google:UpscaleModel";
 
     /// <summary>The model that watches a whole video for Meme-ify. Empty = <see cref="GoogleVisionModel"/>.</summary>
     public const string GoogleClipVisionModel = "Google:ClipVisionModel";
 
-    /// <summary>False keeps Meme-ify on labelling sampled frames even when Gemini could watch the whole clip.</summary>
-    public const string VisionWholeClip = "Vision:WholeClip";
-
-    /// <summary>Who labels sampled video frames: "foundry" or "gemini". Empty = Foundry when configured, else Gemini.</summary>
-    public const string VisionFrameProvider = "Vision:FrameProvider";
-    public const string HuggingFaceApiKey = "HuggingFace:ApiKey";
     public const string VisionSecondOpinion = "Vision:SecondOpinion";
-    public const string OllamaEndpoint = "Ollama:Endpoint";
-    public const string OllamaVisionModel = "Ollama:VisionModel";
-    public const string OllamaChatModel = "Ollama:ChatModel";
 }

@@ -84,7 +84,7 @@ h2.rz-text-h6, h2.rz-text-subtitle1 {
 }
 
 /* ── Effects (js/fx) ────────────────────────────────────────────────────────────────── */
-/* Page-wide canvases for effects that leave their element: particles, shards, confetti. */
+/* Page-wide canvases for effects that leave their element: particles, confetti. */
 .po-fx-layer {
     position: fixed;
     inset: 0;
@@ -104,11 +104,6 @@ h2.rz-text-h6, h2.rz-text-subtitle1 {
 /* Elements that only mean something while their effect runs. */
 html:not(.po-fx) .po-fx-only {
     display: none !important;
-}
-
-/* The sound library's spectrogram column, a still decoration that reduced motion keeps. */
-html:not(.po-fx-decor) .sounds-spectro-cell {
-    display: none;
 }
 
 /* ── Utilities that replace one-off inline styles ───────────────────────────────────── */

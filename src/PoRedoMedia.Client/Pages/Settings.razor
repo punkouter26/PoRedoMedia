@@ -1,0 +1,125 @@
+@page "/settings"
+@attribute [AllowAnonymous]
+@* Who is signed in, how the app looks and sounds in this browser, the advanced switches, and
+   sign out. Open before sign-in too, where only the look and sound show. *@
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AppSettings Switches
+
+<PageTitle>Settings · PoRedoMedia</PageTitle>
+
+<div class="settings-page">
+    <RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0">Settings</RadzenText>
+
+    <AuthorizeView>
+        <RadzenCard class="settings-card">
+            <div class="settings-who">
+                <span class="settings-avatar" aria-hidden="true">@Initial(context.User.Identity?.Name ?? "")</span>
+                <span class="settings-name">@context.User.Identity?.Name</span>
+                <RadzenButton Text="Sign out" Icon="logout" Variant="Variant.Outlined" IsBusy="_leaving" Click="SignOutAsync" class="settings-signout" />
+            </div>
+        </RadzenCard>
+    </AuthorizeView>
+
+    <RadzenCard class="settings-card">
+        <section aria-labelledby="settings-look">
+            <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-m-0 rz-mb-1" id="settings-look">Look and sound</RadzenText>
+            <div class="settings-row">
+                <RadzenSwitch Name="settings-dark" Value="_dark" Change="SetDarkAsync" />
+                <RadzenLabel Component="settings-dark" Text="Dark theme" />
+            </div>
+            <div class="settings-row">
+                <RadzenSwitch Name="settings-sounds" Value="_sounds" Change="SetSoundsAsync" />
+                <RadzenLabel Component="settings-sounds" Text="Interface sounds" />
+            </div>
+            <div class="settings-row">
+                <RadzenLabel Component="settings-volume" Text="Volume" />
+                <RadzenSlider Name="settings-volume" TValue="int" Min="0" Max="100" Step="5" Value="_volume" Disabled="@(!_sounds)"
+                              Change="SetVolumeAsync" aria-label="Volume" class="po-grow" />
+            </div>
+        </section>
+    </RadzenCard>
+
+    <AuthorizeView>
+        <RadzenCard class="settings-card">
+            <section aria-labelledby="settings-advanced">
+                <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2" class="rz-m-0" id="settings-advanced">Advanced</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0 rz-mb-1">All off to start with. Each one adds to the app; none is needed for it to work.</RadzenText>
+                @foreach (var setting in AppSettings.Advanced)
+                {
+                    var name = $"settings-{setting.Key.Replace('.', '-')}";
+                    <div class="settings-row settings-advanced-row">
+                        <RadzenSwitch Name="@name" Value="@Switches[setting]" Change="@(on => SetAsync(setting, on))" />
+                        <span class="settings-text">
+                            <RadzenLabel Component="@name" Text="@setting.Label" />
+                            <span class="settings-hint">@setting.Hint</span>
+                        </span>
+                    </div>
+                }
+            </section>
+        </RadzenCard>
+    </AuthorizeView>
+</div>
+
+@code {
+    private bool _dark;
+    private bool _sounds;
+    private int _volume = 50;
+    private bool _leaving;
+
+    public static string Initial(string name) => name.Length == 0 ? "?" : char.ToUpperInvariant(name[0]).ToString();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _dark = await JS.InvokeAsync<string>("poMedia.theme") == "dark";
+        _sounds = !await JS.InvokeAsync<bool>("poSfx.muted");
+        _volume = (int)Math.Round(await JS.InvokeAsync<double>("poSfx.volume") * 100);
+        StateHasChanged();
+    }
+
+    private async Task SetDarkAsync(bool on)
+    {
+        _dark = on;
+        await JS.InvokeVoidAsync("poMedia.setTheme", on ? "dark" : "light");
+    }
+
+    private async Task SetSoundsAsync(bool on)
+    {
+        _sounds = on;
+        await JS.InvokeVoidAsync("poSfx.setMuted", !on);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    private async Task SetVolumeAsync(int value)
+    {
+        _volume = value;
+        await JS.InvokeVoidAsync("poSfx.setVolume", value / 100.0);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    private async Task SetAsync(AppSetting setting, bool on)
+    {
+        await Switches.SetAsync(setting, on);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
+    }
+
+    // Sign-out is a POST with the antiforgery token; the page then leaves for /login itself.
+    private async Task SignOutAsync()
+    {
+        _leaving = true;
+        try
+        {
+            using var response = await Http.PostAsync("logout", null);
+        }
+        catch (HttpRequestException)
+        {
+            // Offline: the cookie stays, and /login will send a signed-in user back in.
+        }
+
+        Navigation.NavigateTo("login", forceLoad: true);
+    }
+}

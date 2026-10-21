@@ -28,27 +28,6 @@ public static class RunOptions
 
     public static string MemeZone(int index) => $"MemeCaption.zone{index}";
 
-    /// <summary>"2K" or "4K". Absent = 2K.</summary>
-    public const string UpscaleSize = "Upscale.size";
-
-    /// <summary>"false" skips the sticker. Absent = make one.</summary>
-    public const string CutoutSticker = "Cutout.sticker";
-
-    /// <summary>
-    /// <see cref="AiCatalog.BrowserCutout"/> when the cutout was made on the user's device and sent
-    /// before the run (<c>POST /api/media/{id}/device-cutout</c>). Absent = the server's remover.
-    /// </summary>
-    public const string CutoutModel = "Cutout.model";
-
-    /// <summary>A <c>RapStyle</c> name. Absent = Trap.</summary>
-    public const string RoastStyle = "RapRoast.style";
-
-    /// <summary>A <c>RoastIntensity</c> name. Absent = Roast.</summary>
-    public const string RoastIntensity = "RapRoast.intensity";
-
-    /// <summary>"true" allows profanity in the lyrics.</summary>
-    public const string RoastExplicit = "RapRoast.explicit";
-
     /// <summary>What should happen in the clip. Required for Photo to video.</summary>
     public const string VideoPrompt = "PhotoToVideo.prompt";
 
@@ -61,12 +40,6 @@ public static class RunOptions
     /// <summary>Seconds into the video where the result starts and ends. Absent = the whole video.</summary>
     public const string VideoTrimStart = "Video.trimStart";
     public const string VideoTrimEnd = "Video.trimEnd";
-
-    /// <summary>
-    /// A share token. Meme-ify then copies that shared video's sounds, captions and stickers,
-    /// re-timed onto this one, instead of asking the director.
-    /// </summary>
-    public const string VideoRemix = "Memeify.remix";
 
     /// <summary>The roast voice: "Comic", "Neural" or "Rap". Absent = the first one the server offers.</summary>
     public const string VideoRoastVoice = "VideoRoast.voice";

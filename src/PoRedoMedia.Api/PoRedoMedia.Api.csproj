@@ -14,8 +14,6 @@
     <PackageReference Include="OpenAI" />
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
-    <PackageReference Include="OllamaSharp" />
-    <PackageReference Include="Azure.AI.Vision.ImageAnalysis" />
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />

@@ -6,7 +6,15 @@
 @inject NavigationManager Navigation
 @inject DialogService Dialogs
 @inject IJSRuntime JS
+@inject SessionCostService Cost
+@inject AppSettings Settings
 
+@if (Settings[AppSettings.CostEstimates] && Cost.Total > 0)
+{
+    <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0 rz-mb-2" title="An estimate from list prices for the runs started in this tab. Not a bill.">
+        About $@Cost.Total.ToString("0.00") spent on AI in this tab.
+    </RadzenText>
+}
 @if (Tracker.Runs.Count == 0)
 {
     <RadzenText class="rz-m-0">Nothing has been run yet. Pick a photo or a video on Create to start.</RadzenText>

@@ -1,6 +1,6 @@
 // Frequency analysis for the effects, off the page's thread: the loudness of a track's bass,
-// mids and highs over time (the roast stage dances to them) and a small spectrogram of each
-// sound in the library. Both are a short-time Fourier transform with a Hann window.
+// mids and highs over time, which the roast stage dances to. A short-time Fourier transform with
+// a Hann window.
 
 // In-place radix-2 FFT. `re` and `im` have a power-of-two length.
 function fft(re, im) {
@@ -81,39 +81,9 @@ function bands({ samples, sampleRate, rate }) {
     return { bass, mid, high, kick };
 }
 
-function spectrogram({ samples, sampleRate, columns, rows }) {
-    const size = 1024, window = hann(size);
-    const re = new Float32Array(size), im = new Float32Array(size);
-    const levels = new Float32Array(columns * rows);
-    const loudness = new Float32Array(columns);
-    // Rows are spaced by pitch, not by hertz, so the low notes get as much room as the hiss.
-    const low = 50, high = Math.min(12000, sampleRate / 2 - 1);
-    const edge = (r) => Math.round(low * Math.pow(high / low, r / rows) * size / sampleRate);
-    let peak = -Infinity;
-    for (let c = 0; c < columns; c++) {
-        const magnitudes = spectrum(samples, (c + 0.5) / columns * samples.length, size, window, re, im);
-        let energy = 0;
-        for (let k = 0; k < magnitudes.length; k++) energy += magnitudes[k] * magnitudes[k];
-        loudness[c] = Math.sqrt(energy / magnitudes.length);
-        for (let r = 0; r < rows; r++) {
-            const from = Math.max(1, edge(r)), to = Math.max(from + 1, edge(r + 1));
-            let strongest = 0;
-            for (let k = from; k < to && k < magnitudes.length; k++) strongest = Math.max(strongest, magnitudes[k]);
-            const db = 20 * Math.log10(strongest + 1e-9);
-            levels[(rows - 1 - r) * columns + c] = db;
-            peak = Math.max(peak, db);
-        }
-    }
-    const image = new Uint8Array(columns * rows);
-    // Near silence stays dark, rather than being stretched up to full heat.
-    if (peak < -30) return { image, loudness: new Float32Array(columns) };
-    for (let i = 0; i < levels.length; i++) image[i] = Math.max(0, Math.min(255, Math.round((levels[i] - (peak - 72)) / 72 * 255)));
-    return { image, loudness: normalise(loudness) };
-}
-
 self.onmessage = ({ data }) => {
     try {
-        const result = data.kind === 'bands' ? bands(data) : spectrogram(data);
+        const result = bands(data);
         const transfer = Object.values(result).map((v) => v.buffer);
         self.postMessage({ id: data.id, ...result }, transfer);
     } catch (err) {

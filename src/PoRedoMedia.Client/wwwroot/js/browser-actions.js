@@ -115,88 +115,6 @@ window.poMedia = {
         });
     },
 
-    // Hears what is said in a video with a speech model running in this browser, and stores it
-    // with the video. Used when the server has no speech model. Resolves to the number of lines
-    // heard, or -1 when it could not be done; the run then simply has no captions.
-    async transcribeVideo(input, mediaId, status) {
-        const file = input.files && input.files[0];
-        // Decoding holds the whole soundtrack in memory, so long videos are left alone.
-        if (!file || file.size > 80 * 1024 * 1024) return -1;
-        let worker;
-        try {
-            const decoder = new AudioContext();
-            const decoded = await decoder.decodeAudioData(await file.arrayBuffer());
-            decoder.close();
-            if (decoded.duration > 300) return -1;
-            // The speech model wants one channel at 16 kHz.
-            const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * 16000), 16000);
-            const source = offline.createBufferSource();
-            source.buffer = decoded;
-            source.connect(offline.destination);
-            source.start();
-            const samples = (await offline.startRendering()).getChannelData(0);
-
-            worker = new Worker('/js/local-ai/whisper-worker.js', { type: 'module' });
-            const segments = await new Promise((resolve, reject) => {
-                worker.onmessage = (e) => {
-                    if (e.data.type === 'status') status.invokeMethodAsync('Report', e.data.percent ?? -1);
-                    else if (e.data.type === 'complete') resolve(e.data.segments);
-                    else reject(new Error(e.data.reason));
-                };
-                worker.onerror = (e) => reject(new Error(e.message));
-                worker.postMessage({ samples }, [samples.buffer]);
-            });
-            if (!segments.length) return 0;
-            const response = await window.poMedia.post(`api/media/${mediaId}/transcript`, segments);
-            return response.ok ? segments.length : -1;
-        } catch (err) {
-            console.warn('[poMedia] On-device speech failed:', err?.message ?? err);
-            return -1;
-        } finally {
-            worker?.terminate();
-        }
-    },
-
-    // Lifts the subject of a picture off its background with a model running in this browser,
-    // and puts the transparent PNG where the next Cutout run on the picture will find it. Resolves
-    // to null on success, or a reason the page can show.
-    async cutoutOnDevice(imageUrl, uploadUrl, status) {
-        let worker;
-        try {
-            const blob = await (await fetch(imageUrl)).blob();
-            const webgpu = !!(navigator.gpu && await navigator.gpu.requestAdapter().catch(() => null));
-            worker = new Worker('/js/local-ai/cutout-worker.js', { type: 'module' });
-            const result = await new Promise((resolve, reject) => {
-                worker.onmessage = (e) => {
-                    if (e.data.type === 'status') status.invokeMethodAsync('Report', e.data.percent ?? -1);
-                    else if (e.data.type === 'complete') resolve(e.data);
-                    else reject(new Error(e.data.reason));
-                };
-                worker.onerror = (e) => reject(new Error(e.message));
-                worker.postMessage({ blob, webgpu });
-            });
-
-            // The mask becomes the alpha of the original pixels, at the picture's own size.
-            const bitmap = await createImageBitmap(blob);
-            const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-            const context = canvas.getContext('2d');
-            context.drawImage(bitmap, 0, 0);
-            const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height);
-            const step = result.channels || 1;
-            for (let i = 0; i < bitmap.width * bitmap.height; i++) pixels.data[i * 4 + 3] = result.mask[i * step];
-            context.putImageData(pixels, 0, 0);
-            const png = await canvas.convertToBlob({ type: 'image/png' });
-
-            const put = await fetch(uploadUrl, { method: 'PUT', body: png, headers: { 'x-ms-blob-type': 'BlockBlob', 'Content-Type': 'image/png' } });
-            return put.ok ? null : 'The cutout made on your device could not be sent.';
-        } catch (err) {
-            console.warn('[poMedia] On-device cutout failed:', err?.message ?? err);
-            return 'The on-device cutout failed: ' + (err?.message ?? err);
-        } finally {
-            worker?.terminate();
-        }
-    },
-
     // Drop, paste and the camera all hand their file to the picker's own file input, so one
     // upload path serves every way of choosing media.
     setFile(input, file) {
@@ -491,21 +409,5 @@ window.poMedia = {
 
     scrollIntoView(selector) {
         document.querySelector(selector)?.scrollIntoView({ block: 'nearest' });
-    },
-
-    // Counts a number up to its new value instead of swapping it.
-    countUp(element, value, prefix, digits) {
-        if (!element) return;
-        const from = parseFloat(element.dataset.value || '0');
-        element.dataset.value = value;
-        if (matchMedia('(prefers-reduced-motion: reduce)').matches) { element.textContent = prefix + value.toFixed(digits); return; }
-        const started = performance.now();
-        const step = (now) => {
-            const t = Math.min(1, (now - started) / 600);
-            const eased = 1 - Math.pow(1 - t, 3);
-            element.textContent = prefix + (from + (value - from) * eased).toFixed(digits);
-            if (t < 1) requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
     },
 };

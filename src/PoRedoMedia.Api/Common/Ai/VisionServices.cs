@@ -1,16 +1,11 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Azure;
-using Azure.AI.Vision.ImageAnalysis;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Hybrid;
 
 namespace PoRedoMedia.Api.Common.Ai;
 
-/// <summary>
-/// Looks at an image through a chat model that accepts pictures. Serves both the Azure OpenAI
-/// vision option and the local Ollama one; they differ only in the client they are given.
-/// </summary>
+/// <summary>Looks at an image through a chat model that accepts pictures (Azure OpenAI).</summary>
 public sealed class ChatVisionService(IChatClient chat) : IVisionService
 {
     private const string SystemPrompt =
@@ -102,53 +97,6 @@ public sealed class GeminiVisionService(IConfiguration configuration, IHttpClien
             : "";
 }
 
-/// <summary>
-/// Azure Computer Vision. In the region the app's resource lives in, captioning is unavailable,
-/// so this usually answers with tags only and says so.
-/// </summary>
-public sealed class AzureVisionService(IConfiguration configuration) : IVisionService
-{
-    internal const string TagsOnlyReason =
-        "Azure Computer Vision could not caption this picture, so the description was built from detected tags.";
-
-    private readonly ImageAnalysisClient _client = new(
-        new Uri(configuration[ConfigKeys.ComputerVisionEndpoint]!), new AzureKeyCredential(configuration[ConfigKeys.ComputerVisionApiKey]!));
-    private readonly float _minTagConfidence = configuration.GetValue<float?>(ConfigKeys.ComputerVisionMinTagConfidence) ?? 0.6f;
-    private volatile bool _captionUnsupported;
-
-    public async Task<VisionResult> AnalyzeAsync(byte[] image, CancellationToken ct = default)
-    {
-        if (!_captionUnsupported)
-        {
-            try
-            {
-                var full = (await _client.AnalyzeAsync(
-                    BinaryData.FromBytes(image), VisualFeatures.Caption | VisualFeatures.Tags,
-                    new ImageAnalysisOptions { Language = "en", GenderNeutralCaption = true }, ct)).Value;
-                var tags = Tags(full);
-                return string.IsNullOrWhiteSpace(full.Caption?.Text)
-                    ? new VisionResult(FromTags(tags), tags, 0, TagsOnlyReason)
-                    : new VisionResult(full.Caption.Text, tags, full.Caption.Confidence);
-            }
-            catch (RequestFailedException ex) when (ex.Status == 400 && ex.Message.Contains("Caption"))
-            {
-                // Remembered, so later calls do not pay for a request that is known to fail.
-                _captionUnsupported = true;
-            }
-        }
-
-        var tagsOnly = Tags((await _client.AnalyzeAsync(
-            BinaryData.FromBytes(image), VisualFeatures.Tags, new ImageAnalysisOptions { Language = "en" }, ct)).Value);
-        return new VisionResult(FromTags(tagsOnly), tagsOnly, 0, TagsOnlyReason);
-    }
-
-    private IReadOnlyList<string> Tags(ImageAnalysisResult result) =>
-        [.. (result.Tags?.Values ?? []).Where(t => t.Confidence >= _minTagConfidence).Select(t => t.Name)];
-
-    private static string FromTags(IReadOnlyList<string> tags) =>
-        tags.Count > 0 ? $"A photo showing {string.Join(", ", tags.Take(8))}" : "No description available";
-}
-
 /// <summary>Reads the <c>{"description": "...", "tags": [...]}</c> answer the vision prompts ask for.</summary>
 public static class VisionJson
 {
@@ -196,56 +144,33 @@ public sealed class CachingVisionService(IVisionService inner, HybridCache cache
     }
 }
 
-/// <summary>
-/// Maps a picked model id to its provider. With no id, prefers Gemini, then Azure OpenAI, then
-/// Azure Computer Vision: the first gives real sentences cheaply, the last usually only tags.
-/// </summary>
-public sealed class VisionServiceRouter(IReadOnlyDictionary<string, IVisionService> providers) : IVisionServiceRouter
-{
-    private static readonly string[] Preference =
-        [AiProviderIds.GeminiVision, AiProviderIds.AzureOpenAiVision, AiProviderIds.AzureComputerVision, AiProviderIds.OllamaVision];
-
-    /// <summary>The provider ids that are configured here, in order of preference.</summary>
-    public IReadOnlyList<string> Available => [.. Preference.Where(providers.ContainsKey)];
-
-    public IVisionService Resolve(string? modelId)
-    {
-        if (string.IsNullOrEmpty(modelId))
-            return Available.Count > 0 ? providers[Available[0]] : throw new RunStepException("No vision model is configured.");
-
-        // A browser model runs on the user's device. Reaching the server with one is a client
-        // error, and quietly billing a cloud provider in its place would be a surprise charge.
-        return providers.TryGetValue(modelId, out var provider)
-            ? provider
-            : throw new RunStepException("The picked vision model is not available on this server.");
-    }
-}
-
 public static class VisionInput
 {
     /// <summary>
     /// What the picture shows: the description the user's own device wrote when there is one, and
-    /// otherwise the picked provider's. With a device description the server never looks at the
-    /// picture, so choosing the free on-device model can never cost a provider call.
+    /// otherwise the configured provider's. With a device description the server never looks at the
+    /// picture, so the free on-device model can never cost a provider call.
     /// </summary>
     /// <remarks>
-    /// With <paramref name="reads"/>, a provider's answer about the current picture is kept with it,
-    /// so another run on the same picture with the same provider asks nothing. A degraded answer
-    /// (tags in place of a caption) is not kept, so the next run tries again.
+    /// With <paramref name="reads"/>, the provider's answer about the current picture is kept with it,
+    /// so another run on the same picture asks nothing. A degraded answer (tags in place of a
+    /// caption) is not kept, so the next run tries again.
     /// </remarks>
     public static async Task<VisionResult> SeeAsync(
-        this IVisionServiceRouter router, RunContext context, byte[] image, CancellationToken ct, AiReadStore? reads = null)
+        this IVisionService vision, RunContext context, byte[] image, CancellationToken ct, AiReadStore? reads = null)
     {
         if (UserText.Clean(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionDescription), 2000) is { } onDevice)
             return new VisionResult(onDevice, [], 1);
 
-        var model = context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionModel);
-        var provider = router.Resolve(model);
-        if (reads is null)
-            return await provider.AnalyzeAsync(image, ct);
+        // An on-device model with no description is a client error, and quietly billing a cloud
+        // provider in its place would be a surprise charge.
+        if (AiCatalog.RunsInBrowser(context.Option(PoRedoMedia.Shared.Models.RunOptions.VisionModel)))
+            throw new RunStepException("The on-device description did not arrive. Try the run again.");
 
-        var name = "vision-" + string.Concat((model ?? "default").Select(c => char.IsLetterOrDigit(c) || c == '-' ? c : '_'));
-        return await reads.GetOrReadAsync(
-            context.Current.Id, name, () => provider.AnalyzeAsync(image, ct), seen => seen.FallbackReason is null && seen.Description.Length > 0, ct);
+        return reads is null
+            ? await vision.AnalyzeAsync(image, ct)
+            : await reads.GetOrReadAsync(
+                context.Current.Id, "vision-default", () => vision.AnalyzeAsync(image, ct),
+                seen => seen.FallbackReason is null && seen.Description.Length > 0, ct);
     }
 }

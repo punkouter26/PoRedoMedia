@@ -6,10 +6,11 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Api.Common.Ai;
-using PoRedoMedia.Api.Features.Cutout;
+using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.MemeCaption;
-using PoRedoMedia.Api.Features.Memeify;
+using PoRedoMedia.Api.Features.Video;
 using PoRedoMedia.Shared;
+using PoRedoMedia.Shared.Models;
 using SkiaSharp;
 
 namespace PoRedoMedia.UnitTests;
@@ -61,33 +62,6 @@ public sealed class ImageAiTests
             Calls++;
             return Task.FromResult(new VisionResult(description, [], 1));
         }
-    }
-
-    [Theory]
-    [InlineData(null, "gemini")]
-    [InlineData("", "gemini")]
-    [InlineData(AiProviderIds.AzureOpenAiVision, "openai")]
-    [InlineData(AiProviderIds.AzureComputerVision, "cv")]
-    public async Task The_router_returns_the_picked_provider_and_prefers_Gemini_by_default(string? modelId, string expected)
-    {
-        var router = new VisionServiceRouter(new Dictionary<string, IVisionService>
-        {
-            [AiProviderIds.AzureComputerVision] = new CountingVision("cv"),
-            [AiProviderIds.AzureOpenAiVision] = new CountingVision("openai"),
-            [AiProviderIds.GeminiVision] = new CountingVision("gemini"),
-        });
-
-        Assert.Equal(expected, (await router.Resolve(modelId).AnalyzeAsync(Image)).Description);
-    }
-
-    [Fact]
-    public void A_model_the_server_does_not_have_is_refused_rather_than_replaced_by_another()
-    {
-        var router = new VisionServiceRouter(new Dictionary<string, IVisionService> { [AiProviderIds.GeminiVision] = new CountingVision("gemini") });
-
-        Assert.Throws<RunStepException>(() => router.Resolve("browser:florence2-base"));
-        Assert.Throws<RunStepException>(() => router.Resolve(AiProviderIds.OllamaVision));
-        Assert.Throws<RunStepException>(() => new VisionServiceRouter(new Dictionary<string, IVisionService>()).Resolve(null));
     }
 
     [Theory]
@@ -182,25 +156,17 @@ public sealed class ImageAiTests
     }
 
     [Fact]
-    public async Task A_sticker_is_a_512_px_webp_of_the_subject_with_a_white_outline_and_clear_corners()
+    public void Bulk_styles_draws_only_the_filled_boxes_and_falls_back_only_when_every_box_is_empty()
     {
-        using var photo = new SKBitmap(400, 300);
-        photo.Erase(new SKColor(20, 40, 160));
-        var cut = await new MockBackgroundRemover().RemoveAsync(ImageBytes.ToPng(photo), "image/png", default);
+        var sent = new Dictionary<string, string>
+        {
+            [RunOptions.BulkPrompt(0)] = "neon {subject}",
+            [RunOptions.BulkPrompt(1)] = "   ",
+            [RunOptions.BulkPrompt(2)] = "",
+            [RunOptions.BulkPrompt(3)] = "clay {subject}",
+        };
 
-        var webp = Sticker.Make(cut);
-
-        using var codec = SKCodec.Create(new MemoryStream(webp));
-        Assert.Equal(SKEncodedImageFormat.Webp, codec.EncodedFormat);
-        using var sticker = SKBitmap.Decode(webp);
-        Assert.Equal((Sticker.Size, Sticker.Size), (sticker.Width, sticker.Height));
-        Assert.Equal(0, sticker.GetPixel(2, 2).Alpha);
-        // The subject fills the middle; the outline runs just outside its left edge, at x = 16.
-        Assert.True(sticker.GetPixel(256, 256) is { Alpha: 255, Blue: > 120, Red: < 60 });
-        Assert.True(sticker.GetPixel(10, 256) is { Alpha: > 200, Red: > 230, Green: > 230, Blue: > 230 });
-        Assert.True(Sticker.HasSubject(cut));
-        using var empty = new SKBitmap(new SKImageInfo(64, 64, SKColorType.Rgba8888, SKAlphaType.Premul));
-        empty.Erase(SKColors.Transparent);
-        Assert.False(Sticker.HasSubject(ImageBytes.ToPng(empty)));
+        Assert.Equal(["neon {subject}", "clay {subject}"], BulkStylesStep.Prompts(sent, ["saved"]));
+        Assert.Equal(["saved"], BulkStylesStep.Prompts(new Dictionary<string, string> { [RunOptions.BulkPrompt(0)] = " " }, ["saved"]));
     }
 }

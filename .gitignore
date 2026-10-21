@@ -9,11 +9,9 @@ TestResults/
 coverage*/
 *.trx
 
-# Read-only source repos kept beside the solution for reference
-/PoRedoImage/
-/PoMemeVideo/
-
 # Secrets and local state
+.aura/
+.vscode/mcp.json
 .env*
 !.env.example
 appsettings.Local.json

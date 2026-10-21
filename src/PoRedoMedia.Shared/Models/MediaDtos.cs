@@ -33,17 +33,5 @@ public sealed record FrameUploadRequest(List<string> Frames, List<double>? Times
 public sealed record FramesResult(int FramesStored, int MomentsFound);
 
 /// <summary>The public address of a shared item.</summary>
-/// <param name="Feed">True when the item is also listed on the feed every signed-in user sees.</param>
-public sealed record ShareLinkDto(string Url, bool Feed = false);
+public sealed record ShareLinkDto(string Url);
 
-/// <summary>One shared item on the feed. Its picture and file are read through its share link.</summary>
-public sealed record FeedItemDto(
-    string Token,
-    string Title,
-    MediaKind Kind,
-    string Author,
-    DateTimeOffset SharedAt,
-    int Views,
-    int Remixes,
-    bool Mine,
-    bool CanRemix);

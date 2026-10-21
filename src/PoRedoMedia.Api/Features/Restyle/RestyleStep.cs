@@ -11,7 +11,7 @@ namespace PoRedoMedia.Api.Features.Restyle;
 /// from those words in the original's shape.
 /// </summary>
 public sealed class RestyleStep(
-    ReproductionPromptWriter writer, IVisionServiceRouter vision, IImageGenerationService images,
+    ReproductionPromptWriter writer, IVisionService vision, IImageGenerationService images,
     BlobStorageService blobs, MediaOutputs outputs, AiReadStore reads) : IRunStep
 {
     public IReadOnlySet<MediaFunction> Handles { get; } = new HashSet<MediaFunction> { MediaFunction.Restyle };

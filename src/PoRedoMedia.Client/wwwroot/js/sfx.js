@@ -8,7 +8,8 @@ window.poSfx = (() => {
     let context = null, master = null, bus = null, reverb = null, noiseBuffer = null;
     let pad = null, whoosh = null, whooshStop = 0;
 
-    const muted = () => window.poMedia.read('po.sfx.muted') === '1';
+    // Off until switched on in Settings: the simplest app is a quiet one.
+    const muted = () => window.poMedia.read('po.sfx.muted') !== '0';
     const volume = () => {
         const stored = parseFloat(window.poMedia.read('po.sfx.volume') ?? '0.5');
         return isFinite(stored) ? Math.min(1, Math.max(0, stored)) : 0.5;
@@ -147,12 +148,6 @@ window.poSfx = (() => {
         remove: (pan) => {
             noise(0, 0.12, { level: 0.7, frequency: 900, q: 2, pan });
             thump(0.04, 0.8, pan);
-        },
-        // Glass: a scatter of bright cracks and tiny inharmonic tinkles over a thump.
-        shatter: (pan) => {
-            for (let i = 0; i < 7; i++) noise(i * 0.025 + Math.random() * 0.02, 0.05, { level: 0.6, frequency: 2500 + Math.random() * 4000, q: 4, pan: pan + (Math.random() - 0.5) * 0.6 });
-            for (let i = 0; i < 5; i++) bell(2200 + Math.random() * 2600, 0.03 + i * 0.04, 0.3, { level: 0.25, ratio: 1.41, index: 3, pan: pan + (Math.random() - 0.5) * 0.8 });
-            thump(0, 0.7, pan);
         },
         drop: (pan) => { thump(0, 1, pan); bell(196, 0.02, 0.6, { level: 0.35, index: 0.8, pan }); },
         // Shimmering grains that climb, under a picture being rebuilt.

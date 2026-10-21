@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bulk Styles Editor</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; --cut: #b4235a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; --cut: #ff7aa8; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 75ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  .cut { color: var(--cut); font-weight: 600; }
+  .add { color: var(--new); font-weight: 600; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bulk styles: one list of style cards, edited in place</h1>
+  <p class="lede">Before and after, captured headless with Playwright at 1366×1000, Development environment, a fresh
+    dev user with one uploaded picture and Bulk styles ticked, on 2026-10-21. The before list shows ten bare
+    checkboxes; the after list is longer, so its screenshot cuts off part-way down.</p>
+
+  <section>
+    <h2><span class="tag">List</span>Cards with a name and a preview</h2>
+    <p class="what">Each style is now a card: a tick, its name in bold and the first two lines of what it looks like.
+      Ticked cards are tinted; unticked ones fade. A count and the All/None, Clear and Save-as-mine actions sit above
+      the list.</p>
+    <div class="pair">
+      <figure><img src="261021-bulk-styles-editor/before-desktop-1-list.png" alt="Before: a plain checkbox list of style names"><figcaption><b>Before:</b> names only, with a Clear button and a collapsed "Edit the style prompts" panel below.</figcaption></figure>
+      <figure><img src="261021-bulk-styles-editor/after-desktop-1-list.png" alt="After: style cards with names and previews"><figcaption><b class="new">After:</b> "10 of 10 selected", then a card per style with edit (pencil) and remove (×).</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Edit</span>Edit one style where it is</h2>
+    <p class="what">The panel of ten raw text boxes (name and description run together) is gone. The pencil opens just
+      that card, with a separate name field and description box, and Done closes it.</p>
+    <div class="pair">
+      <figure><img src="261021-bulk-styles-editor/before-desktop-2-edit.png" alt="Before: ten raw text boxes"><figcaption><b>Before:</b> all ten prompts as raw text, "Title: description" in one box each.</figcaption></figure>
+      <figure><img src="261021-bulk-styles-editor/after-desktop-2-edit.png" alt="After: one card open for editing"><figcaption><b class="new">After:</b> the first card open, with Name and Description, and Done.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Empty</span>Clear, then start again or write your own</h2>
+    <p class="what">After Clear the list says so and offers the built-in ten back; "Add a style" opens a new empty card.
+      An empty style is never drawn.</p>
+    <div class="pair">
+      <figure><img src="261021-bulk-styles-editor/after-desktop-3-cleared.png" alt="After Clear: empty state with two choices"><figcaption><b class="new">After Clear:</b> "Use the built-in ten" or "Add a style".</figcaption></figure>
+      <figure><img src="261021-bulk-styles-editor/after-phone-1-list.png" alt="After on a phone"><figcaption><b class="new">After</b> (phone, top of the section).</figcaption></figure>
+    </div>
+    <ul class="changes">
+      <li><span class="cut">Removed:</span> the separate tick list and the collapsed panel of ten raw text boxes.</li>
+      <li><span class="add">Added:</span> style cards, All/None, a selected count, per-card edit and remove, Add a style, Use the built-in ten.</li>
+      <li>Unchanged: what is sent (only ticked, non-empty styles) and how a saved set is stored ("Name: description").</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

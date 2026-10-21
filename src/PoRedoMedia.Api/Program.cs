@@ -5,7 +5,7 @@ using PoRedoMedia.Api.Components;
 using PoRedoMedia.Api.Configuration;
 using PoRedoMedia.Api.Features.Auth;
 using PoRedoMedia.Api.Features.BulkStyles;
-using PoRedoMedia.Api.Features.Captions;
+using PoRedoMedia.Api.Features.Video;
 using PoRedoMedia.Api.Features.Housekeeping;
 using PoRedoMedia.Api.Features.Media;
 using PoRedoMedia.Api.Features.MemeCaption;
@@ -29,12 +29,7 @@ if (args.Length > 0 && args[0] == "seed-sounds")
     return await SeedSoundsCommand.RunAsync(args[1..], seedConfiguration);
 }
 
-// CLI verb: dotnet run --project src/PoRedoMedia.Api -- eval-ai [--dir <folder>] [--count 10] [--ollama <model>]
-// Scores the AI's meme captions per variant and writes an HTML report, using the app's own
-// configuration and services; the web host is built but never started.
-string[]? evalArgs = args.Length > 0 && args[0] == "eval-ai" ? args[1..] : null;
-
-var builder = WebApplication.CreateBuilder(evalArgs is null ? args : []);
+var builder = WebApplication.CreateBuilder(args);
 
 // The static web assets manifest is wired automatically only in Development. Test runs from
 // build output too, and without this every asset answers empty and the WASM app never boots.
@@ -84,9 +79,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
 
 var app = builder.Build();
 
-if (evalArgs is not null)
-    return await PoRedoMedia.Api.Features.Eval.EvalAiCommand.RunAsync(app.Services, evalArgs);
-
 if (!app.Environment.IsDevOrTest())
 {
     app.UseForwardedHeaders();
@@ -131,12 +123,11 @@ app.MapAntiforgeryToken();
 app.MapAppConfig();
 app.MapAuthEndpoints();
 app.MapMedia();
+app.MapDeviceResults();
 app.MapQuota();
 app.MapRuns();
 app.MapMemeTemplates();
 app.MapBulkPrompts();
-app.MapSounds();
-app.MapCaptions();
 app.MapExports();
 app.MapSharing();
 app.MapClientErrors();

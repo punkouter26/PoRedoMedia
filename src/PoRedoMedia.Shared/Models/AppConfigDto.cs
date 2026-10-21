@@ -5,16 +5,15 @@ namespace PoRedoMedia.Shared.Models;
 /// <summary>What the client needs to know about how the server is configured.</summary>
 /// <param name="AvailableFunctions">Functions that can run here. The rest are shown as unavailable.</param>
 /// <param name="RoastVoices">Voices the video roast can be performed in here, in menu order.</param>
-/// <param name="VisionModels">Ids of the vision providers configured here, most preferred first.</param>
 /// <param name="Pricing">List prices used for the session cost estimate.</param>
 /// <param name="ServerSpeech">The server can transcribe speech. When false, the browser's own speech model does it.</param>
 public sealed record AppConfigDto(
-    bool UseMockAi, bool DevLoginEnabled, MediaFunction[] AvailableFunctions, string[] RoastVoices, string[] VisionModels, AiPricingDto Pricing,
+    bool UseMockAi, bool DevLoginEnabled, MediaFunction[] AvailableFunctions, string[] RoastVoices, AiPricingDto Pricing,
     bool ServerSpeech = true, int RetentionDays = 30);
 
 /// <summary>Indicative list prices in US dollars per call. Estimates, not billed amounts.</summary>
 public sealed record AiPricingDto(
-    decimal VisionUsd, decimal TextUsd, decimal ImageUsd, decimal MusicUsd, decimal VideoUsd, decimal UpscaleUsd = 0, decimal CutoutUsd = 0);
+    decimal VisionUsd, decimal TextUsd, decimal ImageUsd, decimal MusicUsd, decimal VideoUsd);
 
 /// <summary>An error the browser hit, sent to the server's logs. <paramref name="Page"/> is the address it happened on.</summary>
 public sealed record ClientErrorDto(string Message, string? Stack, string? Category, string? Page);

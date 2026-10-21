@@ -1,5 +1,7 @@
-@* My media: the user's own uploads and results, with search, filters, bulk actions and the details
-   panel. Shown by the Library page, which owns the address /gallery. *@
+@page "/gallery"
+@page "/library"
+@* The Library: the user's own uploads and results, with search, filters, bulk actions and the
+   details panel. *@
 @implements IAsyncDisposable
 @inject MediaApi Api
 @inject RunTracker Tracker
@@ -8,6 +10,10 @@
 @inject ContextMenuService Menus
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+
+<PageTitle>Library · PoRedoMedia</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H4" TagName="TagName.H1" class="rz-m-0 library-title">Library</RadzenText>
 
 <RadzenStack Gap="0.75rem">
     @* One bar: what is shown, or, once anything is ticked, what to do with the ticked items. *@
@@ -133,7 +139,6 @@
     private HashSet<Guid> _picked = [];
     private MediaPanel? _panel;
     private DotNetObjectReference<Gallery>? _self;
-    private string _magnet = "";
 
     /// <summary>True while any card is ticked: clicks tick, and the bar shows the bulk actions.</summary>
     private bool Picking => _picked.Count > 0;
@@ -167,17 +172,6 @@
         {
             _self = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("poMedia.shortcuts", _self);
-            // Cards tilt toward the pointer and can be thrown away (js/fx/shatter.js).
-            await JS.InvokeVoidAsync("poShatter.attach", _self);
-        }
-
-        // The picked cards lean together, so a bulk action's selection reads as one group.
-        var picked = _picked.Select(id => id.ToString()).Order().ToArray();
-        var signature = string.Join(',', picked);
-        if (signature != _magnet)
-        {
-            _magnet = signature;
-            await JS.InvokeVoidAsync("poShatter.magnet", (object)picked);
         }
     }
 
@@ -355,8 +349,6 @@
             return;
 
         _working = true;
-        // The cards break into shards straight away; any that could not be deleted come back.
-        var shattered = await JS.InvokeAsync<bool>("poShatter.burst", _picked.ToList());
         var failed = new List<Guid>();
         foreach (var id in _picked.ToList())
         {
@@ -372,10 +364,7 @@
         }
 
         _working = false;
-        if (failed.Count > 0)
-            await JS.InvokeVoidAsync("poShatter.restore", failed);
-        if (!shattered)
-            await JS.InvokeVoidAsync("poSfx.play", "remove");
+        await JS.InvokeVoidAsync("poSfx.play", "remove");
         if (failed.Count > 0)
             Notifications.Notify(NotificationSeverity.Error, "Some items were kept", $"{failed.Count} could not be deleted. An item with a run in progress cannot be.", 8000);
     }
@@ -417,25 +406,6 @@
         StateHasChanged();
     }
 
-    /// <summary>A card was thrown off the grid: delete it, after the usual question. True when it was deleted.</summary>
-    [JSInvokable]
-    public async Task<bool> OnFling(string id)
-    {
-        if (!Guid.TryParse(id, out var flung) || _items?.Any(m => m.Id == flung) != true)
-            return false;
-
-        // A throw deletes only the thrown card; the selection being built is put back afterwards.
-        var kept = _picked;
-        _picked = [flung];
-        await DeletePickedAsync();
-        var deleted = _items.All(m => m.Id != flung);
-        _picked = [.. kept.Where(k => k != flung)];
-        if (deleted && _selectedId == flung)
-            await SetAsync(clearSelected: true);
-        StateHasChanged();
-        return deleted;
-    }
-
     private async Task MoveAsync(MediaDto item)
     {
         await SetAsync(selected: item.Id);
@@ -448,7 +418,6 @@
         try
         {
             await JS.InvokeVoidAsync("poMedia.releaseShortcuts");
-            await JS.InvokeVoidAsync("poShatter.detach");
         }
         catch (JSDisconnectedException)
         {

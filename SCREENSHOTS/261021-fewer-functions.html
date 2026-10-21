@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fewer Functions</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; --cut: #b4235a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; --cut: #ff7aa8; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 75ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair.phones { grid-template-columns: repeat(4, 1fr); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  .cut { color: var(--cut); font-weight: 600; }
+  .add { color: var(--new); font-weight: 600; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } .pair.phones { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fewer functions: no Upscale or Cutout, a fixed Rap roast, a Bulk styles Clear</h1>
+  <p class="lede">Before and after, captured headless with Playwright at 1366×1000 (desktop) and 390×844 (phone),
+    Development environment, a fresh dev user with one uploaded picture, on 2026-10-21.</p>
+
+  <section>
+    <h2><span class="tag">Functions</span>Five image functions instead of seven</h2>
+    <p class="what">Upscale and Cutout are gone from the picker, the server and the price list, along with the
+      on-device cutout model and the Hugging Face remover.</p>
+    <div class="pair">
+      <figure><img src="261021-fewer-functions/before-desktop-1-functions.png" alt="Function picker before, with Upscale and Cutout"><figcaption><b>Before:</b> Restyle, Meme caption, Upscale, Cutout (greyed), Rap roast, Photo to video, Bulk styles.</figcaption></figure>
+      <figure><img src="261021-fewer-functions/after-desktop-1-functions.png" alt="Function picker after, five functions"><figcaption><b class="new">After:</b> Restyle, Meme caption, Rap roast, Photo to video, Bulk styles.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Rap roast</span>No options: stand-up, Nuclear, strong language</h2>
+    <p class="what">The style bar, the intensity bar and the strong-language switch are gone. Every roast is a
+      stand-up set at full strength with swearing allowed. If the music model refuses it, the retry still drops
+      the swearing and keeps the jokes.</p>
+    <div class="pair">
+      <figure><img src="261021-fewer-functions/before-desktop-2-rap-roast.png" alt="Rap roast options before"><figcaption><b>Before:</b> Trap / Old school / Stand-up, Gentle → Nuclear, and a switch.</figcaption></figure>
+      <figure><img src="261021-fewer-functions/after-desktop-2-rap-roast.png" alt="Rap roast after, no options"><figcaption><b class="new">After:</b> tick it and run. The description says what you get.</figcaption></figure>
+    </div>
+    <div class="pair phones" style="margin-top:14px">
+      <figure><img src="261021-fewer-functions/before-phone-1-functions.png" alt="Phone picker before"><figcaption><b>Before</b> (phone)</figcaption></figure>
+      <figure><img src="261021-fewer-functions/after-phone-1-functions.png" alt="Phone picker after"><figcaption><b class="new">After</b> (phone)</figcaption></figure>
+      <figure><img src="261021-fewer-functions/before-phone-2-rap-roast.png" alt="Phone rap roast before"><figcaption><b>Before:</b> roast options (phone)</figcaption></figure>
+      <figure><img src="261021-fewer-functions/after-phone-2-rap-roast.png" alt="Phone rap roast after"><figcaption><b class="new">After</b> (phone)</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">Bulk styles</span>Clear, and empty boxes are skipped</h2>
+    <p class="what">A Clear button empties all ten style boxes and opens them so you can type your own. A box left
+      empty is no longer listed and is not drawn; the run asks for at least one filled box.</p>
+    <div class="pair">
+      <figure><img src="261021-fewer-functions/after-desktop-3-bulk.png" alt="Bulk styles with the Clear button"><figcaption><b class="new">New:</b> Clear, top right of the Bulk styles box.</figcaption></figure>
+      <figure><img src="261021-fewer-functions/after-desktop-4-bulk-cleared.png" alt="Bulk styles after Clear, empty boxes open"><figcaption><b class="new">After Clear:</b> the list is empty and the ten boxes are open for typing.</figcaption></figure>
+    </div>
+    <ul class="changes">
+      <li><span class="cut">Removed:</span> Upscale, Cutout (server and on-device), the Rap roast style, intensity and strong-language controls.</li>
+      <li><span class="add">Added:</span> Bulk styles Clear button; empty boxes hidden from the tick list.</li>
+      <li>Runs saved before this change that included Upscale or Cutout still open; those names are just left out.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
