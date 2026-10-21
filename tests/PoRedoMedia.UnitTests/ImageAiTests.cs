@@ -4,8 +4,10 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Api.Common.Ai;
+using PoRedoMedia.Api.Features.Cutout;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Shared;
+using SkiaSharp;
 
 namespace PoRedoMedia.UnitTests;
 
@@ -127,5 +129,28 @@ public sealed class ImageAiTests
         Assert.Equal(new MemeCaptionText("When the box arrives", "And the cat approves"), caption);
         Assert.Contains(chat.Seen, m => m.Role == ChatRole.User && m.Text.Contains("A cat in a box") && m.Text.Contains("cat, box"));
         await Assert.ThrowsAsync<RunStepException>(() => new ChatCaptionWriter(new StubChat("""{"top":"","bottom":""}""")).WriteAsync("x", []));
+    }
+
+    [Fact]
+    public async Task A_sticker_is_a_512_px_webp_of_the_subject_with_a_white_outline_and_clear_corners()
+    {
+        using var photo = new SKBitmap(400, 300);
+        photo.Erase(new SKColor(20, 40, 160));
+        var cut = await new MockBackgroundRemover().RemoveAsync(ImageBytes.ToPng(photo), "image/png", default);
+
+        var webp = Sticker.Make(cut);
+
+        using var codec = SKCodec.Create(new MemoryStream(webp));
+        Assert.Equal(SKEncodedImageFormat.Webp, codec.EncodedFormat);
+        using var sticker = SKBitmap.Decode(webp);
+        Assert.Equal((Sticker.Size, Sticker.Size), (sticker.Width, sticker.Height));
+        Assert.Equal(0, sticker.GetPixel(2, 2).Alpha);
+        // The subject fills the middle; the outline runs just outside its left edge, at x = 16.
+        Assert.True(sticker.GetPixel(256, 256) is { Alpha: 255, Blue: > 120, Red: < 60 });
+        Assert.True(sticker.GetPixel(10, 256) is { Alpha: > 200, Red: > 230, Green: > 230, Blue: > 230 });
+        Assert.True(Sticker.HasSubject(cut));
+        using var empty = new SKBitmap(new SKImageInfo(64, 64, SKColorType.Rgba8888, SKAlphaType.Premul));
+        empty.Erase(SKColors.Transparent);
+        Assert.False(Sticker.HasSubject(ImageBytes.ToPng(empty)));
     }
 }

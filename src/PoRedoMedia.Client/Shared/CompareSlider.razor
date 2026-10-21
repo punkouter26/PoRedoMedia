@@ -1,0 +1,25 @@
+@using System.Globalization
+@* Two pictures on top of each other with a handle between them: drag (or use the arrow keys) to
+   see how much of each. Both are fitted into the same box, so the split falls on the same place. *@
+
+<div class="compare" style="--split: @(Invariant(_split))%">
+    <img class="compare-img" src="@Before.Url" alt="@($"Before: {Before.Title}")" />
+    <img class="compare-img compare-after" src="@After.Url" alt="@($"After: {After.Title}")" />
+    <span class="compare-line" aria-hidden="true"></span>
+    <span class="compare-tag compare-tag-before" aria-hidden="true">Before</span>
+    <span class="compare-tag compare-tag-after" aria-hidden="true">After</span>
+    <input class="compare-range" type="range" min="0" max="100" step="1" value="@Invariant(_split)"
+           aria-label="Before and after: how much of the result to show" aria-valuetext="@($"{_split:0}% after")"
+           @oninput="@(e => _split = double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : _split)" />
+</div>
+
+@code {
+    /// <summary>What the result was made from.</summary>
+    [Parameter, EditorRequired] public MediaDto Before { get; set; } = null!;
+
+    [Parameter, EditorRequired] public MediaDto After { get; set; } = null!;
+
+    private double _split = 50;
+
+    private static string Invariant(double value) => value.ToString(CultureInfo.InvariantCulture);
+}

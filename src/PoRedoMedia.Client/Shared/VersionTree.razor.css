@@ -1,0 +1,55 @@
+.version-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.version-tree ul ul {
+    margin-left: 0.85rem;
+    padding-left: 0.65rem;
+    border-left: 2px solid var(--rz-base-300);
+}
+
+.version-tree li {
+    margin: 0.2rem 0;
+}
+
+.version-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 100%;
+    padding: 0.2rem 0.55rem 0.2rem 0.2rem;
+    border: 1px solid var(--rz-base-300);
+    border-radius: var(--po-radius-sm);
+    background: var(--rz-base-background-color);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.version-node:hover {
+    border-color: var(--rz-primary);
+}
+
+.version-node.current {
+    border-color: var(--rz-primary);
+    background: var(--rz-primary-lighter);
+    font-weight: 600;
+}
+
+.version-tree ::deep .version-thumb {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    object-fit: cover;
+    border-radius: calc(var(--po-radius-sm) / 1.5);
+    display: grid;
+    place-items: center;
+}
+
+.version-more {
+    font-size: 0.8rem;
+    opacity: 0.75;
+}

@@ -59,6 +59,7 @@ public sealed partial class FFmpegProcess
 
         process.Start();
         process.BeginErrorReadLine();
+        var started = Stopwatch.GetTimestamp();
 
         // Hard timeout so a pathologically slow or stuck encode fails cleanly instead of
         // leaving the run stuck in progress forever.
@@ -88,6 +89,7 @@ public sealed partial class FFmpegProcess
             throw;
         }
 
+        PoTelemetry.FFmpegSeconds.Record(Stopwatch.GetElapsedTime(started).TotalSeconds, new KeyValuePair<string, object?>("exit", process.ExitCode));
         if (process.ExitCode != 0)
             _logger.LogError("FFmpeg stderr for {Job}:\n{Stderr}", jobLabel, stderr);
 

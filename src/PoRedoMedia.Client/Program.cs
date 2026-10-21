@@ -7,6 +7,10 @@ using Radzen;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 var baseAddress = new Uri(builder.HostEnvironment.BaseAddress);
+
+// Errors on the user's screen reach the server's logs too.
+var errors = new ClientErrorReporter(baseAddress);
+builder.Logging.AddProvider(errors);
 builder.Services.AddScoped(services => new HttpClient(
     new SessionExpiredHandler(services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>())
     {
@@ -34,4 +38,6 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthenticationStateDeserialization();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+errors.Page = () => host.Services.GetService<Microsoft.AspNetCore.Components.NavigationManager>()?.Uri;
+await host.RunAsync();

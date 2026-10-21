@@ -32,14 +32,6 @@
     font: inherit;
 }
 
-.panel-lineage {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem 0.5rem;
-    font-size: 0.9rem;
-}
-
 .panel-actions {
     display: flex;
     flex-wrap: wrap;

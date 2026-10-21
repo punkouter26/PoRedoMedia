@@ -6,6 +6,8 @@
 @inject NotificationService Notifications
 
 <div class="roast-stage" @ref="_stage">
+    @* Concert mode's screen, filled and driven by js/fx/concert.js while the track plays. *@
+    <div class="roast-fx po-fx-only" aria-hidden="true"></div>
     <audio @ref="_audio" src="@Media.Url" controls preload="metadata" aria-label="@Media.Title"></audio>
     <ol class="roast-lines" aria-label="Lyrics. Pick a line to play from there.">
         @foreach (var line in Lines)

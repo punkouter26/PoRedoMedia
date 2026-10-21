@@ -43,7 +43,7 @@ window.poRoast = {
         const sync = stage.querySelector('[data-sync]');
         const syncOut = stage.querySelector('[data-sync-out]');
 
-        const state = { raf: 0, envelope: null, rate: 50, offset: 0 };
+        const state = { raf: 0, envelope: null, rate: 50, offset: 0, line: -1 };
         stage._poRoast = state;
 
         const show = () => {
@@ -58,6 +58,10 @@ window.poRoast = {
                 line.classList.toggle('now', i === current);
                 line.classList.toggle('sung', current >= 0 && i < current);
             });
+            if (current !== state.line) {
+                state.line = current;
+                window.poConcert?.line(stage, current >= 0 ? lines[current].textContent : '');
+            }
             if (current >= 0) lines[current].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             if (state.envelope) {
                 const level = state.envelope[Math.min(state.envelope.length - 1, Math.floor(audio.currentTime * state.rate))] || 0;
@@ -90,6 +94,9 @@ window.poRoast = {
             });
         }
 
+        // Concert mode: the screen over the lyrics that dances to the track.
+        window.poConcert?.attach(stage, audio);
+
         if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         try {
             const bytes = await (await fetch(audio.currentSrc || audio.src)).arrayBuffer();
@@ -107,6 +114,7 @@ window.poRoast = {
         cancelAnimationFrame(state.raf);
         state.audio.removeEventListener('play', state.play);
         state.audio.removeEventListener('pause', state.stop);
+        window.poConcert?.detach(stage);
         delete stage._poRoast;
     },
 

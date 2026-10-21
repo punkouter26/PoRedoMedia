@@ -7,13 +7,23 @@ window.poMedia = {
             const file = input.files && input.files[0];
             if (!file) { resolve(false); return; }
             const xhr = new XMLHttpRequest();
+            // The picker's drop zone, which the particles pour into while the bytes go up.
+            const zone = input.closest('.picker-drop');
             xhr.open('PUT', url);
             xhr.setRequestHeader('x-ms-blob-type', 'BlockBlob');
             xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) progress.invokeMethodAsync('Report', Math.round(e.loaded / e.total * 100));
+                if (!e.lengthComputable) return;
+                progress.invokeMethodAsync('Report', Math.round(e.loaded / e.total * 100));
+                if (zone) window.poParticles?.stream(zone, e.loaded / e.total);
             };
-            xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
-            xhr.onerror = () => resolve(false);
+            xhr.onload = () => {
+                window.poParticles?.finish();
+                resolve(xhr.status >= 200 && xhr.status < 300);
+            };
+            xhr.onerror = () => {
+                window.poParticles?.stop();
+                resolve(false);
+            };
             xhr.send(file);
         });
     },
@@ -164,11 +174,22 @@ window.poMedia = {
     // Makes a region accept dropped files, and the page accept pasted images, for one input.
     // The listeners are remembered on the region so releaseDropAndPaste can remove them.
     acceptDropAndPaste(zone, input) {
-        const over = (e) => { e.preventDefault(); zone.classList.add('dragging'); window.poBackdrop?.pulse(1); };
-        const leave = () => { zone.classList.remove('dragging'); window.poBackdrop?.pulse(0); };
+        const over = (e) => {
+            e.preventDefault();
+            zone.classList.add('dragging');
+            window.poBackdrop?.pulse(1);
+            window.poParticles?.attract(e.clientX, e.clientY);
+        };
+        const leave = () => {
+            zone.classList.remove('dragging');
+            window.poBackdrop?.pulse(0);
+            window.poParticles?.release();
+        };
         const drop = (e) => {
             e.preventDefault();
-            leave();
+            zone.classList.remove('dragging');
+            window.poBackdrop?.pulse(0);
+            window.poParticles?.collapse(e.clientX, e.clientY);
             const file = e.dataTransfer && e.dataTransfer.files[0];
             // Disabled means an upload is going. The upload reads the input's file as it goes, so
             // swapping it now would analyse the new file under the first one's name.
@@ -176,7 +197,10 @@ window.poMedia = {
         };
         const paste = (e) => {
             const file = [...(e.clipboardData ? e.clipboardData.files : [])][0];
-            if (file && !input.disabled && document.body.contains(input)) window.poMedia.setFile(input, file);
+            if (file && !input.disabled && document.body.contains(input)) {
+                window.poParticles?.collapse(zone);
+                window.poMedia.setFile(input, file);
+            }
         };
         zone.addEventListener('dragover', over);
         zone.addEventListener('dragleave', leave);
@@ -404,7 +428,7 @@ window.poMedia = {
             const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
             if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
             if (document.querySelector('.rz-dialog')) return;
-            const keys = ['/', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Delete', 'p', 'P', 'Enter', 'Escape'];
+            const keys = ['/', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Delete', 'p', 'P', 'c', 'C', 'Enter', 'Escape'];
             if (!keys.includes(e.key)) return;
             // The grid's keys belong to the grid: on a video player, a list or a menu they are that
             // control's own. Search and Escape work from anywhere.

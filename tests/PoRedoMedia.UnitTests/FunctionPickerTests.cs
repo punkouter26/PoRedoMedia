@@ -42,7 +42,7 @@ public sealed class FunctionPickerTests
         var withBulk = Disabled(Render(first, MediaKind.Image, [BulkStyles]));
         var withMeme = Disabled(Render(second, MediaKind.Image, [MemeCaption]));
 
-        Assert.Equal(["Restyle", "MemeCaption", "RapRoast", "PhotoToVideo"], withBulk.Where(d => d.Value).Select(d => d.Key));
+        Assert.Equal(["Restyle", "MemeCaption", "Upscale", "Cutout", "RapRoast", "PhotoToVideo"], withBulk.Where(d => d.Value).Select(d => d.Key));
         Assert.Equal(["BulkStyles"], withMeme.Where(d => d.Value).Select(d => d.Key));
     }
 

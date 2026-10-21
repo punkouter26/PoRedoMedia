@@ -6,7 +6,7 @@
 @inject IJSRuntime JS
 
 <aside class="media-panel" aria-label="Details">
-<RadzenCard class="po-pop">
+<RadzenCard class="po-pop po-glass">
     <RadzenStack Gap="0.75rem">
         <div class="panel-head">
             <RadzenFormField Text="Title" class="po-grow">
@@ -19,6 +19,10 @@
         @if (Media.Kind == MediaKind.Audio && Media.Text is not null)
         {
             <RoastStage Media="Media" />
+        }
+        else if (_comparing && Before is { } before)
+        {
+            <CompareSlider Before="before" After="Media" />
         }
         else
         {
@@ -41,29 +45,17 @@
             }
         </RadzenText>
 
-        @if (Lineage.Count > 0 || Children > 0)
-        {
-            <div class="panel-lineage">
-                @if (Lineage.Count > 0)
-                {
-                    <span>Made from</span>
-                    @foreach (var ancestor in Lineage)
-                    {
-                        var parent = ancestor;
-                        <RadzenButton Text="@parent.Title" Size="ButtonSize.Small" Variant="Variant.Text" Click="@(() => Selected.InvokeAsync(parent))" />
-                    }
-                }
-                @if (Children > 0)
-                {
-                    <span>@(Children == 1 ? "1 item was made from this." : $"{Children} items were made from this.")</span>
-                }
-            </div>
-        }
+        <VersionTree Current="Media" Items="Family" Selected="Selected" />
 
         <div class="panel-actions">
             @if (Media.Kind != MediaKind.Audio)
             {
                 <RadzenLink Path="@($"?source={Media.Id}")" Text="Use as source" class="rz-button rz-button-md rz-variant-filled rz-primary rz-shade-default" />
+            }
+            @if (Before is not null)
+            {
+                <RadzenButton Text="Compare" Icon="compare" Variant="@(_comparing ? Variant.Filled : Variant.Outlined)" Click="ToggleCompare"
+                              title="Before and after, with a slider (C)" aria-pressed="@(_comparing ? "true" : "false")" />
             }
             <RadzenButton Text="Download" Icon="download" Variant="Variant.Outlined"
                           Click="@(() => JS.InvokeVoidAsync("poMedia.download", Media.Url + "?download=true"))" />
@@ -97,11 +89,8 @@
 @code {
     [Parameter, EditorRequired] public MediaDto Media { get; set; } = null!;
 
-    /// <summary>The items this one was made from, nearest first.</summary>
-    [Parameter] public IReadOnlyList<MediaDto> Lineage { get; set; } = [];
-
-    /// <summary>How many gallery items were made from this one.</summary>
-    [Parameter] public int Children { get; set; }
+    /// <summary>Every gallery item. The version tree shows the ones related to this one.</summary>
+    [Parameter] public IReadOnlyList<MediaDto> Family { get; set; } = [];
 
     [Parameter] public EventCallback<MediaDto> Changed { get; set; }
     [Parameter] public EventCallback<MediaDto> Deleted { get; set; }
@@ -110,6 +99,19 @@
 
     private string _title = "";
     private bool _busy;
+    private bool _comparing;
+
+    /// <summary>The picture this one was made from, when both are pictures: what Compare shows it against.</summary>
+    private MediaDto? Before => Media.Kind == MediaKind.Image && Media.ParentId is { } parent
+        && Family.FirstOrDefault(m => m.Id == parent) is { Kind: MediaKind.Image } found
+            ? found
+            : null;
+
+    public void ToggleCompare()
+    {
+        _comparing = !_comparing && Before is not null;
+        StateHasChanged();
+    }
 
     private int _retentionDays;
 
@@ -234,15 +236,19 @@
             return;
 
         _busy = true;
+        // Its card in the grid breaks into shards; it comes back if the delete fails.
+        var shattered = await JS.InvokeAsync<bool>("poShatter.burst", new[] { Media.Id });
         var error = await Api.DeleteAsync(Media.Id);
         _busy = false;
         if (error is not null)
         {
+            await JS.InvokeVoidAsync("poShatter.restore", new[] { Media.Id });
             Notifications.Notify(NotificationSeverity.Error, "Could not delete", error, 8000);
             return;
         }
 
-        await JS.InvokeVoidAsync("poSfx.play", "remove");
+        if (!shattered)
+            await JS.InvokeVoidAsync("poSfx.play", "remove");
         await Deleted.InvokeAsync(Media);
     }
 }

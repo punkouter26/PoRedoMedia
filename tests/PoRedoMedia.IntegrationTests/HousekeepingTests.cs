@@ -44,6 +44,9 @@ public sealed class HousekeepingTests(AzuriteFixture azurite)
         var pinned = await AddAsync(ageDays: 400, pinned: true);
         var recent = await AddAsync(ageDays: 1);
 
+        // Saved after the dispatcher's own recovery, so only the sweep below can find it.
+        await services.GetRequiredService<RunDispatcher>().Recovered;
+
         // A run left "Running" by a process that no longer exists, which had cost a credit.
         await quota.TryConsumeAsync(owner);
         var lost = new Run

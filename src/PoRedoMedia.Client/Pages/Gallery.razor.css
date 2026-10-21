@@ -64,7 +64,42 @@
 }
 
 .gallery-card:hover {
-    transform: translateY(-2px);
+    transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-2px);
+}
+
+/* Tilt, glint, magnet and throw (js/fx/shatter.js). The script sets the custom properties;
+   'translate' is its own property, so a throw and the magnet's lean add to the tilt. */
+.gallery-card {
+    position: relative;
+    translate: var(--mx, 0px) var(--my, 0px);
+    touch-action: pan-y;
+}
+
+.gallery-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgb(255 255 255 / 45%), transparent 55%);
+    mix-blend-mode: soft-light;
+    transition: opacity 200ms;
+}
+
+.gallery-card:hover::after {
+    opacity: 1;
+}
+
+.gallery-card.flinging {
+    z-index: 5;
+    cursor: grabbing;
+    transition: none;
+    box-shadow: 0 24px 50px rgb(0 0 0 / 30%);
+}
+
+.gallery-card:not(.flinging) {
+    transition: transform 180ms var(--po-spring), border-color 120ms, translate 420ms var(--po-spring);
 }
 
 .gallery-card.selected {

@@ -41,13 +41,13 @@
         <div class="create-split">
             @if (_source is not null)
             {
-                <RadzenCard class="create-preview po-pop">
+                <RadzenCard class="create-preview po-pop po-glass">
                     <MediaView Media="_source" />
                     <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">@_source.Title · @_source.Kind.ToString().ToLowerInvariant()</RadzenText>
                     <RadzenButton Text="Change media" Variant="Variant.Outlined" Disabled="@(_starting || _run is { Finished: false })" Click="StartOver" />
                 </RadzenCard>
             }
-            <RadzenCard class="create-functions">
+            <RadzenCard class="create-functions po-glass">
                 @if (_run is null && _source is not null)
                 {
                     <RadzenText TextStyle="TextStyle.H6" TagName="TagName.H2">What should happen to this @_source.Kind.ToString().ToLowerInvariant()?</RadzenText>

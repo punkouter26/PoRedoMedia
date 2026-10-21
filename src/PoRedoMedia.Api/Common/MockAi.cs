@@ -2,11 +2,11 @@ namespace PoRedoMedia.Api.Common;
 
 /// <summary>
 /// The one switch for mock AI. When on, every provider is replaced by a mock, so the whole app
-/// runs with no keys and spends nothing. Honoured in Development and Test; ignored in Production,
-/// where serving canned output as if it were real would be a defect.
+/// runs with no keys and spends nothing. Honoured only in Test (integration and E2E runs);
+/// Development uses the real keys from Key Vault, and Production must never serve canned output.
 /// </summary>
 public static class MockAi
 {
     public static bool IsEnabled(IConfiguration configuration, IHostEnvironment environment) =>
-        environment.IsDevOrTest() && configuration.GetValue<bool>(ConfigKeys.MocksUseMockAi);
+        environment.IsEnvironment(PoEnvironments.Test) && configuration.GetValue<bool>(ConfigKeys.MocksUseMockAi);
 }

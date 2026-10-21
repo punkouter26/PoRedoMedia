@@ -23,6 +23,9 @@ public static class ConfigKeys
     public const string RetentionDays = "Retention:Days";
     public const string HousekeepingEnabled = "Housekeeping:Enabled";
 
+    /// <summary>Where traces, logs and metrics go. Empty = not sent anywhere.</summary>
+    public const string ApplicationInsightsConnectionString = "ApplicationInsights:ConnectionString";
+
     public const string OpenAiEndpoint = "OpenAI:Endpoint";
     public const string OpenAiKey = "OpenAI:Key";
     public const string OpenAiChatDeployment = "OpenAI:ChatCompletionsDeployment";
@@ -34,6 +37,8 @@ public static class ConfigKeys
     public const string GoogleImageModel = "Google:ImageModel";
     public const string GoogleLyriaModel = "Google:LyriaModel";
     public const string GoogleVeoModel = "Google:VeoModel";
+    public const string GoogleUpscaleModel = "Google:UpscaleModel";
+    public const string HuggingFaceApiKey = "HuggingFace:ApiKey";
     public const string VisionSecondOpinion = "Vision:SecondOpinion";
     public const string OllamaEndpoint = "Ollama:Endpoint";
     public const string OllamaVisionModel = "Ollama:VisionModel";

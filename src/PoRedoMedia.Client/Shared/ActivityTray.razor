@@ -71,7 +71,9 @@
     private void OnChanged() => InvokeAsync(async () =>
     {
         StateHasChanged();
-        await JS.InvokeVoidAsync("poBackdrop.pulse", Tracker.Active > 0 ? 0.6 : 0);
+        // The backdrop brightens and a soft pad plays while anything works, opening up as it progresses.
+        var working = Tracker.Runs.Where(r => !r.Finished).ToList();
+        await JS.InvokeVoidAsync("poFx.busy", working.Count > 0 ? 0.6 : 0, working.Count > 0 ? working.Average(r => r.Percent) : 0);
     });
 
     private void OnFinished(TrackedRun run) => InvokeAsync(async () =>
@@ -82,6 +84,12 @@
         else
             Notifications.Notify(NotificationSeverity.Error, "Run failed", run.Message, 8000);
         await JS.InvokeVoidAsync("poSfx.play", run.Status == RunStatus.Complete ? "success" : "fail");
+        if (run.Status == RunStatus.Complete)
+        {
+            // Confetti in the colours of what the run made.
+            var picture = run.Outputs.LastOrDefault(o => o.Kind == MediaKind.Image)?.Url ?? run.Outputs.FirstOrDefault()?.ThumbUrl;
+            await JS.InvokeVoidAsync("poConfetti.burst", picture);
+        }
         await JS.InvokeVoidAsync(
             "poMedia.notifyDone", run.Status == RunStatus.Complete ? "✓ Your run is ready" : "⚠ Your run failed",
             run.Status == RunStatus.Complete ? $"{what} is in your gallery." : run.Message);

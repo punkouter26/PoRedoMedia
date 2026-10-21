@@ -18,6 +18,7 @@
     <PackageReference Include="Azure.AI.Vision.ImageAnalysis" />
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
     <PackageReference Include="Radzen.Blazor" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />

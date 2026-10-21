@@ -14,6 +14,10 @@
         <RadzenLabel Component="settings-dark" Text="Dark theme" />
     </div>
     <div class="settings-row">
+        <RadzenSwitch Name="settings-fx" Value="_fx" Change="SetFxAsync" />
+        <RadzenLabel Component="settings-fx" Text="Visual effects" />
+    </div>
+    <div class="settings-row">
         <RadzenSwitch Name="settings-sounds" Value="_sounds" Change="SetSoundsAsync" />
         <RadzenLabel Component="settings-sounds" Text="Interface sounds" />
     </div>
@@ -29,6 +33,7 @@
 @code {
     private bool _open;
     private bool _dark;
+    private bool _fx = true;
     private bool _sounds = true;
     private int _volume = 50;
 
@@ -38,6 +43,7 @@
             return;
 
         _dark = await JS.InvokeAsync<string>("poMedia.theme") == "dark";
+        _fx = await JS.InvokeAsync<bool>("poFx.enabled");
         _sounds = !await JS.InvokeAsync<bool>("poSfx.muted");
         _volume = (int)Math.Round(await JS.InvokeAsync<double>("poSfx.volume") * 100);
         StateHasChanged();
@@ -47,6 +53,14 @@
     {
         _dark = on;
         await JS.InvokeVoidAsync("poMedia.setTheme", on ? "dark" : "light");
+    }
+
+    /// <summary>Glass, particles, physics and the rest. Reduced motion turns them off whatever this says.</summary>
+    private async Task SetFxAsync(bool on)
+    {
+        _fx = on;
+        await JS.InvokeVoidAsync("poFx.setEnabled", on);
+        await JS.InvokeVoidAsync("poSfx.play", "tick");
     }
 
     private async Task SetSoundsAsync(bool on)

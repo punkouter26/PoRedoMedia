@@ -144,6 +144,33 @@
     </RadzenFieldset>
 }
 
+@if (Functions.Contains(MediaFunction.Upscale))
+{
+    <RadzenFieldset Text="Upscale" class="rz-mt-2">
+        <RadzenStack Gap="0.75rem">
+            <RadzenSelectBar TValue="string" Value="@(Get(RunOptions.UpscaleSize) == "4K" ? "4K" : "2K")"
+                             Change="@((string v) => Set(RunOptions.UpscaleSize, v))" aria-label="Size of the result">
+                <Items>
+                    <RadzenSelectBarItem Text="2K" Value="@("2K")" />
+                    <RadzenSelectBarItem Text="4K" Value="@("4K")" />
+                </Items>
+            </RadzenSelectBar>
+            <RadzenText TextStyle="TextStyle.Caption" class="rz-m-0">The AI redraws the picture larger. It is sharper, but small details such as text can change.</RadzenText>
+        </RadzenStack>
+    </RadzenFieldset>
+}
+
+@if (Functions.Contains(MediaFunction.Cutout))
+{
+    <RadzenFieldset Text="Cutout" class="rz-mt-2">
+        <div class="bulk-row">
+            <RadzenSwitch Name="cutout-sticker" Value="@(Get(RunOptions.CutoutSticker) != "false")"
+                          Change="@(on => Set(RunOptions.CutoutSticker, on ? "true" : "false"))" />
+            <RadzenLabel Component="cutout-sticker" Text="Also make a 512 px sticker for WhatsApp or Telegram" />
+        </div>
+    </RadzenFieldset>
+}
+
 @if (Functions.Contains(MediaFunction.MemeCaption))
 {
     <RadzenFieldset Text="Meme caption" class="rz-mt-2">

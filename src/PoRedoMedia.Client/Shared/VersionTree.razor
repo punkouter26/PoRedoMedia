@@ -1,0 +1,73 @@
+@* Every version of one picture or video: the upload at the root, and below each item what was made
+   from it. The open item is marked; any other opens on a click. *@
+
+@if (_root is not null)
+{
+    <nav class="version-tree" aria-label="Versions">
+        <ul role="tree">
+            @Node(_root, 0)
+        </ul>
+    </nav>
+}
+
+@code {
+    private const int MaxDepth = 8;
+    private const int MaxChildren = 12;
+
+    [Parameter, EditorRequired] public MediaDto Current { get; set; } = null!;
+
+    /// <summary>Everything in the gallery. The tree is the part of it related to <see cref="Current"/>.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<MediaDto> Items { get; set; } = [];
+
+    [Parameter] public EventCallback<MediaDto> Selected { get; set; }
+
+    private MediaDto? _root;
+    private ILookup<Guid, MediaDto> _children = Array.Empty<MediaDto>().ToLookup(m => m.Id);
+
+    protected override void OnParametersSet()
+    {
+        _children = Items.Where(m => m.ParentId is not null).ToLookup(m => m.ParentId!.Value);
+        var root = Current;
+        for (var i = 0; i < 20 && root.ParentId is { } parent && Items.FirstOrDefault(m => m.Id == parent) is { } found; i++)
+            root = found;
+        // A tree of one is not worth showing.
+        _root = root.Id == Current.Id && !_children[root.Id].Any() ? null : root;
+    }
+
+    /// <summary>"Upload", or the label of the function that made it.</summary>
+    public static string MadeBy(MediaDto item) =>
+        Enum.TryParse<MediaFunction>(item.Origin, out var function) ? FunctionStack.Label(function) : item.Origin;
+
+    private RenderFragment Node(MediaDto item, int depth) => __builder =>
+    {
+        var children = _children[item.Id].OrderBy(m => m.CreatedAt).ToList();
+        var current = item.Id == Current.Id;
+        <li role="treeitem" aria-selected="@(current ? "true" : "false")" aria-expanded="@(children.Count > 0 ? "true" : null)">
+            <button type="button" class="version-node @(current ? "current" : "")" aria-current="@(current ? "true" : null)"
+                    title="@item.Title" @onclick="@(() => Selected.InvokeAsync(item))">
+                @if (item.Kind == MediaKind.Audio)
+                {
+                    <RadzenIcon Icon="music_note" class="version-thumb" />
+                }
+                else
+                {
+                    <img class="version-thumb" src="@item.ThumbUrl" alt="" loading="lazy" />
+                }
+                <span>@MadeBy(item)</span>
+            </button>
+            @if (children.Count > 0 && depth < MaxDepth)
+            {
+                <ul role="group">
+                    @foreach (var child in children.Take(MaxChildren))
+                    {
+                        @Node(child, depth + 1)
+                    }
+                    @if (children.Count > MaxChildren)
+                    {
+                        <li class="version-more">and @(children.Count - MaxChildren) more</li>
+                    }
+                </ul>
+            }
+        </li>
+    };
+}

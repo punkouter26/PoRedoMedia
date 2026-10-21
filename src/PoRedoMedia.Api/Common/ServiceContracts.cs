@@ -25,7 +25,9 @@ public interface IRunStep
 public sealed class RunStepException(string userMessage, Exception? inner = null) : Exception(userMessage, inner);
 
 /// <summary>What a step sees of the run it is part of.</summary>
-public sealed class RunContext(Run run, MediaItem source, Func<MediaItem, Task> onOutput, Func<string, Task> onMessage)
+/// <param name="working">What <see cref="Current"/> starts as. The source, unless a resumed run had already replaced it.</param>
+public sealed class RunContext(
+    Run run, MediaItem source, Func<MediaItem, bool, Task> onOutput, Func<string, Task> onMessage, MediaItem? working = null)
 {
     private readonly List<string> _notes = [];
 
@@ -35,10 +37,10 @@ public sealed class RunContext(Run run, MediaItem source, Func<MediaItem, Task> 
     public MediaItem Source { get; } = source;
 
     /// <summary>
-    /// The image the next step should work on: the source, until a step replaces it. Restyle then
-    /// Meme caption each replace it; Rap roast and Photo to video only read it.
+    /// The image the next step should work on: the source, until a step replaces it. Restyle, Meme
+    /// caption and Upscale each replace it; Cutout, Rap roast and Photo to video only read it.
     /// </summary>
-    public MediaItem Current { get; private set; } = source;
+    public MediaItem Current { get; private set; } = working ?? source;
 
     public IReadOnlyList<string> Notes => _notes;
 
@@ -51,7 +53,7 @@ public sealed class RunContext(Run run, MediaItem source, Func<MediaItem, Task> 
     {
         if (becomesCurrent)
             Current = output;
-        await onOutput(output);
+        await onOutput(output, becomesCurrent);
     }
 
     /// <summary>A line for the progress display, such as "Writing the caption".</summary>

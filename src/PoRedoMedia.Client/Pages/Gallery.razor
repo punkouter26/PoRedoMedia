@@ -89,7 +89,7 @@
             </div>
             @if (Selected is { } selected)
             {
-                <MediaPanel @ref="_panel" @key="selected.Id" Media="selected" Lineage="LineageOf(selected)" Children="@_items.Count(m => m.ParentId == selected.Id)"
+                <MediaPanel @ref="_panel" @key="selected.Id" Media="selected" Family="_items"
                             Changed="OnChanged" Deleted="OnDeleted" Selected="@(m => SetAsync(selected: m.Id))" Closed="@(() => SetAsync(clearSelected: true))" />
             }
         </div>
@@ -121,6 +121,7 @@
     private HashSet<Guid> _picked = [];
     private MediaPanel? _panel;
     private DotNetObjectReference<Gallery>? _self;
+    private string _magnet = "";
 
     private MediaDto? Selected => _selecting ? null : _items?.FirstOrDefault(m => m.Id == _selectedId);
 
@@ -151,6 +152,17 @@
         {
             _self = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("poMedia.shortcuts", _self);
+            // Cards tilt toward the pointer and can be thrown away (js/fx/shatter.js).
+            await JS.InvokeVoidAsync("poShatter.attach", _self);
+        }
+
+        // The picked cards lean together, so a bulk action's selection reads as one group.
+        var picked = _selecting ? _picked.Select(id => id.ToString()).Order().ToArray() : [];
+        var signature = string.Join(',', picked);
+        if (signature != _magnet)
+        {
+            _magnet = signature;
+            await JS.InvokeVoidAsync("poShatter.magnet", (object)picked);
         }
     }
 
@@ -171,21 +183,6 @@
         "Largest" => items.OrderByDescending(m => m.SizeBytes),
         _ => items.OrderByDescending(m => m.CreatedAt),
     };
-
-    /// <summary>The chain of items this one was made from, nearest first.</summary>
-    private List<MediaDto> LineageOf(MediaDto item)
-    {
-        var chain = new List<MediaDto>();
-        for (var parent = item.ParentId; parent is not null && chain.Count < 8;)
-        {
-            if (_items!.FirstOrDefault(m => m.Id == parent) is not { } found)
-                break;
-            chain.Add(found);
-            parent = found.ParentId;
-        }
-
-        return chain;
-    }
 
     /// <summary>Changes one part of the view and writes the whole of it to the address.</summary>
     private Task SetAsync(string? kind = null, string? search = null, string? sort = null, Guid? selected = null, bool clearSelected = false)
@@ -329,7 +326,9 @@
             return;
 
         _working = true;
-        var failed = 0;
+        // The cards break into shards straight away; any that could not be deleted come back.
+        var shattered = await JS.InvokeAsync<bool>("poShatter.burst", _picked.ToList());
+        var failed = new List<Guid>();
         foreach (var id in _picked.ToList())
         {
             if (await Api.DeleteAsync(id) is null)
@@ -339,14 +338,17 @@
             }
             else
             {
-                failed++;
+                failed.Add(id);
             }
         }
 
         _working = false;
-        await JS.InvokeVoidAsync("poSfx.play", "remove");
-        if (failed > 0)
-            Notifications.Notify(NotificationSeverity.Error, "Some items were kept", $"{failed} could not be deleted. An item with a run in progress cannot be.", 8000);
+        if (failed.Count > 0)
+            await JS.InvokeVoidAsync("poShatter.restore", failed);
+        if (!shattered)
+            await JS.InvokeVoidAsync("poSfx.play", "remove");
+        if (failed.Count > 0)
+            Notifications.Notify(NotificationSeverity.Error, "Some items were kept", $"{failed.Count} could not be deleted. An item with a run in progress cannot be.", 8000);
     }
 
     /// <summary>Keyboard shortcuts, sent by the page script when no field has the focus.</summary>
@@ -378,9 +380,31 @@
             case "p" or "P" when _panel is not null && Selected is not null:
                 await _panel.TogglePinAsync();
                 break;
+            case "c" or "C" when _panel is not null:
+                _panel.ToggleCompare();
+                break;
         }
 
         StateHasChanged();
+    }
+
+    /// <summary>A card was thrown off the grid: delete it, after the usual question. True when it was deleted.</summary>
+    [JSInvokable]
+    public async Task<bool> OnFling(string id)
+    {
+        if (!Guid.TryParse(id, out var flung) || _items?.Any(m => m.Id == flung) != true)
+            return false;
+
+        // A throw deletes only the thrown card; the selection being built is put back afterwards.
+        var kept = _picked;
+        _picked = [flung];
+        await DeletePickedAsync();
+        var deleted = _items.All(m => m.Id != flung);
+        _picked = [.. kept.Where(k => k != flung)];
+        if (deleted && _selectedId == flung)
+            await SetAsync(clearSelected: true);
+        StateHasChanged();
+        return deleted;
     }
 
     private async Task MoveAsync(MediaDto item)
@@ -395,6 +419,7 @@
         try
         {
             await JS.InvokeVoidAsync("poMedia.releaseShortcuts");
+            await JS.InvokeVoidAsync("poShatter.detach");
         }
         catch (JSDisconnectedException)
         {

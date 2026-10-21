@@ -8,6 +8,20 @@
     margin: 0 auto;
 }
 
+/* The name is the way home, so it gets the same tap height as the nav links. */
+.shell-home {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    color: inherit;
+    text-decoration: none;
+}
+
+.shell-home:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
 .shell-bar ::deep .shell-brand {
     font-weight: 800;
     letter-spacing: -0.02em;

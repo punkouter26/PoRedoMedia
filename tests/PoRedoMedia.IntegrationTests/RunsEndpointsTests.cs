@@ -172,6 +172,46 @@ public sealed class RunsEndpointsTests(AzuriteFixture azurite) : IDisposable
         Assert.True(sawOutput);
     }
 
+    [DockerFact]
+    public async Task Runs_an_earlier_process_left_unfinished_are_resumed_at_start_unless_cut_short_too_often()
+    {
+        // Written straight to storage before the app starts, as a process that has since died left them.
+        var storage = new StorageClients(new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Storage:ConnectionString"] = azurite.ConnectionString }).Build());
+        var (media, runs) = (new Api.Features.Media.MediaTableRepository(storage), new Api.Features.Runs.RunTableRepository(storage));
+        var owner = new UserId($"dev|{Guid.NewGuid()}");
+        async Task<Run> LeftRunningAsync(int attempts)
+        {
+            var source = new MediaItem
+            {
+                Owner = owner, Id = MediaId.New(), Kind = MediaKind.Image, Status = MediaStatus.Ready, Origin = "Upload",
+                Title = "source", ContentType = "image/png", Extension = ".png", CreatedAt = DateTimeOffset.UtcNow,
+            };
+            await media.SaveAsync(source);
+            var run = new Run
+            {
+                Owner = owner, Id = RunId.New(), SourceId = source.Id, Functions = [MediaFunction.MemeCaption], Status = RunStatus.Running,
+                CurrentStep = MediaFunction.MemeCaption, Attempts = attempts, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+            };
+            await runs.SaveAsync(run);
+            return run;
+        }
+
+        var interrupted = await LeftRunningAsync(attempts: 1);
+        var hopeless = await LeftRunningAsync(attempts: Api.Features.Runs.RunDispatcher.MaxAttempts);
+
+        var step = new CopyStep(MediaFunction.MemeCaption);
+        var client = await Factory(step).SignedInAsync(owner.Value);
+
+        var resumed = await WaitForAsync(client, interrupted.Id.Value, RunStatus.Complete);
+        Assert.Single(resumed.OutputIds);
+        Assert.Contains("Picked up again after a server restart", resumed.Log ?? []);
+        Assert.Equal(2, (await runs.GetAsync(owner, interrupted.Id))!.Attempts);
+        var failed = await WaitForAsync(client, hopeless.Id.Value, RunStatus.Failed);
+        Assert.Contains("too many times", failed.Error);
+        Assert.Equal(1, step.Executions);
+    }
+
     private static HubConnection Hub(AppFactory factory, string user) =>
         new HubConnectionBuilder()
             .WithUrl(new Uri(factory.Server.BaseAddress, "hubs/run"), options =>

@@ -37,6 +37,7 @@ if (builder.Environment.IsEnvironment(PoEnvironments.Test))
     builder.WebHost.UseStaticWebAssets();
 
 builder.AddPoRedoMediaKeyVault();
+builder.AddPoTelemetry();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents()
@@ -130,6 +131,7 @@ app.MapSounds();
 app.MapCaptions();
 app.MapExports();
 app.MapSharing();
+app.MapClientErrors();
 app.MapHub<RunHub>(RunHub.Path);
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()

@@ -5,6 +5,7 @@
 @inject DialogService Dialogs
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>Sounds · PoRedoMedia</PageTitle>
 
@@ -24,6 +25,8 @@
     @* One player for the whole library: starting a sound stops the one before it. *@
     <audio @ref="_player" class="sounds-player" controls preload="none" aria-label="Sound player" hidden="@(_playing is null)"></audio>
 
+    @* Every row carries a spectrogram of its sound, drawn by js/fx/spectro.js. *@
+    <div @ref="_wall" class="sounds-wall">
     @if (_sounds is null)
     {
         <div role="status" aria-label="Loading" class="sounds-skeletons">
@@ -59,6 +62,12 @@
                         </span>
                     </Template>
                 </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SoundAssetDto" Title="Sound" Sortable="false" Width="13rem" CssClass="sounds-spectro-cell" HeaderCssClass="sounds-spectro-cell">
+                    <Template Context="sound">
+                        <canvas class="sounds-spectro" data-spectro="@StreamUrl(sound)" aria-hidden="true"
+                                title="Click to play from here"></canvas>
+                    </Template>
+                </RadzenDataGridColumn>
                 <RadzenDataGridColumn TItem="SoundAssetDto" Title="Tags" Sortable="false">
                     <Template Context="sound">
                         <span class="sounds-tags">
@@ -75,6 +84,7 @@
             </Columns>
         </RadzenDataGrid>
     }
+    </div>
 </RadzenStack>
 
 @code {
@@ -88,9 +98,22 @@
     private Guid? _playing;
     private readonly HashSet<Guid> _busy = [];
     private ElementReference _player;
+    private ElementReference _wall;
     private FilePick? _file;
+    private bool _attached;
 
     protected override async Task OnInitializedAsync() => _sounds = await Api.ListAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _attached = true;
+        await JS.InvokeVoidAsync("poSpectro.attach", _wall, _player);
+    }
+
+    private static string StreamUrl(SoundAssetDto sound) => $"api/sounds/{sound.SoundId}/stream";
 
     protected override void OnParametersSet() => (_search, _starredOnly) = (Q ?? "", Starred == true);
 
@@ -113,7 +136,7 @@
     private async Task PlayAsync(SoundAssetDto sound)
     {
         _playing = sound.SoundId;
-        await JS.InvokeVoidAsync("poMedia.playSound", _player, $"api/sounds/{sound.SoundId}/stream");
+        await JS.InvokeVoidAsync("poMedia.playSound", _player, StreamUrl(sound));
     }
 
     private async Task ToggleAsync(SoundAssetDto sound)
@@ -176,5 +199,20 @@
 
         _sounds!.Insert(0, sound);
         Notifications.Notify(NotificationSeverity.Success, "Sound added", sound.DisplayName);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_attached)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("poSpectro.detach");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is going away, and its observers with it.
+        }
     }
 }

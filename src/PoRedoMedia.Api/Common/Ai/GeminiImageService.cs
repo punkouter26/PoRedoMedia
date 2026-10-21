@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace PoRedoMedia.Api.Common.Ai;
 
-/// <summary>Gemini image generation over its REST API: from words alone, or redrawing a given picture.</summary>
-public sealed class GeminiImageService(IConfiguration configuration, IHttpClientFactory http) : IImageGenerationService
+/// <summary>Gemini image generation over its REST API: from words alone, redrawing a given picture, or redrawing it larger.</summary>
+public sealed class GeminiImageService(IConfiguration configuration, IHttpClientFactory http) : IImageGenerationService, IImageUpscaler
 {
     private static readonly JsonSerializerOptions OmitNulls = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
@@ -23,6 +23,9 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
 
     private readonly string _model = configuration[ConfigKeys.GoogleImageModel] is { Length: > 0 } model ? model : "gemini-2.5-flash-image";
 
+    // The flash model draws at about 1K only; the pro model takes an output size.
+    private readonly string _upscaleModel = configuration[ConfigKeys.GoogleUpscaleModel] is { Length: > 0 } upscale ? upscale : "gemini-3-pro-image";
+
     public Task<GeneratedImage> GenerateAsync(string prompt, byte[]? matchAspectOf = null, CancellationToken ct = default) =>
         SendAsync(prompt, reference: null, AspectRatioOf(matchAspectOf), ct);
 
@@ -31,6 +34,13 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
             "You are a creative image editor. Preserve the person's facial features exactly. Apply: " + prompt
                 + (seed == 0 ? "" : $". Render the result {SeedCues[seed % SeedCues.Length]}."),
             image, aspectRatio: null, ct);
+
+    public Task<GeneratedImage> UpscaleAsync(byte[] image, string size, CancellationToken ct = default) =>
+        SendAsync(
+            "Reproduce this exact image at a higher resolution. Keep the composition, every subject, "
+                + "every face, all text and all colours exactly as they are. Add only fine, natural detail and "
+                + "sharpness. Do not restyle, crop, reframe, add or remove anything.",
+            image, AspectRatioOf(image), ct, _upscaleModel, size == "4K" ? "4K" : "2K");
 
     /// <summary>The supported aspect ratio nearest to the image's own, or null when it cannot be read.</summary>
     internal static string? AspectRatioOf(byte[]? image)
@@ -41,7 +51,8 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
         return SupportedRatios.MinBy(r => Math.Abs(Math.Log(r.Value / ratio))).Label;
     }
 
-    private async Task<GeneratedImage> SendAsync(string prompt, byte[]? reference, string? aspectRatio, CancellationToken ct)
+    private async Task<GeneratedImage> SendAsync(
+        string prompt, byte[]? reference, string? aspectRatio, CancellationToken ct, string? model = null, string? imageSize = null)
     {
         var parts = new List<object>();
         if (reference is not null)
@@ -57,12 +68,12 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
             {
                 responseModalities = new[] { "image" },
                 temperature = 1.0,
-                imageConfig = aspectRatio is null ? null : new { aspectRatio },
+                imageConfig = aspectRatio is null && imageSize is null ? null : new { aspectRatio, imageSize },
             },
         };
 
         using var request = new HttpRequestMessage(
-            HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent");
+            HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{model ?? _model}:generateContent");
         request.Headers.Add("x-goog-api-key", configuration[ConfigKeys.GoogleApiKey]);
         request.Content = JsonContent.Create(body, options: OmitNulls);
 

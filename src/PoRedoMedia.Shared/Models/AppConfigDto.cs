@@ -13,4 +13,8 @@ public sealed record AppConfigDto(
     bool ServerSpeech = true, int RetentionDays = 30);
 
 /// <summary>Indicative list prices in US dollars per call. Estimates, not billed amounts.</summary>
-public sealed record AiPricingDto(decimal VisionUsd, decimal TextUsd, decimal ImageUsd, decimal MusicUsd, decimal VideoUsd);
+public sealed record AiPricingDto(
+    decimal VisionUsd, decimal TextUsd, decimal ImageUsd, decimal MusicUsd, decimal VideoUsd, decimal UpscaleUsd = 0, decimal CutoutUsd = 0);
+
+/// <summary>An error the browser hit, sent to the server's logs. <paramref name="Page"/> is the address it happened on.</summary>
+public sealed record ClientErrorDto(string Message, string? Stack, string? Category, string? Page);

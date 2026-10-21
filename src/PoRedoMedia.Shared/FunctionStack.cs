@@ -43,6 +43,8 @@ public static class FunctionStack
     {
         MediaFunction.Restyle => "Restyle",
         MediaFunction.MemeCaption => "Meme caption",
+        MediaFunction.Upscale => "Upscale",
+        MediaFunction.Cutout => "Cutout",
         MediaFunction.RapRoast => "Rap roast",
         MediaFunction.PhotoToVideo => "Photo to video",
         MediaFunction.BulkStyles => "Bulk styles",
@@ -57,6 +59,8 @@ public static class FunctionStack
     {
         MediaFunction.Restyle => "Redraw the picture in a chosen style.",
         MediaFunction.MemeCaption => "Put meme text on the picture.",
+        MediaFunction.Upscale => "Redraw the picture at 2K or 4K. Fine detail is re-imagined, not recovered.",
+        MediaFunction.Cutout => "Lift the subject off its background, plus a sticker of it.",
         MediaFunction.RapRoast => "A roast verse about the picture, performed over a beat.",
         MediaFunction.PhotoToVideo => "Turn the picture into an 8-second clip with sound.",
         MediaFunction.BulkStyles => "Up to ten style variations at once. Runs on its own.",

@@ -41,3 +41,20 @@
 .sounds-skeleton {
     height: 2.5rem;
 }
+
+/* ── Spectrograms (js/fx/spectro.js) ────────────────────────────────────────────────── */
+::deep .sounds-spectro {
+    --beat: 0;
+    display: block;
+    width: 11.5rem;
+    height: 30px;
+    border-radius: 6px;
+    background: #08061a;
+    cursor: pointer;
+    transform: scaleY(calc(1 + var(--beat) * 0.18));
+    transition: box-shadow 200ms;
+}
+
+::deep .sounds-spectro.playing {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 30%), 0 0 calc(6px + var(--beat) * 16px) color-mix(in srgb, var(--po-brand-b) 70%, transparent);
+}

@@ -18,9 +18,16 @@ public static class KeyVaultExtensions
 
         try
         {
+            // A developer's machine has no managed identity. Since MSAL 4.84 an absent one ends the
+            // whole chain instead of falling through to the az login below it, so it is left out.
+            var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+            {
+                ExcludeManagedIdentityCredential = builder.Environment.IsDevelopment(),
+            });
+
             // Built separately so a failed load leaves no half-added source behind.
             var secrets = new ConfigurationBuilder()
-                .AddAzureKeyVault(new Uri(uri), new DefaultAzureCredential(), new PrefixKeyVaultSecretManager("PoRedoMedia", localStorage: builder.Environment.IsDevelopment()))
+                .AddAzureKeyVault(new Uri(uri), credential, new PrefixKeyVaultSecretManager("PoRedoMedia", localStorage: builder.Environment.IsDevelopment()))
                 .Build();
             builder.Configuration.AddConfiguration(secrets);
         }
@@ -28,7 +35,7 @@ public static class KeyVaultExtensions
         {
             // A developer without vault access still gets a running app: functions whose keys are
             // missing report themselves unavailable. Anywhere else an unreachable vault is fatal.
-            Console.Error.WriteLine($"Key Vault {uri} could not be read ({ex.GetType().Name}); continuing without its secrets.");
+            Console.Error.WriteLine($"Key Vault {uri} could not be read ({ex.GetType().Name}: {ex.Message}); continuing without its secrets.");
         }
     }
 }

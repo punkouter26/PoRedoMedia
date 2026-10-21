@@ -30,6 +30,20 @@ public interface IImageGenerationService
     Task<GeneratedImage> EditAsync(string prompt, byte[] image, int seed = 0, CancellationToken ct = default);
 }
 
+/// <summary>Redraws a picture at a higher resolution. Generative: fine detail is re-imagined, not recovered.</summary>
+public interface IImageUpscaler
+{
+    /// <param name="size">"2K" or "4K": the length class of the result's longer side.</param>
+    Task<GeneratedImage> UpscaleAsync(byte[] image, string size, CancellationToken ct = default);
+}
+
+/// <summary>Lifts the subject of a picture off its background.</summary>
+public interface IBackgroundRemover
+{
+    /// <summary>The picture as a PNG whose background is transparent.</summary>
+    Task<byte[]> RemoveAsync(byte[] image, string contentType, CancellationToken ct);
+}
+
 /// <summary>
 /// One chat call: a system prompt, a user prompt, optionally a picture, optionally a JSON schema
 /// the answer must follow. <see cref="IsConfigured"/> is false when no chat model is available;

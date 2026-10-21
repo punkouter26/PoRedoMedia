@@ -61,8 +61,10 @@ public sealed class HousekeepingService(
     {
         var now = time.GetUtcNow();
 
-        // A run still marked unfinished from before this process started was lost with the old
-        // process. It is failed with a reason, and today's credit for it is given back.
+        // The dispatcher queues interrupted runs again first. One still marked unfinished from
+        // before this process started, and not queued, could not be: it is failed with a reason,
+        // and today's credit for it is given back.
+        await dispatcher.Recovered.WaitAsync(ct);
         foreach (var run in await runs.ListUnfinishedAsync(ct))
         {
             if (run.CreatedAt >= _startedAt || dispatcher.IsBusy(run.SourceId))

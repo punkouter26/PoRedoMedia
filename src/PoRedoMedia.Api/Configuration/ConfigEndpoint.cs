@@ -21,7 +21,8 @@ public static class ConfigEndpoint
                 [.. MediaRoast.Voices(configuration, env)],
                 [.. (router as VisionServiceRouter)?.Available ?? []],
                 new AiPricingDto(
-                    Price("VisionUsd", 0.001m), Price("TextUsd", 0.0015m), Price("ImageUsd", 0.039m), Price("MusicUsd", 0.04m), Price("VideoUsd", 0.40m)),
+                    Price("VisionUsd", 0.001m), Price("TextUsd", 0.0015m), Price("ImageUsd", 0.039m), Price("MusicUsd", 0.04m), Price("VideoUsd", 0.40m),
+                    Price("UpscaleUsd", 0.134m), Price("CutoutUsd", 0.018m)),
                 ServerSpeech: transcription.IsEnabled,
                 // Shown beside an unpinned item, so its expiry, and its share link's, is no surprise.
                 RetentionDays: configuration.GetValue<int?>(ConfigKeys.RetentionDays) ?? Features.Housekeeping.HousekeepingService.DefaultRetentionDays));

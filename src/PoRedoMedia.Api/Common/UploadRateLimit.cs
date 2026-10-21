@@ -11,6 +11,9 @@ public static class UploadRateLimit
 {
     public const string Policy = "uploads";
 
+    /// <summary>Error reports from the browser. Enough for a bad day, not enough to flood the logs.</summary>
+    public const string ClientErrorPolicy = "client-errors";
+
     // ponytail: counted in memory, so it resets when the app restarts and is per instance. Move
     // the count into the quota table if abuse survives that.
     public static IServiceCollection AddUploadRateLimit(this IServiceCollection services) =>
@@ -20,5 +23,8 @@ public static class UploadRateLimit
             options.AddPolicy(Policy, http => RateLimitPartition.GetFixedWindowLimiter(
                 http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromHours(1) }));
+            options.AddPolicy(ClientErrorPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+                http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromHours(1) }));
         });
 }

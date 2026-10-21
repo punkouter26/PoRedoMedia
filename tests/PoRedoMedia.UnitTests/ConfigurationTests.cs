@@ -10,11 +10,11 @@ namespace PoRedoMedia.UnitTests;
 public sealed class ConfigurationTests
 {
     [Theory]
-    [InlineData("true", "Development", true)]
+    [InlineData("true", "Development", false)]
     [InlineData("true", "Test", true)]
     [InlineData("true", "Production", false)]
-    [InlineData("false", "Development", false)]
-    public void Mock_AI_is_never_enabled_in_Production(string flag, string environment, bool expected)
+    [InlineData("false", "Test", false)]
+    public void Mock_AI_is_enabled_only_in_Test(string flag, string environment, bool expected)
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Mocks:UseMockAi"] = flag }).Build();
         var env = Substitute.For<IWebHostEnvironment>();

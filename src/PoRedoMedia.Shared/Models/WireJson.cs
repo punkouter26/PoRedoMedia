@@ -26,4 +26,5 @@ namespace PoRedoMedia.Shared.Models;
 [JsonSerializable(typeof(List<FeedItemDto>))]
 [JsonSerializable(typeof(List<SoundAssetDto>))]
 [JsonSerializable(typeof(SoundAssetDto))]
+[JsonSerializable(typeof(ClientErrorDto))]
 public sealed partial class WireJson : JsonSerializerContext;

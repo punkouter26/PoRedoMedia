@@ -45,7 +45,7 @@ a restart. The queue, upload rate limit and Veo job waits are in-process only (m
 
 **Functions only exist when configured.** A function is runnable only if its step was registered, which depends on
 the config keys present (e.g. `Google:ApiKey` enables Gemini images, Veo, Lyria, BulkStyles, PhotoToVideo).
-`Mocks:UseMockAi` (Development/Test only) swaps every provider for a mock and skips Key Vault. Read config only
+`Mocks:UseMockAi` (Test environment only; Development uses the real keys) swaps every provider for a mock and skips Key Vault. Read config only
 through `Shared/ConfigKeys`. Key Vault `kv-poshared` loads only `PoRedoMedia--*` secrets (`--` → `:`); in Development
 the vault's Storage secret is skipped so local runs stay on Azurite.
 
@@ -59,6 +59,13 @@ Modes: fake auth via `X-Fake-User` (Dev/Test), cookie-only (throws in Production
 `Auth:AllowedEmails`. `/dev-login?email=` (Dev/Test) creates `dev|{email}` users. JSON writes are protected only by
 `RequireAntiforgeryValidation()` on route groups with the `X-CSRF-TOKEN` header; the client's
 `AntiforgeryTokenHandler` retry on 400 is load-bearing.
+
+**Client effects.** `wwwroot/js/fx/` holds the visual effects (glass backdrop, particles, pixel-flow reveal, run orb,
+confetti, gallery physics, depth preview, roast concert, spectrograms); `sfx.js` synthesises every sound. All of them
+ask `poFx.enabled()`, which is false for reduced motion, in automated browsers (`navigator.webdriver`, so the E2E
+suite never sees them) and when switched off in Settings; `localStorage['po.fx'] = 'on'` forces them on for
+screenshots. Elements that exist only for an effect carry `.po-fx-only`. Blazor never awaits an effect: the .NET-facing
+entry points (`poMorph.start`, `poDepth.start`, `poConfetti.burst`) return nothing.
 
 **ffmpeg and fonts.** `Common/FFmpegProcess` finds ffmpeg via `FFmpegBinPath`, then `./ffmpeg/` beside the app, then
 PATH; `Features/Render/FFmpegArgs` builds every command line as pure, unit-tested functions. App Service has no fonts,

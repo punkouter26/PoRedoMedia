@@ -6,6 +6,8 @@ public enum MediaFunction
     // Image
     Restyle,
     MemeCaption,
+    Upscale,
+    Cutout,
     RapRoast,
     PhotoToVideo,
     BulkStyles,

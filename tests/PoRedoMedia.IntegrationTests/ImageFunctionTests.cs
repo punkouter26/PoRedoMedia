@@ -217,25 +217,30 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
     }
 
     [DockerFact]
-    public async Task All_four_stackable_functions_in_one_run_make_two_images_a_track_and_a_clip_from_the_final_image()
+    public async Task All_stackable_functions_in_one_run_chain_their_pictures_and_the_roast_and_clip_use_the_final_one()
     {
         var user = $"dev|{Guid.NewGuid()}";
         var client = await _factory.Value.SignedInAsync(user);
         var source = await AddImageAsync(user);
 
         var run = await RunAsync(
-            client, source, [MediaFunction.PhotoToVideo, MediaFunction.RapRoast, MediaFunction.MemeCaption, MediaFunction.Restyle],
-            new() { [RunOptions.VideoPrompt] = "The picture slowly zooms in" });
+            client, source,
+            [MediaFunction.PhotoToVideo, MediaFunction.Cutout, MediaFunction.RapRoast, MediaFunction.Upscale, MediaFunction.MemeCaption, MediaFunction.Restyle],
+            new() { [RunOptions.VideoPrompt] = "The picture slowly zooms in", [RunOptions.UpscaleSize] = "4K" });
 
         Assert.True(run.Status == RunStatus.Complete, run.Error);
         var gallery = (await client.GetFromJsonAsync("/api/media", WireJson.Default.ListMediaDto))!;
         var made = run.OutputIds.Select(id => gallery.Single(m => m.Id == id)).ToList();
-        Assert.Equal(["Restyle", "MemeCaption", "RapRoast", "PhotoToVideo"], made.Select(m => m.Origin));
-        Assert.Equal([MediaKind.Image, MediaKind.Image, MediaKind.Audio, MediaKind.Video], made.Select(m => m.Kind));
-        // The roast and the clip are both made from the captioned image, the last one in the chain.
-        Assert.Equal([made[1].Id, made[1].Id], made.Skip(2).Select(m => m.ParentId!.Value));
-        Assert.InRange(made[3].DurationSeconds!.Value, 1.5, 2.5);
-        Assert.Equal(System.Net.HttpStatusCode.Redirect, (await client.GetAsync(made[3].ThumbUrl)).StatusCode);
+        Assert.Equal(["Restyle", "MemeCaption", "Upscale", "Cutout", "Cutout", "RapRoast", "PhotoToVideo"], made.Select(m => m.Origin));
+        Assert.Equal(
+            [MediaKind.Image, MediaKind.Image, MediaKind.Image, MediaKind.Image, MediaKind.Image, MediaKind.Audio, MediaKind.Video],
+            made.Select(m => m.Kind));
+        Assert.Equal(["image/png", "image/webp"], made.Skip(3).Take(2).Select(m => m.ContentType));
+        // Upscale replaces the working picture; Cutout only reads it. Everything after is made from the upscaled one.
+        var upscaled = made[2];
+        Assert.All(made.Skip(3), m => Assert.Equal(upscaled.Id, m.ParentId));
+        Assert.InRange(made[6].DurationSeconds!.Value, 1.5, 2.5);
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, (await client.GetAsync(made[6].ThumbUrl)).StatusCode);
     }
 
     [DockerFact]

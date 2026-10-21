@@ -21,6 +21,8 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
             ["CurrentStep"] = run.CurrentStep?.ToString(),
             ["Error"] = run.Error,
             ["OutputIds"] = string.Join(',', run.OutputIds),
+            ["WorkingId"] = run.WorkingId?.ToString(),
+            ["Attempts"] = run.Attempts,
             ["Notes"] = JsonSerializer.Serialize(run.Notes),
             ["Log"] = JsonSerializer.Serialize(run.Log),
             ["CreatedAt"] = run.CreatedAt,
@@ -63,6 +65,9 @@ public sealed class RunTableRepository(StorageClients storage) : IRunRepository
         CurrentStep = row.GetString("CurrentStep") is { } step ? Enum.Parse<MediaFunction>(step) : null,
         Error = row.GetString("Error"),
         OutputIds = [.. Split(row.GetString("OutputIds")).Select(o => MediaId.Parse(o, null))],
+        WorkingId = row.GetString("WorkingId") is { Length: > 0 } working ? MediaId.Parse(working, null) : null,
+        // Rows written before attempts were counted have none: they were on their first.
+        Attempts = row.GetInt32("Attempts") ?? 1,
         Notes = JsonSerializer.Deserialize<List<string>>(row.GetString("Notes") ?? "[]") ?? [],
         Log = JsonSerializer.Deserialize<List<string>>(row.GetString("Log") ?? "[]") ?? [],
         CreatedAt = row.GetDateTimeOffset("CreatedAt") ?? default,

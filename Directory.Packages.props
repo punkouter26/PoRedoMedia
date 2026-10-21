@@ -28,6 +28,8 @@
     <PackageVersion Include="Azure.AI.Vision.ImageAnalysis" Version="1.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
+    <!-- Telemetry -->
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
     <!-- Versioning -->
     <PackageVersion Include="MinVer" Version="5.0.0" />

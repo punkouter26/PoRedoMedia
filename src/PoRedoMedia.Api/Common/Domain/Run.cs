@@ -16,6 +16,12 @@ public sealed record Run
     public string? Error { get; init; }
     public IReadOnlyList<MediaId> OutputIds { get; init; } = [];
 
+    /// <summary>The output later steps work on, once a step has replaced the source. Lets a resumed run carry on from it.</summary>
+    public MediaId? WorkingId { get; init; }
+
+    /// <summary>How many times the run has been started: 1, plus one for each restart that cut it short.</summary>
+    public int Attempts { get; init; } = 1;
+
     /// <summary>Things the user should know that did not fail the run, such as a fallback that was used.</summary>
     public IReadOnlyList<string> Notes { get; init; } = [];
 

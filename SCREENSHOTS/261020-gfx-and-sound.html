@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GFX and Sound</title>
+<style>
+  :root { --bg: #f6f6f8; --card: #fff; --ink: #16181d; --muted: #5b6070; --line: #e3e4ea; --accent: #4340d2; --new: #0f8a5f; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111217; --card: #1a1c23; --ink: #eceef4; --muted: #a2a7b6; --line: #2b2e38; --accent: #8b88ff; --new: #3ddc97; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 70ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin: 0 0 22px; }
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  h2 .tag { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px; }
+  .what { margin: 0 0 14px; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair.one { grid-template-columns: 1fr; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  figcaption b { color: var(--ink); }
+  figcaption b.new { color: var(--new); }
+  ul.changes { margin: 12px 0 0; padding-left: 1.2em; }
+  ul.changes li { margin: 3px 0; }
+  .note { font-size: 0.85rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; margin-top: 10px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>GFX &amp; Sound: G1–G10</h1>
+  <p class="lede">Before and after, captured headless at 1366×860 with mock AI on 2026-10-20. Effects switch off by
+    themselves for reduced motion, for automated browsers (the E2E tests) and from Settings → Visual effects. These
+    shots force them on. Headless Chromium has no WebGPU device, so every shot here shows the WebGL2 path.</p>
+
+  <section>
+    <h2><span class="tag">G2</span>Gravity-well drop zone</h2>
+    <p class="what">Dragging a file over the picker: 56,000 GPU particles (WebGL2 transform feedback) launched into orbit around the pointer, spiralling in.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-2-create-dragging.png" alt="Before: drop zone while dragging"><figcaption><b>Before</b>: the border turns blue.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-2-create-dragging.png" alt="After: particle vortex over the drop zone"><figcaption><b class="new">After</b>: a curl-noise accretion vortex follows the pointer; a drop collapses it and fires a shockwave; the upload streams particles into the zone.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G1</span>Liquid glass panels</h2>
+    <p class="what">The backdrop shader now draws real glass under every <code>.po-glass</code> panel (distance-field normals, lens refraction, chromatic fringes, pointer-lit rim, caustics).</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-3-create-functions.png" alt="Before: opaque white cards"><figcaption><b>Before</b>: opaque white cards.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-3-create-functions.png" alt="After: glass cards with refraction and rim light"><figcaption><b class="new">After</b>: see-through cards with a lit rim, bent gradient and faint caustic lines (the specks are the drop's particles fading).</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G5</span>Run reactor orb</h2>
+    <p class="what">A raymarched metaball orb above the steps: one blob per function, melted into the core as each step finishes.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-4-run-working.png" alt="Before: progress bar only"><figcaption><b>Before</b>: a step chip and a progress bar.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-4-run-working.png" alt="After: iridescent orb with an orbiting blob"><figcaption><b class="new">After</b>: an iridescent core with the step's blob in orbit. Cue lines make it flare; a failure cracks and glitches it; a cancel implodes it.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G3</span>Pixel-flow reveal</h2>
+    <p class="what">A new picture is rebuilt from the source, one particle per pixel, paired by brightness and hue, flying on curved spring paths (WebGPU compute when present, WebGL2 otherwise).</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-5-run-result-arriving.png" alt="Before: result pops in"><figcaption><b>Before</b>: the result simply appears.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-5-run-result-arriving.png" alt="After: result assembling from flying pixels"><figcaption><b class="new">After</b>: the result assembles itself; particles still in flight at the top. It then cross-fades to the full-resolution picture.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G8</span>Confetti in the result's colours</h2>
+    <p class="what">k-means on a 32×32 copy of the result picks the palette; GPU-instanced pieces flip in 3D and flutter. Phones buzz.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-6-run-done.png" alt="Before: run done"><figcaption><b>Before</b>: a toast and a chord.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-13-confetti.png" alt="After: confetti burst in pink, teal and navy"><figcaption><b class="new">After</b>: confetti in the result's own pink, teal and navy (the shards at the bottom are G7's probe).</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G7</span>Physics gallery</h2>
+    <p class="what">Deleting shatters the card into Voronoi shards with gravity and a bouncy floor. Cards tilt toward the pointer with a glint, can be thrown to delete, and picked cards lean together.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-8-gallery-hover.png" alt="Before: flat cards"><figcaption><b>Before</b>: a card lifts 2 px on hover.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-12-gallery-shatter.png" alt="After: two cards shattering into shards"><figcaption><b class="new">After</b>: two cards mid-shatter, with shards cut from the real thumbnails and glass edges.</figcaption></figure>
+    </div>
+    <div class="pair one" style="margin-top:14px">
+      <figure><img src="261020-gfx-and-sound/after-8-gallery-hover.png" alt="After: first card tilted toward the pointer"><figcaption><b class="new">After</b>: the hovered card tilts in 3D toward the pointer.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G9</span>2.5D preview while Veo works</h2>
+    <p class="what">Depth Anything V2 runs in a worker in the browser; a parallax-occlusion shader with depth-of-field dollies through the photo, steered by the pointer or the phone's tilt. Skipped under Save-Data.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/after-14-depth-drift.png" alt="Depth preview drifting before depth is ready"><figcaption><b class="new">New</b>: drifting at once, while the model loads.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-15-depth-parallax.png" alt="Depth preview with parallax"><figcaption><b class="new">New</b>: depth applied (probe read <code>amount = 0.92</code>), pointer steering the camera. Shown in a probe box: the mock video step ends too quickly to watch.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G6</span>Roast concert mode</h2>
+    <p class="what">While a roast plays, a screen opens over the lyrics: domain-warped plasma driven by pre-computed bass/mid/high bands, kick rings, chromatic punch, sparks, spring-physics letters, and a mic drop at the end.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/after-16-concert.png" alt="Concert screen with plasma and dropping letters"><figcaption><b class="new">New</b>: the line "held it for a beat…" dropping in letter by letter.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-17-concert-later.png" alt="Concert screen later in the track"><figcaption><b class="new">New</b>: later in the track.</figcaption></figure>
+    </div>
+    <p class="note">The mock roast has no real track (its audio is a 404), so the probe played a library sound through the stage.</p>
+  </section>
+
+  <section>
+    <h2><span class="tag">G10</span>Living sound wall</h2>
+    <p class="what">Every sound gets a spectrogram ribbon (STFT in a worker, log-spaced rows, inferno heat ramp); click to play from that point; the playing one shows a glowing playhead and pulses with its loudness.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-9-sounds.png" alt="Before: plain list"><figcaption><b>Before</b>: names and tags.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-11-sounds-playing.png" alt="After: spectrogram column with playhead"><figcaption><b class="new">After</b>: a new "Sound" column; row 2 is playing (started by clicking its ribbon halfway).</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="tag">G4</span>Sound engine + settings</h2>
+    <p class="what">Not visible in a screenshot: FM bells, a generated reverb, stereo placement by screen position, a pentatonic note per finished step, a working pad that opens with progress and ducks under roasts, plus shatter, shimmer, drop, whoosh and mic-drop sounds. Still no audio files.</p>
+    <div class="pair">
+      <figure><img src="261020-gfx-and-sound/before-10-settings.png" alt="Before: settings without effects switch"><figcaption><b>Before</b>: Dark theme, Interface sounds, Volume.</figcaption></figure>
+      <figure><img src="261020-gfx-and-sound/after-10-settings.png" alt="After: settings with Visual effects switch"><figcaption><b class="new">After</b>: a new <b>Visual effects</b> switch.</figcaption></figure>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -50,6 +50,8 @@ public static class AiCatalog
                 MediaFunction.MemeCaption => options.GetValueOrDefault(RunOptions.MemeMode, RunOptions.MemeModeAi) == RunOptions.MemeModeAi ? look + prices.TextUsd : 0,
                 MediaFunction.RapRoast => look + 2 * prices.TextUsd + prices.MusicUsd,
                 MediaFunction.PhotoToVideo => prices.VideoUsd,
+                MediaFunction.Upscale => prices.UpscaleUsd * (options.GetValueOrDefault(RunOptions.UpscaleSize) == "4K" ? 2 : 1),
+                MediaFunction.Cutout => prices.CutoutUsd,
                 MediaFunction.BulkStyles => prices.ImageUsd * Math.Max(1, options.Keys.Count(k => k.StartsWith("BulkStyles.prompt", StringComparison.Ordinal))),
                 MediaFunction.Memeify => prices.VisionUsd + prices.TextUsd,
                 MediaFunction.VideoRoast => 2 * prices.TextUsd,

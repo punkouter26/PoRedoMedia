@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Features.BulkStyles;
 using PoRedoMedia.Api.Features.Captions;
+using PoRedoMedia.Api.Features.Cutout;
 using PoRedoMedia.Api.Features.Memeify;
 using PoRedoMedia.Api.Features.MemeCaption;
 using PoRedoMedia.Api.Features.PhotoToVideo;
@@ -12,6 +13,7 @@ using PoRedoMedia.Api.Features.Render;
 using PoRedoMedia.Api.Features.Sounds;
 using PoRedoMedia.Api.Features.VideoRoast;
 using PoRedoMedia.Api.Features.Restyle;
+using PoRedoMedia.Api.Features.Upscale;
 
 namespace PoRedoMedia.Api.Configuration;
 
@@ -33,6 +35,14 @@ public static class FunctionRegistration
             o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(5);
             o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(4);
             o.Retry.MaxRetryAttempts = 2;
+        });
+
+        // Each background removal is a submit, a few polls and a read; retry those, not the wait.
+        services.AddHttpClient(HuggingFaceBackgroundRemover.HttpClientName).AddStandardResilienceHandler(o =>
+        {
+            o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(60);
+            o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
+            o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(2);
         });
 
         // A Veo call can be slow, and retrying a job start would bill twice: long timeout, no retries.
@@ -58,6 +68,10 @@ public static class FunctionRegistration
             AddRoast(services);
             services.AddSingleton<IVideoGenerationService, MockVideoService>();
             services.AddSingleton<IRunStep, PhotoToVideoStep>();
+            services.AddSingleton<IImageUpscaler, MockImageUpscaler>();
+            services.AddSingleton<IRunStep, UpscaleStep>();
+            services.AddSingleton<IBackgroundRemover, MockBackgroundRemover>();
+            services.AddSingleton<IRunStep, CutoutStep>();
             return services;
         }
 
@@ -91,6 +105,8 @@ public static class FunctionRegistration
             services.AddSingleton<IRunStep, BulkStylesStep>();
             services.AddSingleton<IVideoGenerationService, VeoVideoService>();
             services.AddSingleton<IRunStep, PhotoToVideoStep>();
+            services.AddSingleton<IImageUpscaler, GeminiImageService>();
+            services.AddSingleton<IRunStep, UpscaleStep>();
 
             if (canSeeImages)
             {
@@ -101,6 +117,12 @@ public static class FunctionRegistration
                 services.AddSingleton<IMusicGenerationService, LyriaMusicService>();
                 AddRoast(services);
             }
+        }
+
+        if (Has(ConfigKeys.HuggingFaceApiKey))
+        {
+            services.AddSingleton<IBackgroundRemover, HuggingFaceBackgroundRemover>();
+            services.AddSingleton<IRunStep, CutoutStep>();
         }
 
         return services;

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Api.Features.Runs;
@@ -132,9 +133,9 @@ public sealed class RunExecutorTests
     }
 
     [Fact]
-    public void A_source_can_hold_only_one_place_in_the_queue()
+    public async Task A_source_holds_one_place_in_the_queue_and_owners_take_turns()
     {
-        var dispatcher = new RunDispatcher(Executor(), NullLogger<RunDispatcher>.Instance);
+        using var dispatcher = new RunDispatcher(Executor(), _runs, new StorageClients(new ConfigurationBuilder().Build()), NullLogger<RunDispatcher>.Instance);
         var source = MediaId.New();
 
         Assert.True(dispatcher.TryReserve(source));
@@ -142,6 +143,52 @@ public sealed class RunExecutorTests
         Assert.True(dispatcher.TryReserve(MediaId.New()));
         dispatcher.Release(source);
         Assert.True(dispatcher.TryReserve(source));
+
+        // One owner queueing many runs does not hold up another; each owner keeps their own order.
+        using var queue = new FairRunQueue();
+        var (busy, other) = (new UserId("dev|busy"), new UserId("dev|other"));
+        Run For(UserId owner, string name) => new()
+        {
+            Owner = owner, Id = RunId.New(), SourceId = MediaId.New(), Functions = [Restyle], CreatedAt = DateTimeOffset.UtcNow, Log = [name],
+        };
+
+        foreach (var run in new[] { For(busy, "b1"), For(busy, "b2"), For(busy, "b3"), For(other, "o1"), For(other, "o2") })
+            queue.Add(run);
+
+        var order = new List<string>();
+        for (var i = 0; i < 5; i++)
+            order.Add((await queue.TakeAsync(default)).Log[0]);
+
+        Assert.Equal(["b1", "o1", "b2", "o2", "b3"], order);
+        Assert.Equal(0, queue.Count);
+    }
+
+    [Fact]
+    public async Task A_run_resumed_after_a_restart_skips_finished_steps_and_carries_on_from_the_picture_it_had_reached()
+    {
+        var source = NewMedia();
+        var restyled = NewMedia(origin: "Restyle");
+        MediaItem? seenByCaption = null;
+        var executor = Executor(
+            Step(Restyle, c => c.AddOutputAsync(NewMedia(origin: "Restyle"), becomesCurrent: true)),
+            Step(MemeCaption, c => { seenByCaption = c.Current; return c.AddOutputAsync(NewMedia(origin: "MemeCaption"), becomesCurrent: true); }),
+            Step(PhotoToVideo));
+        // Cut short in the caption step, after the restyle had finished and become the working picture.
+        var interrupted = NewRun(source, Restyle, MemeCaption, PhotoToVideo) with
+        {
+            Status = RunStatus.Queued, CurrentStep = MemeCaption, Attempts = 2, OutputIds = [restyled.Id], WorkingId = restyled.Id,
+            Log = ["Restyle"],
+        };
+
+        await executor.ExecuteAsync(interrupted, default);
+
+        Assert.Equal(["MemeCaption", "PhotoToVideo"], _calls);
+        Assert.Equal(restyled.Id, seenByCaption!.Id);
+        var run = Assert.Single(_runs.All);
+        Assert.Equal((RunStatus.Complete, 2), (run.Status, run.OutputIds.Count));
+        Assert.Equal(run.OutputIds[1], run.WorkingId);
+        Assert.Equal("Restyle", run.Log[0]);
+        Assert.Contains("Picked up again after a server restart", run.Log);
     }
 
     private sealed class FakeStep(MediaFunction[] handles, Func<RunContext, Task> work) : IRunStep

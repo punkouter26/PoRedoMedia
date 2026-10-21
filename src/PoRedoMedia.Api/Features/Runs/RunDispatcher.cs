@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using System.Threading.Channels;
+using System.Diagnostics;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
 
@@ -7,13 +7,38 @@ namespace PoRedoMedia.Api.Features.Runs;
 
 /// <summary>
 /// The queue runs wait in. One run executes at a time per process, which is what the hosting
-/// plan's CPU budget can carry, and one source can have only one run queued or running.
+/// plan's CPU budget can carry, and one source can have only one run queued or running. Owners
+/// take turns. The run rows are the durable copy of the queue: what a restart cuts short is
+/// queued again when the next process starts.
 /// </summary>
-public sealed class RunDispatcher(RunExecutor executor, ILogger<RunDispatcher> logger) : BackgroundService
+public sealed partial class RunDispatcher(RunExecutor executor, IRunRepository runs, StorageClients storage, ILogger<RunDispatcher> logger)
+    : BackgroundService
 {
-    private readonly Channel<Run> _queue = Channel.CreateUnbounded<Run>();
+    /// <summary>
+    /// How many times a run may be started. One cut short this often is failed instead of tried
+    /// again, in case it is the run that brings the process down.
+    /// </summary>
+    public const int MaxAttempts = 3;
+
+    private readonly FairRunQueue _queue = new();
     private readonly ConcurrentDictionary<MediaId, byte> _busySources = new();
     private readonly ConcurrentDictionary<RunId, CancellationTokenSource> _cancels = new();
+    private readonly TaskCompletionSource _recovered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Run {RunId} was cut short by a restart; queued again, attempt {Attempt}")]
+    private partial void LogResumed(RunId runId, int attempt);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Unfinished runs could not be recovered; the housekeeping sweep will fail them")]
+    private partial void LogRecoveryFailed(Exception exception);
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        _queue.Dispose();
+    }
+
+    /// <summary>Done once the runs an earlier process left unfinished have been queued again or failed.</summary>
+    public Task Recovered => _recovered.Task;
 
     /// <summary>Claims the source's lane. False when it already has a run queued or running.</summary>
     public bool TryReserve(MediaId source) => _busySources.TryAdd(source, 0);
@@ -26,11 +51,49 @@ public sealed class RunDispatcher(RunExecutor executor, ILogger<RunDispatcher> l
     public void Queue(Run run)
     {
         _cancels[run.Id] = new CancellationTokenSource();
-        // The channel is unbounded, so a write only fails once the host is stopping.
-        if (!_queue.Writer.TryWrite(run))
+        _queue.Add(run);
+    }
+
+    /// <summary>
+    /// Queues again every run an earlier process left unfinished, whether a deploy, a crash or the
+    /// plan unloading an idle app ended it. Each resumes at the step it had reached.
+    /// </summary>
+    internal async Task RecoverAsync(CancellationToken ct)
+    {
+        try
         {
-            Release(run.SourceId);
-            _cancels.TryRemove(run.Id, out _);
+            if (!storage.IsConfigured)
+                return;
+
+            foreach (var run in (await runs.ListUnfinishedAsync(ct)).OrderBy(r => r.CreatedAt))
+            {
+                // Taken already: queued by this process, which is not what is being recovered.
+                if (!TryReserve(run.SourceId))
+                    continue;
+
+                if (run.Attempts >= MaxAttempts || !run.Functions.All(executor.Available.Contains))
+                {
+                    Release(run.SourceId);
+                    await executor.AbandonAsync(run, run.Attempts >= MaxAttempts
+                        ? "Interrupted by server restarts too many times."
+                        : "Interrupted by a server restart, after which this function was no longer available.");
+                    continue;
+                }
+
+                var again = run with { Status = RunStatus.Queued, Attempts = run.Attempts + 1 };
+                await runs.SaveAsync(again, ct);
+                LogResumed(run.Id, again.Attempts);
+                PoTelemetry.RunsResumed.Add(1);
+                Queue(again);
+            }
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            LogRecoveryFailed(ex);
+        }
+        finally
+        {
+            _recovered.TrySetResult();
         }
     }
 
@@ -56,10 +119,12 @@ public sealed class RunDispatcher(RunExecutor executor, ILogger<RunDispatcher> l
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await RecoverAsync(stoppingToken);
         try
         {
-            await foreach (var run in _queue.Reader.ReadAllAsync(stoppingToken))
+            while (!stoppingToken.IsCancellationRequested)
             {
+                var run = await _queue.TakeAsync(stoppingToken);
                 _cancels.TryGetValue(run.Id, out var cancel);
                 using var stop = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, cancel?.Token ?? CancellationToken.None);
                 try
@@ -113,6 +178,10 @@ public sealed class RunExecutor(
 
     public async Task ExecuteAsync(Run run, CancellationToken ct)
     {
+        using var activity = PoTelemetry.Source.StartActivity("run");
+        activity?.SetTag("run.id", run.Id.ToString());
+        activity?.SetTag("run.functions", string.Join(',', run.Functions));
+        activity?.SetTag("run.attempt", run.Attempts);
         try
         {
             await ExecuteStepsAsync(run, ct);
@@ -139,9 +208,21 @@ public sealed class RunExecutor(
 
         var ordered = FunctionStack.InRunOrder(run.Functions);
         var done = new HashSet<MediaFunction>();
-        var log = new List<string>();
-        var logged = 0;
-        var context = new RunContext(run, source, OnOutputAsync, OnMessageAsync);
+        var log = new List<string>(run.Log);
+        var logged = log.Sum(l => l.Length);
+
+        // A run picked up again after a restart skips the steps it had finished, and carries on
+        // from the picture it had reached. The step it was in starts over.
+        var working = source;
+        if (run.Attempts > 1 && run.CurrentStep is { } reached)
+        {
+            done.UnionWith(ordered.TakeWhile(f => f != reached));
+            if (run.WorkingId is { } workingId && await media.GetAsync(run.Owner, workingId, ct) is { } found)
+                working = found;
+            await OnMessageAsync("Picked up again after a server restart");
+        }
+
+        var context = new RunContext(run, source, OnOutputAsync, OnMessageAsync, working);
 
         foreach (var function in ordered)
         {
@@ -153,16 +234,22 @@ public sealed class RunExecutor(
             await runs.SaveAsync(run, ct);
             await OnMessageAsync(FunctionStack.Label(function));
 
+            using var activity = PoTelemetry.Source.StartActivity($"step {function}");
+            var started = Stopwatch.GetTimestamp();
             try
             {
                 await step.ExecuteAsync(context, ct);
+                Measure("ok");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                Measure("cancelled");
                 throw;
             }
             catch (Exception ex)
             {
+                Measure("failed");
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 // Outputs made by earlier steps stay in the gallery; the run says where it stopped.
                 if (ex is not RunStepException)
                     logger.LogError(ex, "Run {RunId} failed in {Function}", run.Id, function);
@@ -173,6 +260,10 @@ public sealed class RunExecutor(
             }
 
             done.UnionWith(step.Handles);
+
+            void Measure(string outcome) => PoTelemetry.StepSeconds.Record(
+                Stopwatch.GetElapsedTime(started).TotalSeconds,
+                new("function", function.ToString()), new("outcome", outcome));
         }
 
         await FinishAsync(run with { Status = RunStatus.Complete, CurrentStep = null, Notes = [.. context.Notes], Log = [.. log] }, ct);
@@ -190,9 +281,14 @@ public sealed class RunExecutor(
             return notifier.ProgressAsync(new(run.Id.Value, RunStatus.Running, run.CurrentStep, Percent(), message), ct);
         }
 
-        async Task OnOutputAsync(MediaItem output)
+        async Task OnOutputAsync(MediaItem output, bool becomesCurrent)
         {
-            run = run with { OutputIds = [.. run.OutputIds, output.Id], Log = [.. log] };
+            run = run with
+            {
+                OutputIds = [.. run.OutputIds, output.Id],
+                WorkingId = becomesCurrent ? output.Id : run.WorkingId,
+                Log = [.. log],
+            };
             await runs.SaveAsync(run, ct);
             await notifier.ProgressAsync(
                 new(run.Id.Value, RunStatus.Running, run.CurrentStep, Percent(), "Result ready", output.ToDto()), ct);
@@ -223,6 +319,7 @@ public sealed class RunExecutor(
     private async Task FinishAsync(Run run, CancellationToken ct)
     {
         await runs.SaveAsync(run, ct);
+        PoTelemetry.RunsFinished.Add(1, new("status", run.Status.ToString()), new("functions", string.Join(',', run.Functions)));
         await notifier.ProgressAsync(
             new(run.Id.Value, run.Status, run.CurrentStep, run.Status == RunStatus.Complete ? 100 : 0, run.Error ?? "Done"), ct);
     }

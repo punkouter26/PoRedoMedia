@@ -28,6 +28,12 @@ public static class RunOptions
 
     public static string MemeZone(int index) => $"MemeCaption.zone{index}";
 
+    /// <summary>"2K" or "4K". Absent = 2K.</summary>
+    public const string UpscaleSize = "Upscale.size";
+
+    /// <summary>"false" skips the sticker. Absent = make one.</summary>
+    public const string CutoutSticker = "Cutout.sticker";
+
     /// <summary>A <c>RapStyle</c> name. Absent = Trap.</summary>
     public const string RoastStyle = "RapRoast.style";
 
