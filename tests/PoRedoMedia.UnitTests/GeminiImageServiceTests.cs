@@ -1,8 +1,7 @@
 using System.Text.Json;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Api.Common.Ai;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PoRedoMedia.UnitTests;
 
@@ -39,11 +38,9 @@ public sealed class GeminiImageServiceTests
     [InlineData(1920, 1080, "16:9")]
     public void The_new_picture_is_asked_for_in_the_nearest_supported_shape(int width, int height, string expected)
     {
-        using var image = new Image<Rgba32>(width, height);
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
+        using var image = new SKBitmap(width, height);
 
-        Assert.Equal(expected, GeminiImageService.AspectRatioOf(stream.ToArray()));
+        Assert.Equal(expected, GeminiImageService.AspectRatioOf(ImageBytes.ToPng(image)));
         Assert.Null(GeminiImageService.AspectRatioOf([1, 2, 3]));
     }
 }

@@ -5,8 +5,7 @@ using PoRedoMedia.Api.Common.Ai;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PoRedoMedia.IntegrationTests;
 
@@ -24,9 +23,9 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
 
     private async Task<MediaItem> AddImageAsync(string user, int width = 640, int height = 480)
     {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(20, 40, 160));
-        using var png = new MemoryStream();
-        image.SaveAsPng(png);
+        using var image = new SKBitmap(width, height);
+        image.Erase(new SKColor(20, 40, 160));
+        using var png = new MemoryStream(ImageBytes.ToPng(image));
 
         var services = _factory.Value.Services;
         var item = new MediaItem
@@ -75,16 +74,9 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
 
         var bytes = await _factory.Value.Services.GetRequiredService<BlobStorageService>()
             .ReadAllBytesAsync(MediaBlobPaths.Source(MediaId.From(meme.Id), ".png"));
-        using var image = Image.Load<Rgba32>(bytes);
+        using var image = ImageBytes.Decode(bytes);
         Assert.Equal((640, 480), (image.Width, image.Height));
-        var white = 0;
-        image.ProcessPixelRows(rows =>
-        {
-            for (var y = 0; y < rows.Height; y++)
-                foreach (var pixel in rows.GetRowSpan(y))
-                    if (pixel is { R: > 240, G: > 240, B: > 240 })
-                        white++;
-        });
+        var white = image.Pixels.Count(pixel => pixel is { Red: > 240, Green: > 240, Blue: > 240 });
         Assert.True(white > 100, "the saved image has no caption drawn on it");
     }
 
@@ -126,8 +118,8 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         // The mock generator draws a new picture in the source's 2:1 shape, as the real one is asked to.
         var bytes = await _factory.Value.Services.GetRequiredService<BlobStorageService>()
             .ReadAllBytesAsync(MediaBlobPaths.Source(MediaId.From(restyled.Id), ".png"));
-        var info = Image.Identify(bytes);
-        Assert.Equal(2.0, (double)info.Width / info.Height, precision: 1);
+        var size = ImageBytes.Identify(bytes)!.Value;
+        Assert.Equal(2.0, (double)size.Width / size.Height, precision: 1);
     }
 
     [DockerFact]
@@ -168,9 +160,8 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         });
         var user = $"dev|{Guid.NewGuid()}";
         var client = await factory.SignedInAsync(user);
-        using var image = new Image<Rgba32>(64, 64);
-        using var png = new MemoryStream();
-        image.SaveAsPng(png);
+        using var image = new SKBitmap(64, 64);
+        using var png = new MemoryStream(ImageBytes.ToPng(image));
         var source = new MediaItem
         {
             Owner = new UserId(user), Id = MediaId.New(), Kind = MediaKind.Image, Status = MediaStatus.Ready, Origin = "Upload",
@@ -259,9 +250,8 @@ public sealed class ImageFunctionTests(AzuriteFixture azurite) : IDisposable
         var user = $"dev|{Guid.NewGuid()}";
         var client = await factory.SignedInAsync(user);
         var services = factory.Services;
-        using var image = new Image<Rgba32>(64, 64);
-        using var png = new MemoryStream();
-        image.SaveAsPng(png);
+        using var image = new SKBitmap(64, 64);
+        using var png = new MemoryStream(ImageBytes.ToPng(image));
         var source = new MediaItem
         {
             Owner = new UserId(user), Id = MediaId.New(), Kind = MediaKind.Image, Status = MediaStatus.Ready, Origin = "Upload",

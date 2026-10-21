@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using SixLabors.ImageSharp;
 
 namespace PoRedoMedia.Api.Common.Ai;
 
@@ -36,18 +35,10 @@ public sealed class GeminiImageService(IConfiguration configuration, IHttpClient
     /// <summary>The supported aspect ratio nearest to the image's own, or null when it cannot be read.</summary>
     internal static string? AspectRatioOf(byte[]? image)
     {
-        if (image is null)
+        if (image is null || ImageBytes.Identify(image) is not { } size)
             return null;
-        try
-        {
-            var info = Image.Identify(image);
-            var ratio = (double)info.Width / info.Height;
-            return SupportedRatios.MinBy(r => Math.Abs(Math.Log(r.Value / ratio))).Label;
-        }
-        catch (ImageFormatException)
-        {
-            return null;
-        }
+        var ratio = (double)size.Width / size.Height;
+        return SupportedRatios.MinBy(r => Math.Abs(Math.Log(r.Value / ratio))).Label;
     }
 
     private async Task<GeneratedImage> SendAsync(string prompt, byte[]? reference, string? aspectRatio, CancellationToken ct)

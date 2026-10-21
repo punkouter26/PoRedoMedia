@@ -1,16 +1,11 @@
 using PoRedoMedia.Shared.Models;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace PoRedoMedia.Api.Features.MemeCaption;
 
 /// <summary>
 /// The meme-template catalog and renderer. Ships a curated catalog of
-/// 20 classic meme formats. Renders text into pre-defined zones using ImageSharp — no
+/// 20 classic meme formats. Renders text into pre-defined zones using SkiaSharp — no
 /// network calls, no AI cost; pure local image manipulation.
 /// </summary>
 public sealed class MemeTemplateService
@@ -61,26 +56,24 @@ public sealed class MemeTemplateService
 
         var result = await Task.Run(() =>
         {
-            using var image = Image.Load<Rgba32>(sourceImage);
-            image.Mutate(ctx =>
+            using var image = ImageBytes.Decode(sourceImage);
+            using (var canvas = new SKCanvas(image))
             {
                 for (var i = 0; i < template.Zones.Count && i < zoneTexts.Count; i++)
                 {
                     var text = zoneTexts[i];
                     if (string.IsNullOrWhiteSpace(text)) continue;
-                    DrawZoneText(ctx, template.Zones[i], text.ToUpperInvariant(), image.Width, image.Height);
+                    DrawZoneText(canvas, template.Zones[i], text.ToUpperInvariant(), image.Width, image.Height);
                 }
-            });
-            using var ms = new MemoryStream();
-            image.Save(ms, new PngEncoder());
-            return ms.ToArray();
+            }
+            return ImageBytes.ToPng(image);
         }, ct);
 
         _logger.LogInformation("Meme template rendered. Size={Size} bytes", result.Length);
         return (result, "image/png");
     }
 
-    private static void DrawZoneText(IImageProcessingContext ctx, MemeTextZone zone, string text, int width, int height)
+    private static void DrawZoneText(SKCanvas canvas, MemeTextZone zone, string text, int width, int height)
     {
         var maxFontSize = (float)(height * zone.FontSizeRatio);
         var minFontSize = Math.Max(12f, height / 40f);
@@ -88,15 +81,15 @@ public sealed class MemeTemplateService
 
         var alignment = zone.Alignment.ToLowerInvariant() switch
         {
-            "left" => HorizontalAlignment.Left,
-            "right" => HorizontalAlignment.Right,
-            _ => HorizontalAlignment.Center
+            "left" => SKTextAlign.Left,
+            "right" => SKTextAlign.Right,
+            _ => SKTextAlign.Center
         };
 
         MemeTextRenderer.DrawText(
-            ctx,
+            canvas,
             text,
-            new PointF((float)(width * zone.X), (float)(height * zone.Y)),
+            new SKPoint((float)(width * zone.X), (float)(height * zone.Y)),
             maxWidth,
             maxFontSize,
             minFontSize,

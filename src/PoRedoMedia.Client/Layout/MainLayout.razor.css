@@ -54,6 +54,20 @@
     padding: 1rem 1rem 2.5rem;
 }
 
+/* Sits under any bottom sheet and never takes a tap. */
+.shell-build {
+    position: fixed;
+    right: calc(0.5rem + var(--po-safe-right));
+    bottom: calc(0.35rem + var(--po-safe-bottom));
+    z-index: 1;
+    pointer-events: none;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: var(--rz-text-secondary-color);
+    opacity: 0.8;
+}
+
 @media (max-width: 720px) {
     .shell-bar {
         padding: 0.25rem 0.5rem;

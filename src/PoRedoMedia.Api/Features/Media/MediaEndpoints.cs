@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
-using SixLabors.ImageSharp;
 
 namespace PoRedoMedia.Api.Features.Media;
 
@@ -83,18 +82,12 @@ public static class MediaEndpoints
         }
         else if (item.Kind == MediaKind.Image)
         {
-            try
-            {
-                // The header alone gives the size, so a small file that unpacks to gigabytes of
-                // pixels is refused before anything decodes it.
-                var info = Image.Identify(await blobs.ReadAllBytesAsync(uploadPath, ct));
-                if ((long)info.Width * info.Height > UploadValidation.MaxImagePixels)
-                    problem = "Images can be up to 40 megapixels.";
-            }
-            catch (Exception ex) when (ex is UnknownImageFormatException or InvalidImageContentException)
-            {
+            // The header alone gives the size, so a small file that unpacks to gigabytes of
+            // pixels is refused before anything decodes it.
+            if (ImageBytes.Identify(await blobs.ReadAllBytesAsync(uploadPath, ct)) is not { } dimensions)
                 problem = "That file is not a readable image.";
-            }
+            else if ((long)dimensions.Width * dimensions.Height > UploadValidation.MaxImagePixels)
+                problem = "Images can be up to 40 megapixels.";
         }
         else
         {

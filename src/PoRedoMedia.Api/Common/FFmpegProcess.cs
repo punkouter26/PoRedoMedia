@@ -165,6 +165,9 @@ public sealed partial class FFmpegProcess
     /// </summary>
     internal static string BundledFontPath { get; } = Path.Combine(AppContext.BaseDirectory, "fonts", "DejaVuSans-Bold.ttf");
 
+    /// <summary>The same font where Debian's fonts-dejavu-core package puts it (the CI runner installs it).</summary>
+    internal const string SystemFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
+
     /// <summary>
     /// Restores the Unix executable bit on the bundled binaries. ZIP deployment is not a reliable
     /// carrier for file modes — Kudu's extraction can drop them — and a non-executable ffmpeg

@@ -5,8 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using PoRedoMedia.Api.Common;
 using PoRedoMedia.Shared.Enums;
 using PoRedoMedia.Shared.Models;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PoRedoMedia.IntegrationTests;
 
@@ -24,10 +23,9 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
 
     private static byte[] Png()
     {
-        using var image = new Image<Rgba32>(64, 48, new Rgba32(200, 30, 30));
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return stream.ToArray();
+        using var image = new SKBitmap(64, 48);
+        image.Erase(new SKColor(200, 30, 30));
+        return ImageBytes.ToPng(image);
     }
 
     private static async Task<byte[]> ClipAsync(int seconds)
@@ -118,11 +116,10 @@ public sealed class MediaEndpointsTests(AzuriteFixture azurite) : IDisposable
     {
         var client = await _factory.Value.SignedInAsync($"dev|{Guid.NewGuid()}");
         // One flat colour compresses to a few kilobytes however many pixels it declares.
-        using var huge = new Image<L8>(8000, 5001);
-        using var stream = new MemoryStream();
-        huge.SaveAsPng(stream);
+        using var huge = new SKBitmap(new SKImageInfo(8000, 5001, SKColorType.Gray8, SKAlphaType.Opaque));
+        huge.Erase(SKColors.Black);
 
-        var response = await UploadAndConfirmAsync(client, "huge.png", stream.ToArray());
+        var response = await UploadAndConfirmAsync(client, "huge.png", ImageBytes.ToPng(huge));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Empty(await ListAsync(client));

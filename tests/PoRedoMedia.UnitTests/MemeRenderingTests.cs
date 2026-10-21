@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using PoRedoMedia.Api.Common;
 using PoRedoMedia.Api.Features.MemeCaption;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace PoRedoMedia.UnitTests;
 
@@ -9,19 +9,19 @@ public sealed class MemeRenderingTests
 {
     private static byte[] Png(int width, int height)
     {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(20, 40, 160));
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return stream.ToArray();
+        using var image = new SKBitmap(width, height);
+        image.Erase(new SKColor(20, 40, 160));
+        return ImageBytes.ToPng(image);
     }
 
     private static int WhitePixels(byte[] png, Func<int, int, int, int, bool> inRegion)
     {
-        using var image = Image.Load<Rgba32>(png);
+        using var image = ImageBytes.Decode(png);
+        var pixels = image.Pixels;
         var count = 0;
         for (var y = 0; y < image.Height; y++)
             for (var x = 0; x < image.Width; x++)
-                if (inRegion(x, y, image.Width, image.Height) && image[x, y] is { R: > 240, G: > 240, B: > 240 })
+                if (inRegion(x, y, image.Width, image.Height) && pixels[y * image.Width + x] is { Red: > 240, Green: > 240, Blue: > 240 })
                     count++;
         return count;
     }
@@ -31,8 +31,7 @@ public sealed class MemeRenderingTests
     {
         var meme = MemeGenerator.Generate(Png(800, 600), "when you try to adult", "but you're still a kid at heart");
 
-        using var image = Image.Load(meme);
-        Assert.Equal((800, 600), (image.Width, image.Height));
+        Assert.Equal(new SKSizeI(800, 600), ImageBytes.Identify(meme));
         Assert.True(WhitePixels(meme, (_, y, _, h) => y < h * 0.3) > 200, "no text at the top");
         Assert.True(WhitePixels(meme, (_, y, _, h) => y > h * 0.6) > 200, "no text at the bottom");
     }
@@ -88,7 +87,7 @@ public sealed class MemeRenderingTests
     [Fact]
     public void Jpegs_sent_to_providers_use_one_interleaved_scan()
     {
-        var jpeg = PoRedoMedia.Api.Common.Ai.ImageBytes.ForProcessing(Png(3000, 1000));
+        var jpeg = ImageBytes.ForProcessing(Png(3000, 1000));
 
         var scans = new List<int>();
         for (var i = 0; i < jpeg.Length - 4; i++)
@@ -96,7 +95,6 @@ public sealed class MemeRenderingTests
                 scans.Add(jpeg[i + 4]);
 
         Assert.Equal([3], scans);
-        using var image = Image.Load(jpeg);
-        Assert.Equal(PoRedoMedia.Api.Common.Ai.ImageBytes.MaxEdge, image.Width);
+        Assert.Equal(ImageBytes.MaxEdge, ImageBytes.Identify(jpeg)!.Value.Width);
     }
 }

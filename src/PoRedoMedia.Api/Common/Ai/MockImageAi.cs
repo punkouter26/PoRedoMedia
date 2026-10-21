@@ -1,7 +1,5 @@
 using Microsoft.Extensions.AI;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace PoRedoMedia.Api.Common.Ai;
 
@@ -43,29 +41,56 @@ public sealed class MockImageGenerationService : IImageGenerationService
     public Task<GeneratedImage> GenerateAsync(string prompt, byte[]? matchAspectOf = null, CancellationToken ct = default)
     {
         var height = 768;
-        if (matchAspectOf is not null)
-        {
-            var info = Image.Identify(matchAspectOf);
-            height = Math.Max(64, (int)(768.0 * info.Height / info.Width));
-        }
+        if (matchAspectOf is not null && ImageBytes.Identify(matchAspectOf) is { } size)
+            height = Math.Max(64, (int)(768.0 * size.Height / size.Width));
 
-        using var image = new Image<Rgba32>(768, height, new Rgba32(96, 60, 140));
+        using var image = new SKBitmap(768, height);
+        image.Erase(new SKColor(96, 60, 140));
         return Task.FromResult(Png(image));
     }
 
     public Task<GeneratedImage> EditAsync(string prompt, byte[] image, int seed = 0, CancellationToken ct = default)
     {
-        using var loaded = Image.Load(image);
-        loaded.Mutate(x => x.Grayscale(0.6f).Hue(36 * (seed % 10)));
-        return Task.FromResult(Png(loaded));
+        using var loaded = ImageBytes.Decode(image);
+        using var edited = new SKBitmap(loaded.Width, loaded.Height);
+        using (var canvas = new SKCanvas(edited))
+        using (var paint = new SKPaint { ColorFilter = SKColorFilter.CreateCompose(HueTurn(36 * (seed % 10)), Greyed(0.6f)) })
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawBitmap(loaded, 0, 0, SKSamplingOptions.Default, paint);
+        }
+        return Task.FromResult(Png(edited));
     }
 
-    private static GeneratedImage Png(Image image)
+    // The CSS grayscale() and hue-rotate() filter matrices, with Rec. 709 luma weights.
+    private const float R = 0.2126f, G = 0.7152f, B = 0.0722f;
+
+    private static SKColorFilter Greyed(float amount)
     {
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return new GeneratedImage(stream.ToArray(), "image/png");
+        var keep = 1 - amount;
+        return SKColorFilter.CreateColorMatrix(
+        [
+            R + (1 - R) * keep, G * amount, B * amount, 0, 0,
+            R * amount, G + (1 - G) * keep, B * amount, 0, 0,
+            R * amount, G * amount, B + (1 - B) * keep, 0, 0,
+            0, 0, 0, 1, 0,
+        ]);
     }
+
+    private static SKColorFilter HueTurn(float degrees)
+    {
+        var cos = MathF.Cos(degrees * MathF.PI / 180);
+        var sin = MathF.Sin(degrees * MathF.PI / 180);
+        return SKColorFilter.CreateColorMatrix(
+        [
+            R + cos * (1 - R) - sin * R, G - cos * G - sin * G, B - cos * B + sin * (1 - B), 0, 0,
+            R - cos * R + sin * 0.143f, G + cos * (1 - G) + sin * 0.140f, B - cos * B - sin * 0.283f, 0, 0,
+            R - cos * R - sin * (1 - R), G - cos * G + sin * G, B + cos * (1 - B) + sin * B, 0, 0,
+            0, 0, 0, 1, 0,
+        ]);
+    }
+
+    private static GeneratedImage Png(SKBitmap image) => new(ImageBytes.ToPng(image), "image/png");
 }
 
 /// <summary>Stands in for music generation with a tiny silent MP3.</summary>

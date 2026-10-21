@@ -5,6 +5,8 @@
     <!-- IL2111: the Razor compiler's generated code for <Router> sets the framework's
          reflection-annotated NotFoundPage property. Not user code, nothing to fix here. -->
     <NoWarn>$(NoWarn);IL2111</NoWarn>
+    <!-- Shown bottom-right by MainLayout; see Directory.Build.targets. -->
+    <StampBuildVersion>true</StampBuildVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
@@ -15,4 +17,5 @@
   <ItemGroup>
     <ProjectReference Include="..\PoRedoMedia.Shared\PoRedoMedia.Shared.csproj" />
   </ItemGroup>
+
 </Project>

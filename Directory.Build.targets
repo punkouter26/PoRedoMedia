@@ -1,0 +1,26 @@
+<Project>
+  <!-- The YYMMDD build version a project opts into with StampBuildVersion (the client shows it bottom-right): the
+       committer date of the commit being built, or today's outside a Git checkout. Exec runs
+       through cmd on Windows, where a literal % must be doubled. -->
+  <PropertyGroup>
+    <_GitDateFormat Condition="$([MSBuild]::IsOSPlatform('Windows'))">%25%25cs</_GitDateFormat>
+    <_GitDateFormat Condition="!$([MSBuild]::IsOSPlatform('Windows'))">%25cs</_GitDateFormat>
+  </PropertyGroup>
+
+  <Target Name="StampBuildVersion" BeforeTargets="GetAssemblyAttributes" Condition="'$(StampBuildVersion)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="git log -1 --format=$(_GitDateFormat)" ConsoleToMSBuild="true" IgnoreExitCode="true" ContinueOnError="true"
+          StandardOutputImportance="low" StandardErrorImportance="low" WorkingDirectory="$(MSBuildProjectDirectory)">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitDate" />
+    </Exec>
+    <PropertyGroup>
+      <BuildStamp Condition="'$(BuildStamp)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_GitDate)', '^\d{4}-\d\d-\d\d$'))">$(_GitDate.Substring(2).Replace('-', ''))</BuildStamp>
+      <BuildStamp Condition="'$(BuildStamp)' == ''">$([System.DateTime]::UtcNow.ToString('yyMMdd'))</BuildStamp>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>BuildStamp</_Parameter1>
+        <_Parameter2>$(BuildStamp)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+</Project>
